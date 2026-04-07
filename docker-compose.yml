@@ -15,12 +15,6 @@ services:
       timeout: 3s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
-    ports:
-      - "6379:6379"
-
   backend:
     build: ./backend
     ports:
@@ -35,13 +29,10 @@ services:
       GEO_DB_NAME: ${GEO_DB_NAME:-gruntomat}
       GEO_DB_USER: ${GEO_DB_USER:-}
       GEO_DB_PASSWORD: ${GEO_DB_PASSWORD:-}
-      REDIS_URL: redis://redis:6379/0
       FRONTEND_URL: http://localhost:5173
     depends_on:
       appdb:
         condition: service_healthy
-      redis:
-        condition: service_started
     volumes:
       - ./backend/app:/app/app
       - ./backend/alembic:/app/alembic

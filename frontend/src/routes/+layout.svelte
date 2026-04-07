@@ -5,7 +5,17 @@
 	import { user, authStatus } from '$lib/stores/auth';
 	import type { Snippet } from 'svelte';
 
-	let { children }: { children: Snippet } = $props();
+	let { data, children }: { data: any; children: Snippet } = $props();
+
+	$effect(() => {
+		if (data.user) {
+			user.set(data.user);
+			authStatus.set('authenticated');
+		} else {
+			user.set(null);
+			authStatus.set('unauthenticated');
+		}
+	});
 </script>
 
 <div class="flex h-screen">
@@ -14,24 +24,11 @@
 	{/if}
 
 	<main class="flex flex-1 flex-col overflow-y-auto">
-		<!-- Top bar -->
-		<header class="flex items-center justify-end px-6 py-3">
-			{#if $authStatus === 'authenticated' && $user}
-				<div class="flex items-center gap-3">
-					{#if $user.avatar_url}
-						<img src={$user.avatar_url} alt="" class="h-8 w-8 rounded-full" />
-					{/if}
-					<span class="text-sm text-[var(--color-text-muted)]">{$user.display_name}</span>
-				</div>
-			{:else if $authStatus === 'unauthenticated'}
-				<a
-					href="/auth/login"
-					class="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm text-white transition-colors hover:opacity-90"
-				>
-					Zaloguj się
-				</a>
-			{/if}
-		</header>
+		{#if $authStatus === 'authenticated' && $user}
+			<header class="flex items-center justify-end px-6 py-3">
+				<span class="text-sm text-[var(--color-text-muted)]">{$user.display_name}</span>
+			</header>
+		{/if}
 
 		{@render children()}
 	</main>

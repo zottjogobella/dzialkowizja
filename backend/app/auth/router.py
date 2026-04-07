@@ -9,8 +9,8 @@ from app.db.engine import get_db
 from app.db.models import User
 
 from .dependencies import require_auth
-from .password import hash_password, verify_password_timing_safe
-from .schemas import LoginRequest, RegisterRequest, UserResponse
+from .password import verify_password_timing_safe
+from .schemas import LoginRequest, UserResponse
 from .session import create_session, destroy_session
 
 router = APIRouter()
@@ -35,30 +35,6 @@ def _set_cookies(response: Response, signed_session: str, csrf_token: str) -> No
         secure=settings.session_secure_cookie,
         path="/",
     )
-
-
-@router.post("/register", response_model=UserResponse)
-async def register(body: RegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
-    # Check if email already taken
-    existing = await db.execute(select(User).where(User.email == body.email.lower()))
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Ten email jest już zarejestrowany")
-
-    user = User(
-        email=body.email.lower(),
-        password_hash=hash_password(body.password),
-        display_name=body.display_name.strip(),
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-
-    # Auto-login after registration
-    ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (request.client.host if request.client else None)
-    signed, csrf = await create_session(db, user.id, ip, request.headers.get("User-Agent"))
-    _set_cookies(response, signed, csrf)
-
-    return UserResponse(id=str(user.id), email=user.email, display_name=user.display_name, is_active=user.is_active)
 
 
 @router.post("/login", response_model=UserResponse)

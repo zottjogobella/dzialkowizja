@@ -13,7 +13,7 @@
 		error = '';
 		loading = true;
 		try {
-			const res = await apiPost<User>('/auth/login', { email, password });
+			const res = await apiPost<User>('/api/auth/login', { email, password });
 			user.set(res);
 			authStatus.set('authenticated');
 			goto('/');
@@ -75,8 +75,7 @@
 		</button>
 
 		<p class="text-center text-sm text-[var(--color-text-muted)]">
-			Nie masz konta?
-			<a href="/auth/register" class="text-[var(--color-primary)] hover:underline">Zarejestruj się</a>
+			Dostęp tylko na zaproszenie
 		</p>
 	</form>
 </div>

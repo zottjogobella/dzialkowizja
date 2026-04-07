@@ -34,6 +34,11 @@ services:
       GEO_DB_NAME: ${GEO_DB_NAME}
       GEO_DB_USER: ${GEO_DB_USER}
       GEO_DB_PASSWORD: ${GEO_DB_PASSWORD}
+      TRANSAKCJE_DB_HOST: 172.17.0.1
+      TRANSAKCJE_DB_PORT: 5432
+      TRANSAKCJE_DB_NAME: transakcje
+      TRANSAKCJE_DB_USER: deploy
+      TRANSAKCJE_DB_PASSWORD: deploy
       REDIS_URL: redis://redis:6379/0
       FRONTEND_URL: http://45.137.213.188
     depends_on:

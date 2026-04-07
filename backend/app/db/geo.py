@@ -15,9 +15,9 @@ async def init_geo_pool() -> None:
         database=settings.geo_db_name,
         user=settings.geo_db_user,
         password=settings.geo_db_password,
-        min_size=2,
-        max_size=10,
-        command_timeout=60,
+        min_size=0,
+        max_size=5,
+        command_timeout=30,
         statement_cache_size=0,
     )
 

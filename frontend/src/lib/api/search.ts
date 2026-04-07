@@ -1,12 +1,20 @@
-import type { SearchResult } from '$lib/types/plot';
-import { apiGet } from './client';
+import { apiFetch, ApiError } from './client';
 
-export async function search(query: string, limit = 20): Promise<SearchResult> {
-	const params = new URLSearchParams({ q: query, limit: String(limit) });
-	return apiGet<SearchResult>(`/api/search?${params}`);
+export interface SearchSuggestion {
+	type: 'lot' | 'address';
+	label: string;
+	secondary: string;
+	id_dzialki?: string;
+	lng?: number;
+	lat?: number;
 }
 
-export async function suggest(query: string): Promise<SearchResult> {
-	const params = new URLSearchParams({ q: query });
-	return apiGet<SearchResult>(`/api/search/suggest?${params}`);
+export async function searchSuggestions(
+	query: string,
+	signal?: AbortSignal
+): Promise<SearchSuggestion[]> {
+	const params = new URLSearchParams({ q: query, limit: '5' });
+	const res = await apiFetch(`/api/search?${params}`, { signal });
+	if (!res.ok) throw new ApiError(res);
+	return res.json();
 }

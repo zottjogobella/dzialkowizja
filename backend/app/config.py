@@ -6,7 +6,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=("../.env", ".env"),
+        env_file_encoding="utf-8",
+    )
 
     # App
     app_env: Literal["dev", "staging", "prod"] = "dev"
@@ -14,7 +17,7 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
 
     # App Database (own PostgreSQL)
-    database_url: str = "postgresql+asyncpg://dzialkowizja:dzialkowizja_dev@localhost:5433/dzialkowizja"
+    database_url: str = "postgresql+psycopg://dzialkowizja:dzialkowizja_dev@localhost:5433/dzialkowizja"
     database_url_sync: str = "postgresql://dzialkowizja:dzialkowizja_dev@localhost:5433/dzialkowizja"
 
     # Geo Database (gruntomat - read only)
@@ -24,9 +27,22 @@ class Settings(BaseSettings):
     geo_db_user: str = ""
     geo_db_password: str = ""
 
-    # Redis
-    redis_url: str = "redis://localhost:6379/0"
-    redis_password: str = ""
+    # Przetargi DB (real estate listings - read only)
+    przetargi_db_host: str = "51.75.55.212"
+    przetargi_db_port: int = 5432
+    przetargi_db_name: str = "przetargi"
+    przetargi_db_user: str = ""
+    przetargi_db_password: str = ""
+
+    # Transakcje DB (land transactions - read only)
+    transakcje_db_host: str = "localhost"
+    transakcje_db_port: int = 5432
+    transakcje_db_name: str = "transakcje"
+    transakcje_db_user: str = "deploy"
+    transakcje_db_password: str = "deploy"
+
+    # Google
+    google_api_key: str = ""
 
     # Rate Limiting
     rate_limit_requests: int = 60

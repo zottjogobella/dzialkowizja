@@ -14,10 +14,12 @@ async def init_app_db() -> None:
     global _engine, _session_factory
     _engine = create_async_engine(
         settings.database_url,
-        echo=settings.app_env == "dev",
+        echo=False,
         pool_size=10,
         max_overflow=5,
         pool_timeout=30,
+        pool_pre_ping=True,
+        pool_recycle=300,
     )
     _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
 

@@ -36,10 +36,55 @@ export interface PlotDetail extends PlotSummary {
 	utility_count: number | null;
 }
 
-export interface SearchResult {
-	results: PlotSummary[];
-	total: number;
-	query_type: string;
+export interface Listing {
+	id: number;
+	name: string | null;
+	property_type: string | null;
+	deal_type: string | null;
+	price: string | null;
+	price_per_meter: number | null;
+	area: string | null;
+	city: string | null;
+	url: string | null;
+	site: string | null;
+	publish_date: string | null;
+}
+
+export interface Transaction {
+	id: number;
+	teryt: string | null;
+	wojewodztwo: string | null;
+	id_dzialki: string | null;
+	data_transakcji: string | null;
+	rok: number | null;
+	oznaczenie_dokumentu: string | null;
+	tworca_dokumentu: string | null;
+	cena_transakcji: number | null;
+	cena_nieruchomosci: number | null;
+	cena_dzialki: number | null;
+	cena_do_analizy: number | null;
+	kwota_vat: number | null;
+	liczba_dzialek_w_transakcji: number | null;
+	powierzchnia_m2: number | null;
+	powierzchnia_nieruchomosci_ha: number | null;
+	cena_za_m2: number | null;
+	rodzaj_nieruchomosci: number | null;
+	rodzaj_rynku: number | null;
+	rodzaj_transakcji: number | null;
+	rodzaj_prawa: number | null;
+	udzial_w_prawie: string | null;
+	sposob_uzytkowania: number | null;
+	przeznaczenie_mpzp: string | null;
+	strona_kupujaca: number | null;
+	strona_sprzedajaca: number | null;
+	miejscowosc: string | null;
+	ulica: string | null;
+	numer_porzadkowy: string | null;
+	geometria_wkt: string | null;
+	centroid_x: number | null;
+	centroid_y: number | null;
+	dodatkowe_informacje: string | null;
+	distance_m: number | null;
 }
 
 export interface HistoryItem {

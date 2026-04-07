@@ -1,6 +1,5 @@
 <script lang="ts">
 	import SearchInput from '$lib/components/SearchInput.svelte';
-	import SearchResults from '$lib/components/SearchResults.svelte';
 	import { hasSearched } from '$lib/stores/search';
 </script>
 
@@ -16,11 +15,10 @@
 		<SearchInput />
 	</div>
 {:else}
-	<!-- State B: Search at top, results below -->
+	<!-- State B: Search at top -->
 	<div class="mx-auto w-full max-w-4xl px-6 py-6">
 		<div class="mb-8">
 			<SearchInput />
 		</div>
-		<SearchResults />
 	</div>
 {/if}

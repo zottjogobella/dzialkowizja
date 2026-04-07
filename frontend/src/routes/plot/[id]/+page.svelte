@@ -1,15 +1,25 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { getPlot } from '$lib/api/plots';
-	import type { PlotDetail } from '$lib/types/plot';
+	import { getPlot, getPlotGeometry, getPlotListings, getPlotBuildings, getPlotTransactions, type ListingsResponse } from '$lib/api/plots';
+	import type { PlotDetail, Listing, Transaction } from '$lib/types/plot';
+	import PlotMap from '$lib/components/PlotMap.svelte';
 
 	let plot = $state<PlotDetail | null>(null);
 	let loading = $state(true);
 	let error = $state('');
+	let geometry = $state<GeoJSON.Feature | null>(null);
+	let geometryLoading = $state(true);
+	let activeListings = $state<Listing[]>([]);
+	let inactiveListings = $state<Listing[]>([]);
+	let listingsLoading = $state(true);
+	let buildings = $state<GeoJSON.FeatureCollection | null>(null);
+	let transactions = $state<Transaction[]>([]);
+	let transactionsLoading = $state(true);
 
 	$effect(() => {
 		const id = $page.params.id ?? '';
 		loading = true;
+		geometryLoading = true;
 		error = '';
 
 		getPlot(id)
@@ -21,6 +31,51 @@
 			})
 			.finally(() => {
 				loading = false;
+			});
+
+		getPlotGeometry(id)
+			.then((geo) => {
+				geometry = geo as unknown as GeoJSON.Feature;
+			})
+			.catch(() => {
+				geometry = null;
+			})
+			.finally(() => {
+				geometryLoading = false;
+			});
+
+		listingsLoading = true;
+		getPlotListings(id)
+			.then((data) => {
+				activeListings = data.active;
+				inactiveListings = data.inactive;
+			})
+			.catch(() => {
+				activeListings = [];
+				inactiveListings = [];
+			})
+			.finally(() => {
+				listingsLoading = false;
+			});
+
+		getPlotBuildings(id)
+			.then((data) => {
+				buildings = data;
+			})
+			.catch(() => {
+				buildings = null;
+			});
+
+		transactionsLoading = true;
+		getPlotTransactions(id)
+			.then((data) => {
+				transactions = data;
+			})
+			.catch(() => {
+				transactions = [];
+			})
+			.finally(() => {
+				transactionsLoading = false;
 			});
 	});
 
@@ -40,6 +95,20 @@
 		if (val >= 1000) return `${(val / 1000).toFixed(1)} km`;
 		return `${val} m`;
 	}
+
+	function formatPrice(val: number | null): string {
+		if (val === null) return '—';
+		return val.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) + ' zł';
+	}
+
+	const RODZAJ_NIERUCHOMOSCI: Record<number, string> = {
+		1: 'Niezabudowana',
+		2: 'Zabudowana',
+		3: 'Budynkowa',
+		4: 'Lokalowa',
+	};
+	const RODZAJ_RYNKU: Record<number, string> = { 1: 'Pierwotny', 2: 'Wtórny' };
+	const RODZAJ_TRANSAKCJI: Record<number, string> = { 1: 'Sprzedaż', 2: 'Zamiana', 3: 'Inne' };
 </script>
 
 <svelte:head>
@@ -60,6 +129,10 @@
 		<p class="mb-6 text-[var(--color-text-muted)]">
 			{[plot.miejscowosc, plot.ulica, plot.gmina].filter(Boolean).join(', ')}
 		</p>
+
+		<div class="mb-6">
+			<PlotMap {geometry} {buildings} loading={geometryLoading} />
+		</div>
 
 		<div class="grid gap-6 md:grid-cols-2">
 			<!-- Basic info -->
@@ -134,5 +207,166 @@
 				Działka znajduje się w obszarze chronionym: {plot.nature_protection?.join(', ') ?? '—'}
 			</div>
 		{/if}
+
+		<!-- Transakcje gruntowe w okolicy -->
+		<details class="group mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]" open>
+			<summary class="flex cursor-pointer items-center justify-between px-5 py-4">
+				<h2 class="text-lg font-semibold text-[var(--color-primary)]">
+					Transakcje gruntowe
+					{#if !transactionsLoading}
+						<span class="ml-1 text-sm font-normal text-[var(--color-text-muted)]">({transactions.length})</span>
+					{/if}
+				</h2>
+				<svg class="h-5 w-5 shrink-0 text-[var(--color-text-muted)] transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+			</summary>
+			<div class="px-5 pb-5">
+				{#if transactionsLoading}
+					<div class="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
+						<div class="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-primary)]"></div>
+						Szukam transakcji...
+					</div>
+				{:else if transactions.length === 0}
+					<p class="text-sm text-[var(--color-text-muted)]">Brak transakcji w okolicy</p>
+				{:else}
+					<div class="overflow-x-auto rounded-lg border border-[var(--color-border)]">
+						<table class="w-full text-sm">
+							<thead class="bg-[var(--color-surface)] text-left text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
+								<tr>
+									<th class="px-3 py-2">Odl.</th>
+									<th class="px-3 py-2">Data</th>
+									<th class="px-3 py-2">Działka</th>
+									<th class="px-3 py-2">Miejscowość</th>
+									<th class="px-3 py-2">Pow.</th>
+									<th class="px-3 py-2">Cena</th>
+									<th class="px-3 py-2">Cena/m²</th>
+									<th class="px-3 py-2">Rodzaj</th>
+									<th class="px-3 py-2">Rynek</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each transactions as t, i (t.id)}
+									<tr class="border-t border-[var(--color-border)] {i % 2 === 0 ? '' : 'bg-[var(--color-surface)]'}">
+										<td class="whitespace-nowrap px-3 py-2 text-[var(--color-text-muted)]">{distLabel(t.distance_m)}</td>
+										<td class="whitespace-nowrap px-3 py-2">{t.data_transakcji ?? '—'}</td>
+										<td class="whitespace-nowrap px-3 py-2 font-mono text-xs">{t.id_dzialki ?? '—'}</td>
+										<td class="px-3 py-2">{[t.miejscowosc, t.ulica].filter(Boolean).join(', ') || '—'}</td>
+										<td class="whitespace-nowrap px-3 py-2 text-right">{t.powierzchnia_m2 != null ? formatArea(t.powierzchnia_m2) : '—'}</td>
+										<td class="whitespace-nowrap px-3 py-2 text-right font-medium">{formatPrice(t.cena_do_analizy ?? t.cena_transakcji)}</td>
+										<td class="whitespace-nowrap px-3 py-2 text-right">{t.cena_za_m2 != null ? formatPrice(t.cena_za_m2) : '—'}</td>
+										<td class="whitespace-nowrap px-3 py-2">{t.rodzaj_nieruchomosci != null ? RODZAJ_NIERUCHOMOSCI[t.rodzaj_nieruchomosci] ?? t.rodzaj_nieruchomosci : '—'}</td>
+										<td class="whitespace-nowrap px-3 py-2">{t.rodzaj_rynku != null ? RODZAJ_RYNKU[t.rodzaj_rynku] ?? t.rodzaj_rynku : '—'}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+					{#each transactions as t (t.id)}
+						<details class="mt-2 rounded-lg border border-[var(--color-border)]">
+							<summary class="cursor-pointer px-4 py-2 text-sm font-medium">
+								{t.id_dzialki ?? '?'} — {t.data_transakcji ?? '?'} — {formatPrice(t.cena_do_analizy ?? t.cena_transakcji)}
+							</summary>
+							<div class="grid gap-2 px-4 pb-3 pt-1 text-sm md:grid-cols-3">
+								<dl class="grid grid-cols-2 gap-1">
+									<dt class="text-[var(--color-text-muted)]">TERYT</dt><dd>{t.teryt ?? '—'}</dd>
+									<dt class="text-[var(--color-text-muted)]">Województwo</dt><dd>{t.wojewodztwo ?? '—'}</dd>
+									<dt class="text-[var(--color-text-muted)]">Miejscowość</dt><dd>{t.miejscowosc ?? '—'}</dd>
+									<dt class="text-[var(--color-text-muted)]">Ulica</dt><dd>{t.ulica ?? '—'}</dd>
+									<dt class="text-[var(--color-text-muted)]">Nr porządkowy</dt><dd>{t.numer_porzadkowy ?? '—'}</dd>
+								</dl>
+								<dl class="grid grid-cols-2 gap-1">
+									<dt class="text-[var(--color-text-muted)]">Cena transakcji</dt><dd>{formatPrice(t.cena_transakcji)}</dd>
+									<dt class="text-[var(--color-text-muted)]">Cena nieruchomości</dt><dd>{formatPrice(t.cena_nieruchomosci)}</dd>
+									<dt class="text-[var(--color-text-muted)]">Cena działki</dt><dd>{formatPrice(t.cena_dzialki)}</dd>
+									<dt class="text-[var(--color-text-muted)]">Cena do analizy</dt><dd>{formatPrice(t.cena_do_analizy)}</dd>
+									<dt class="text-[var(--color-text-muted)]">VAT</dt><dd>{formatPrice(t.kwota_vat)}</dd>
+									<dt class="text-[var(--color-text-muted)]">Cena/m²</dt><dd>{formatPrice(t.cena_za_m2)}</dd>
+								</dl>
+								<dl class="grid grid-cols-2 gap-1">
+									<dt class="text-[var(--color-text-muted)]">Rodzaj transakcji</dt><dd>{t.rodzaj_transakcji != null ? RODZAJ_TRANSAKCJI[t.rodzaj_transakcji] ?? t.rodzaj_transakcji : '—'}</dd>
+									<dt class="text-[var(--color-text-muted)]">Przeznaczenie MPZP</dt><dd>{t.przeznaczenie_mpzp ?? '—'}</dd>
+									<dt class="text-[var(--color-text-muted)]">Udział w prawie</dt><dd>{t.udzial_w_prawie ?? '—'}</dd>
+									<dt class="text-[var(--color-text-muted)]">Dokument</dt><dd class="break-all">{t.oznaczenie_dokumentu ?? '—'}</dd>
+									<dt class="text-[var(--color-text-muted)]">Twórca dok.</dt><dd class="break-all">{t.tworca_dokumentu ?? '—'}</dd>
+									{#if t.dodatkowe_informacje}
+										<dt class="text-[var(--color-text-muted)]">Info</dt><dd class="col-span-1 break-all">{t.dodatkowe_informacje}</dd>
+									{/if}
+								</dl>
+							</div>
+						</details>
+					{/each}
+				{/if}
+			</div>
+		</details>
+
+		<!-- Ogłoszenia w okolicy -->
+		<details class="group mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+			<summary class="flex cursor-pointer items-center justify-between px-5 py-4">
+				<h2 class="text-lg font-semibold text-[var(--color-primary)]">
+					Ogłoszenia w okolicy
+					{#if !listingsLoading}
+						<span class="ml-1 text-sm font-normal text-[var(--color-text-muted)]">({activeListings.length + inactiveListings.length})</span>
+					{/if}
+				</h2>
+				<svg class="h-5 w-5 shrink-0 text-[var(--color-text-muted)] transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+			</summary>
+			<div class="px-5 pb-5">
+				{#if listingsLoading}
+					<div class="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
+						<div class="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-primary)]"></div>
+						Szukam ogłoszeń...
+					</div>
+				{:else if activeListings.length === 0 && inactiveListings.length === 0}
+					<p class="text-sm text-[var(--color-text-muted)]">Brak ogłoszeń w okolicy</p>
+				{:else}
+					{#snippet listingCard(listing: Listing, faded: boolean)}
+						<a
+							href={listing.url ?? '#'}
+							target="_blank"
+							rel="noopener"
+							class="block rounded-lg border border-[var(--color-border)] p-4 transition-shadow hover:shadow-md {faded ? 'opacity-60' : ''}"
+						>
+							<h3 class="truncate text-sm font-medium">{listing.name ?? 'Bez tytułu'}</h3>
+							<div class="mt-1.5 flex flex-wrap gap-1.5">
+								{#if listing.property_type}
+									<span class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] text-blue-700">{listing.property_type}</span>
+								{/if}
+								{#if listing.deal_type}
+									<span class="rounded-full px-2 py-0.5 text-[10px] {listing.deal_type.toLowerCase().includes('wynajem') ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}">{listing.deal_type}</span>
+								{/if}
+								{#if listing.site}
+									<span class="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">{listing.site}</span>
+								{/if}
+							</div>
+							<div class="mt-2 flex items-baseline justify-between">
+								<span class="text-xs text-[var(--color-text-muted)]">
+									{[listing.area ? listing.area + ' m²' : '', listing.city].filter(Boolean).join(' · ')}
+								</span>
+								{#if listing.price}
+									<span class="font-bold text-[var(--color-primary)]">{Number(listing.price).toLocaleString('pl-PL')} zł</span>
+								{/if}
+							</div>
+						</a>
+					{/snippet}
+
+					{#if activeListings.length > 0}
+						<h3 class="mb-3 text-sm font-semibold uppercase tracking-wider text-green-700">Aktywne ({activeListings.length})</h3>
+						<div class="grid gap-2 md:grid-cols-2">
+							{#each activeListings as listing (listing.id)}
+								{@render listingCard(listing, false)}
+							{/each}
+						</div>
+					{/if}
+
+					{#if inactiveListings.length > 0}
+						<h3 class="mb-3 mt-4 text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Nieaktywne ({inactiveListings.length})</h3>
+						<div class="grid gap-2 md:grid-cols-2">
+							{#each inactiveListings as listing (listing.id)}
+								{@render listingCard(listing, true)}
+							{/each}
+						</div>
+					{/if}
+				{/if}
+			</div>
+		</details>
 	{/if}
 </div>
