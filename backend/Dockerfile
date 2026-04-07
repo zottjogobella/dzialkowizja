@@ -13,6 +13,7 @@ COPY alembic.ini .
 COPY alembic/ alembic/
 COPY app/ app/
 
+ENV PYTHONPATH=/app
 EXPOSE 8000
 
 CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
