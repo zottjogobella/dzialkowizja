@@ -1,0 +1,64 @@
+services:
+  appdb:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: dzialkowizja
+      POSTGRES_USER: dzialkowizja
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dzialkowizja_dev}
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dzialkowizja"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: dev
+      APP_SECRET_KEY: ${APP_SECRET_KEY:-dev-secret-change-in-prod}
+      DATABASE_URL: postgresql+asyncpg://dzialkowizja:${DB_PASSWORD:-dzialkowizja_dev}@appdb:5432/dzialkowizja
+      DATABASE_URL_SYNC: postgresql://dzialkowizja:${DB_PASSWORD:-dzialkowizja_dev}@appdb:5432/dzialkowizja
+      GEO_DB_HOST: ${GEO_DB_HOST:-145.239.2.73}
+      GEO_DB_PORT: ${GEO_DB_PORT:-5432}
+      GEO_DB_NAME: ${GEO_DB_NAME:-gruntomat}
+      GEO_DB_USER: ${GEO_DB_USER:-}
+      GEO_DB_PASSWORD: ${GEO_DB_PASSWORD:-}
+      REDIS_URL: redis://redis:6379/0
+      FRONTEND_URL: http://localhost:5173
+    depends_on:
+      appdb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/alembic:/app/alembic
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:create_app --factory --reload --host 0.0.0.0 --port 8000"
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/static:/app/static
+    command: npm run dev -- --host --port 5173
+    environment:
+      VITE_API_TARGET: http://backend:8000
+
+volumes:
+  pgdata:
