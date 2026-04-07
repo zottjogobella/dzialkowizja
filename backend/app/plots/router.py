@@ -19,7 +19,7 @@ PLOT_COLUMNS = """
 """
 
 
-@router.get("/{id_dzialki}")
+@router.get("/{id_dzialki:path}")
 async def get_plot(id_dzialki: str):
     pool = get_geo_pool()
     row = await pool.fetchrow(
