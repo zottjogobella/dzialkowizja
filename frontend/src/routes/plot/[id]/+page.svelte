@@ -260,40 +260,6 @@
 							</tbody>
 						</table>
 					</div>
-					{#each transactions as t (t.id)}
-						<details class="mt-2 rounded-lg border border-[var(--color-border)]">
-							<summary class="cursor-pointer px-4 py-2 text-sm font-medium">
-								{t.id_dzialki ?? '?'} — {t.data_transakcji ?? '?'} — {formatPrice(t.cena_do_analizy ?? t.cena_transakcji)}
-							</summary>
-							<div class="grid gap-2 px-4 pb-3 pt-1 text-sm md:grid-cols-3">
-								<dl class="grid grid-cols-2 gap-1">
-									<dt class="text-[var(--color-text-muted)]">TERYT</dt><dd>{t.teryt ?? '—'}</dd>
-									<dt class="text-[var(--color-text-muted)]">Województwo</dt><dd>{t.wojewodztwo ?? '—'}</dd>
-									<dt class="text-[var(--color-text-muted)]">Miejscowość</dt><dd>{t.miejscowosc ?? '—'}</dd>
-									<dt class="text-[var(--color-text-muted)]">Ulica</dt><dd>{t.ulica ?? '—'}</dd>
-									<dt class="text-[var(--color-text-muted)]">Nr porządkowy</dt><dd>{t.numer_porzadkowy ?? '—'}</dd>
-								</dl>
-								<dl class="grid grid-cols-2 gap-1">
-									<dt class="text-[var(--color-text-muted)]">Cena transakcji</dt><dd>{formatPrice(t.cena_transakcji)}</dd>
-									<dt class="text-[var(--color-text-muted)]">Cena nieruchomości</dt><dd>{formatPrice(t.cena_nieruchomosci)}</dd>
-									<dt class="text-[var(--color-text-muted)]">Cena działki</dt><dd>{formatPrice(t.cena_dzialki)}</dd>
-									<dt class="text-[var(--color-text-muted)]">Cena do analizy</dt><dd>{formatPrice(t.cena_do_analizy)}</dd>
-									<dt class="text-[var(--color-text-muted)]">VAT</dt><dd>{formatPrice(t.kwota_vat)}</dd>
-									<dt class="text-[var(--color-text-muted)]">Cena/m²</dt><dd>{formatPrice(t.cena_za_m2)}</dd>
-								</dl>
-								<dl class="grid grid-cols-2 gap-1">
-									<dt class="text-[var(--color-text-muted)]">Rodzaj transakcji</dt><dd>{t.rodzaj_transakcji != null ? RODZAJ_TRANSAKCJI[t.rodzaj_transakcji] ?? t.rodzaj_transakcji : '—'}</dd>
-									<dt class="text-[var(--color-text-muted)]">Przeznaczenie MPZP</dt><dd>{t.przeznaczenie_mpzp ?? '—'}</dd>
-									<dt class="text-[var(--color-text-muted)]">Udział w prawie</dt><dd>{t.udzial_w_prawie ?? '—'}</dd>
-									<dt class="text-[var(--color-text-muted)]">Dokument</dt><dd class="break-all">{t.oznaczenie_dokumentu ?? '—'}</dd>
-									<dt class="text-[var(--color-text-muted)]">Twórca dok.</dt><dd class="break-all">{t.tworca_dokumentu ?? '—'}</dd>
-									{#if t.dodatkowe_informacje}
-										<dt class="text-[var(--color-text-muted)]">Info</dt><dd class="col-span-1 break-all">{t.dodatkowe_informacje}</dd>
-									{/if}
-								</dl>
-							</div>
-						</details>
-					{/each}
 				{/if}
 			</div>
 		</details>
