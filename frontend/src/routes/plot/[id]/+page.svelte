@@ -299,7 +299,7 @@
 		</details>
 
 		<!-- Ogłoszenia w okolicy -->
-		<details class="group mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+		<details class="group mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]" open>
 			<summary class="flex cursor-pointer items-center justify-between px-5 py-4">
 				<h2 class="text-lg font-semibold text-[var(--color-primary)]">
 					Ogłoszenia w okolicy

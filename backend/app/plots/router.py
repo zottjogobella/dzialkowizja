@@ -228,16 +228,17 @@ def _fetch_nearest_transactions(cx: float, cy: float, limit: int = 10) -> list[d
                     strona_kupujaca, strona_sprzedajaca,
                     miejscowosc, ulica, numer_porzadkowy,
                     dodatkowe_informacje,
-                    sqrt(power(cx_2180 - %s, 2) + power(cy_2180 - %s, 2)) AS distance_m
+                    ST_Distance(
+                        ST_SetSRID(ST_MakePoint(cx_2180, cy_2180), 2180),
+                        ST_SetSRID(ST_MakePoint(%s, %s), 2180)
+                    ) AS distance_m
                 FROM transakcje_gruntowe
-                WHERE cx_2180 IS NOT NULL
-                  AND cx_2180 BETWEEN %s - 5000 AND %s + 5000
-                  AND cy_2180 BETWEEN %s - 5000 AND %s + 5000
-                  AND cena_transakcji IS NOT NULL AND cena_transakcji > 0
-                ORDER BY distance_m
+                WHERE cx_2180 IS NOT NULL AND cena_transakcji > 0
+                ORDER BY ST_SetSRID(ST_MakePoint(cx_2180, cy_2180), 2180)
+                     <-> ST_SetSRID(ST_MakePoint(%s, %s), 2180)
                 LIMIT %s
                 """,
-                (cx, cy, cx, cx, cy, cy, limit),
+                (cx, cy, cx, cy, limit),
             )
             columns = [desc[0] for desc in cur.description]
             rows = cur.fetchall()
