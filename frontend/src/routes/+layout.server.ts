@@ -1,6 +1,9 @@
 import { redirect, type ServerLoadEvent } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
 
 const PUBLIC_PATHS = ['/auth/login'];
+
+const API_BASE = env.VITE_API_TARGET || 'http://localhost:8000';
 
 export const load = async ({ cookies, fetch, url }: ServerLoadEvent) => {
 	const isPublic = PUBLIC_PATHS.some((p) => url.pathname.startsWith(p));
@@ -12,7 +15,7 @@ export const load = async ({ cookies, fetch, url }: ServerLoadEvent) => {
 	}
 
 	try {
-		const res = await fetch('http://localhost:8000/api/auth/me', {
+		const res = await fetch(`${API_BASE}/api/auth/me`, {
 			headers: { Cookie: `dzialkowizja_session=${session}` }
 		});
 		if (!res.ok) {
