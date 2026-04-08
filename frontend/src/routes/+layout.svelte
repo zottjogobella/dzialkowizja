@@ -1,7 +1,6 @@
 <script lang="ts">
 	import '../app.css';
 	import Sidebar from '$lib/components/Sidebar.svelte';
-	import { hasSearched } from '$lib/stores/search';
 	import { user, authStatus } from '$lib/stores/auth';
 	import type { Snippet } from 'svelte';
 
@@ -19,7 +18,7 @@
 </script>
 
 <div class="flex h-screen">
-	{#if $hasSearched && $authStatus === 'authenticated'}
+	{#if $authStatus === 'authenticated'}
 		<Sidebar />
 	{/if}
 
