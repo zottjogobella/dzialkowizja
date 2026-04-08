@@ -31,11 +31,11 @@
 </script>
 
 <svelte:head>
-	<title>Zaloguj się - Działkowizja</title>
+	<title>Zaloguj się - Gruntify</title>
 </svelte:head>
 
 <div class="flex flex-1 flex-col items-center justify-center px-6">
-	<h1 class="mb-2 text-3xl font-bold text-[var(--color-primary)]">Działkowizja</h1>
+	<h1 class="mb-2 text-3xl font-bold text-[var(--color-primary)]">Gruntify</h1>
 	<p class="mb-8 text-[var(--color-text-muted)]">Zaloguj się aby kontynuować</p>
 
 	<form onsubmit={handleLogin} class="w-full max-w-sm space-y-4">

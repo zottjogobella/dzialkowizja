@@ -4,13 +4,13 @@
 </script>
 
 <svelte:head>
-	<title>Działkowizja</title>
+	<title>Gruntify</title>
 </svelte:head>
 
 {#if !$hasSearched}
 	<!-- State A: Centered search (like ChatGPT landing) -->
 	<div class="flex flex-1 flex-col items-center justify-center px-6">
-		<h1 class="mb-2 text-4xl font-bold text-[var(--color-primary)]">Działkowizja</h1>
+		<h1 class="mb-2 text-4xl font-bold text-[var(--color-primary)]">Gruntify</h1>
 		<p class="mb-8 text-[var(--color-text-muted)]">Sprawdź dane o dowolnej działce w Polsce</p>
 		<SearchInput />
 	</div>
