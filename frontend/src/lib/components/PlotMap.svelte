@@ -24,6 +24,13 @@
 	let layerVisible = $state<Record<string, boolean>>({ egib: false, bdot: false, osm: false });
 	let gesutVisible = $state(false);
 
+	const FELT_COLORS = [
+		'#50957f', '#9fa145', '#80b66d', '#7aa824', '#60759f', '#377ca4',
+		'#4e8bd4', '#68c6de', '#889add', '#8f7dbf', '#9e65b3', '#bf69a2',
+		'#cc625c', '#eb9360', '#d5b02a', '#f2da3a', '#ad7a67', '#826464',
+		'#333333', '#808080', '#cccccc', '#ffffff',
+	];
+
 	// Plot style controls
 	let plotFill = $state('#2563eb');
 	let plotFillOpacity = $state(20);
@@ -319,7 +326,7 @@
 			</button>
 
 			{#if showStylePanel}
-				<div class="mt-1.5 w-56 rounded-xl bg-white/95 p-4 shadow-lg backdrop-blur-sm">
+				<div class="mt-1.5 w-64 rounded-xl bg-white/95 p-4 shadow-lg backdrop-blur-sm">
 					<div class="mb-3 flex items-center justify-between">
 						<span class="text-xs font-semibold text-gray-700">Styl działki</span>
 						<button onclick={() => showStylePanel = false} class="text-gray-400 hover:text-gray-600">&times;</button>
@@ -331,11 +338,22 @@
 							<span>Wypełnienie</span>
 							<span>{plotFillOpacity}%</span>
 						</label>
+						<div class="mb-1.5 flex flex-wrap gap-1">
+							{#each FELT_COLORS as c}
+								<button
+									onclick={() => { plotFill = c; applyPlotStyle(); }}
+									class="h-4 w-4 rounded-sm border transition-transform hover:scale-125 {plotFill === c ? 'border-gray-800 ring-1 ring-gray-400' : 'border-gray-200'}"
+									style="background:{c}"
+									title={c}
+								></button>
+							{/each}
+						</div>
 						<div class="flex items-center gap-2">
 							<input
 								type="color" bind:value={plotFill}
 								oninput={applyPlotStyle}
-								class="h-6 w-6 cursor-pointer rounded border-0 p-0"
+								class="h-5 w-5 cursor-pointer rounded border-0 p-0"
+								title="Własny kolor"
 							/>
 							<input
 								type="range" min="0" max="100" bind:value={plotFillOpacity}
@@ -351,11 +369,22 @@
 							<span>Obrys</span>
 							<span>{plotStrokeWidth}px / {plotStrokeOpacity}%</span>
 						</label>
+						<div class="mb-1.5 flex flex-wrap gap-1">
+							{#each FELT_COLORS as c}
+								<button
+									onclick={() => { plotStroke = c; applyPlotStyle(); }}
+									class="h-4 w-4 rounded-sm border transition-transform hover:scale-125 {plotStroke === c ? 'border-gray-800 ring-1 ring-gray-400' : 'border-gray-200'}"
+									style="background:{c}"
+									title={c}
+								></button>
+							{/each}
+						</div>
 						<div class="flex items-center gap-2">
 							<input
 								type="color" bind:value={plotStroke}
 								oninput={applyPlotStyle}
-								class="h-6 w-6 cursor-pointer rounded border-0 p-0"
+								class="h-5 w-5 cursor-pointer rounded border-0 p-0"
+								title="Własny kolor"
 							/>
 							<input
 								type="range" min="0" max="100" bind:value={plotStrokeOpacity}
