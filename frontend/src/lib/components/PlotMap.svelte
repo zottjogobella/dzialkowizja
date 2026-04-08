@@ -18,10 +18,9 @@
 	const LAYERS = [
 		{ source: 'egib', label: 'EGiB', color: '#e8d5b7' },
 		{ source: 'bdot', label: 'BDOT', color: '#c8bda8' },
-		{ source: 'osm',  label: 'OSM',  color: '#b8c4b0' },
 	] as const;
 
-	let layerVisible = $state<Record<string, boolean>>({ egib: false, bdot: false, osm: false });
+	let layerVisible = $state<Record<string, boolean>>({ egib: false, bdot: false });
 	let gesutVisible = $state(false);
 
 	// Plot style controls
