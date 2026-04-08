@@ -259,7 +259,7 @@ def _fetch_nearest_transactions(cx: float, cy: float, limit: int = 10) -> list[d
 
 
 def _fetch_buildings(id_dzialki: str, buffer_m: int = 300, limit: int = 1000) -> dict:
-    """Get building footprints near a plot from egib_budynki + buildings_bdot."""
+    """Get building footprints near a plot from egib_budynki + buildings_bdot + osm_buildings."""
     conn = psycopg2.connect(
         host=settings.geo_db_host,
         port=settings.geo_db_port,
@@ -291,6 +291,15 @@ def _fetch_buildings(id_dzialki: str, buffer_m: int = 300, limit: int = 1000) ->
                            b.funkcja_budynku_kod::text AS src_type,
                            'bdot' AS source
                     FROM buildings_bdot b, buf
+                    WHERE b.geom IS NOT NULL AND ST_Intersects(b.geom, buf.geom)
+
+                    UNION ALL
+
+                    SELECT ST_AsGeoJSON(ST_Transform(b.geom, 4326))::json AS geometry,
+                           COALESCE(b.levels, 0) AS floors,
+                           b.building_type AS src_type,
+                           'osm' AS source
+                    FROM osm_buildings b, buf
                     WHERE b.geom IS NOT NULL AND ST_Intersects(b.geom, buf.geom)
                 ) all_buildings
                 LIMIT %s
