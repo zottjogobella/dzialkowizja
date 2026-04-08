@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { searchSuggestions, type SearchSuggestion } from '$lib/api/search';
+	import { recordSearch } from '$lib/api/history';
 	import { searchQuery, hasSearched } from '$lib/stores/search';
+	import { loadHistory } from '$lib/stores/history';
 
 	let inputValue = $state('');
 	let inputEl: HTMLInputElement | undefined = $state();
@@ -61,10 +63,18 @@
 		hasSearched.set(true);
 		closeDropdown();
 
-		if (suggestion.type === 'lot') {
-			goto(`/plot/${encodeURIComponent(suggestion.label)}`);
-		} else if (suggestion.id_dzialki) {
-			goto(`/plot/${encodeURIComponent(suggestion.id_dzialki)}`);
+		const plotId = suggestion.type === 'lot' ? suggestion.label : suggestion.id_dzialki;
+
+		// Record search in history (fire-and-forget)
+		recordSearch({
+			query_text: suggestion.label,
+			query_type: suggestion.type,
+			result_count: suggestions.length,
+			top_result_id: plotId ?? undefined
+		}).then(() => loadHistory()).catch(() => {});
+
+		if (plotId) {
+			goto(`/plot/${encodeURIComponent(plotId)}`);
 		}
 	}
 

@@ -92,5 +92,6 @@ export interface HistoryItem {
 	query_text: string;
 	query_type: string;
 	result_count: number;
+	top_result_id: string | null;
 	created_at: string;
 }

@@ -1,9 +1,26 @@
 <script lang="ts">
-	import { historyItems } from '$lib/stores/history';
+	import { goto } from '$app/navigation';
+	import { historyItems, historyLoaded, loadHistory } from '$lib/stores/history';
+	import { searchQuery, hasSearched } from '$lib/stores/search';
+	import { onMount } from 'svelte';
+
+	onMount(() => {
+		if (!$historyLoaded) {
+			loadHistory();
+		}
+	});
 
 	function formatDate(iso: string): string {
 		const d = new Date(iso);
 		return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+	}
+
+	function rerunSearch(item: { query_text: string; query_type: string; top_result_id?: string | null }) {
+		searchQuery.set(item.query_text);
+		hasSearched.set(true);
+		if (item.top_result_id) {
+			goto(`/plot/${encodeURIComponent(item.top_result_id)}`);
+		}
 	}
 </script>
 
@@ -19,9 +36,7 @@
 			{#each $historyItems as item (item.id)}
 				<button
 					class="w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50"
-					onclick={() => {
-						// TODO: re-run search
-					}}
+					onclick={() => rerunSearch(item)}
 				>
 					<div class="truncate font-medium">{item.query_text}</div>
 					<div class="mt-0.5 text-xs text-[var(--color-text-muted)]">
