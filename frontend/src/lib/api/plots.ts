@@ -33,3 +33,4 @@ export async function getPlotBuildings(
 		`/api/plots/${encodeURIComponent(idDzialki)}/buildings`
 	);
 }
+

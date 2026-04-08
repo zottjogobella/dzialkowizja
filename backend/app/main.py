@@ -16,7 +16,7 @@ from app.middleware.security import SecurityHeadersMiddleware
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_app_db()
-    # Geo pool initialized lazily on first request
+    await init_geo_pool()
     yield
     await close_geo_pool()
     await close_app_db()
@@ -48,6 +48,7 @@ def create_app() -> FastAPI:
 
     # Routers
     from app.auth.router import router as auth_router
+    from app.gesut.router import router as gesut_router
     from app.history.router import router as history_router
     from app.plots.router import router as plots_router
     from app.search.router import router as search_router
@@ -55,6 +56,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     app.include_router(search_router, prefix="/api/search", tags=["search"])
     app.include_router(plots_router, prefix="/api/plots", tags=["plots"])
+    app.include_router(gesut_router, prefix="/api/gesut", tags=["gesut"])
     app.include_router(history_router, prefix="/api/history", tags=["history"])
 
     @app.get("/health")

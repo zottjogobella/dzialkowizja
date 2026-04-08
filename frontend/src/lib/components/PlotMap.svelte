@@ -22,6 +22,7 @@
 	] as const;
 
 	let layerVisible = $state<Record<string, boolean>>({ egib: false, bdot: false, osm: false });
+	let gesutVisible = $state(false);
 
 	// Plot style controls
 	let plotFill = $state('#2563eb');
@@ -99,6 +100,14 @@
 		}
 	}
 
+	function toggleGesut() {
+		gesutVisible = !gesutVisible;
+		if (!map || !mapReady) return;
+		if (map.getLayer('gesut-layer')) {
+			map.setLayoutProperty('gesut-layer', 'visibility', gesutVisible ? 'visible' : 'none');
+		}
+	}
+
 	function countBySource(src: string): number {
 		if (!buildings) return 0;
 		return buildings.features.filter(f => f.properties?.source === src).length;
@@ -148,11 +157,22 @@
 							],
 							tileSize: 256,
 							attribution: '&copy; <a href="https://geoportal.gov.pl/">Geoportal</a>'
+						},
+						gesut: {
+							type: 'raster',
+							tiles: [
+								'/api/gesut/tile?bbox={bbox-epsg-3857}&width=512&height=512'
+							],
+							tileSize: 512,
+							minzoom: 17,
+							maxzoom: 20,
+							attribution: '&copy; <a href="https://integracja.gugik.gov.pl/">GUGiK GESUT</a>'
 						}
 					},
 					layers: [
 						{ id: 'carto-layer', type: 'raster', source: 'carto' },
-						{ id: 'ortho-layer', type: 'raster', source: 'ortho', paint: { 'raster-opacity': 0.5 } }
+						{ id: 'ortho-layer', type: 'raster', source: 'ortho', paint: { 'raster-opacity': 0.5 } },
+						{ id: 'gesut-layer', type: 'raster', source: 'gesut', layout: { visibility: 'none' }, paint: { 'raster-opacity': 0.9 } }
 					]
 				},
 				center: initCenter,
@@ -253,8 +273,19 @@
 				</label>
 			</div>
 
-			{#if buildings && buildings.features.length > 0}
-				<div class="flex gap-1">
+			<div class="flex flex-wrap gap-1">
+				<button
+					onclick={toggleGesut}
+					class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium shadow backdrop-blur-sm transition-colors
+						{gesutVisible ? 'bg-white/90 text-gray-800' : 'bg-white/50 text-gray-400'}"
+				>
+					<span
+						class="inline-block h-2.5 w-2.5 rounded-sm"
+						style="background:#e53e3e; opacity:{gesutVisible ? 1 : 0.3}"
+					></span>
+					Linie elektryczne
+				</button>
+				{#if buildings && buildings.features.length > 0}
 					{#each LAYERS as layer}
 						{@const count = countBySource(layer.source)}
 						{#if count > 0}
@@ -272,8 +303,8 @@
 							</button>
 						{/if}
 					{/each}
-				</div>
-			{/if}
+				{/if}
+			</div>
 		</div>
 
 		<!-- Top-left: plot style panel -->
