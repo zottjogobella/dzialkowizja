@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.db.engine import close_app_db, init_app_db
 from app.db.geo import close_geo_pool, init_geo_pool
+from app.search.google_places import close_client as close_google, init_client as init_google
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.request_id import RequestIdMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
@@ -17,7 +18,9 @@ from app.middleware.security import SecurityHeadersMiddleware
 async def lifespan(app: FastAPI):
     await init_app_db()
     await init_geo_pool()
+    await init_google()
     yield
+    await close_google()
     await close_geo_pool()
     await close_app_db()
 

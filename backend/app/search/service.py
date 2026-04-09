@@ -152,3 +152,69 @@ async def search_addresses(q: str, limit: int = 5) -> list[SearchSuggestion]:
             )
         )
     return results
+
+
+async def resolve_address_to_plot(
+    city: str, street: str, number: str
+) -> str | None:
+    """Match structured address against PRG and return id_dzialki via ST_Contains."""
+    import asyncio
+
+    if not settings.geo_db_user:
+        return None
+
+    def _query() -> str | None:
+        conn = psycopg2.connect(
+            host=settings.geo_db_host,
+            port=settings.geo_db_port,
+            dbname=settings.geo_db_name,
+            user=settings.geo_db_user,
+            password=settings.geo_db_password,
+            connect_timeout=10,
+        )
+        try:
+            with conn.cursor() as cur:
+                # Try exact match first (city + street + number)
+                where_parts = ["miejscowosc ILIKE %s"]
+                params: list = [city]
+                if street:
+                    where_parts.append("ulica ILIKE %s")
+                    params.append(street)
+                if number:
+                    where_parts.append("numer = %s")
+                    params.append(number)
+
+                where_sql = " AND ".join(where_parts)
+                cur.execute(
+                    f"SELECT le.id_dzialki"
+                    f" FROM addresses a"
+                    f" JOIN lots_enriched le ON ST_Contains(le.geom, a.geom)"
+                    f" WHERE {where_sql}"
+                    f" LIMIT 1",
+                    params,
+                )
+                row = cur.fetchone()
+                if row:
+                    return row[0]
+
+                # Fallback: try without number (street-level match)
+                if number and street:
+                    cur.execute(
+                        "SELECT le.id_dzialki"
+                        " FROM addresses a"
+                        " JOIN lots_enriched le ON ST_Contains(le.geom, a.geom)"
+                        " WHERE miejscowosc ILIKE %s AND ulica ILIKE %s"
+                        " LIMIT 1",
+                        (city, street),
+                    )
+                    row = cur.fetchone()
+                    return row[0] if row else None
+
+                return None
+        finally:
+            conn.close()
+
+    try:
+        return await asyncio.to_thread(_query)
+    except Exception:
+        return None
