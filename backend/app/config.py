@@ -49,8 +49,8 @@ class Settings(BaseSettings):
     listings_radius_m: int = 500
 
     # Snapshot generation
-    snapshot_width: int = 800
-    snapshot_height: int = 600
+    snapshot_width: int = 600
+    snapshot_height: int = 800
     snapshot_bbox_padding: float = 0.3
     snapshot_max_age_days: int = 30
 

@@ -134,6 +134,31 @@
 			<PlotMap {geometry} {buildings} loading={geometryLoading} />
 		</div>
 
+		<!-- Zrzuty mapy -->
+		<section class="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+			<h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Zrzuty mapy</h2>
+			<div class="grid gap-4 md:grid-cols-2">
+				{#each [
+					{ type: 'ortho', label: 'Ortofotomapa' },
+					{ type: 'map', label: 'Mapa bazowa' },
+				] as item}
+					{@const url = `/api/plots/${encodeURIComponent($page.params.id ?? '')}/snapshot/${item.type}`}
+					<div class="rounded-lg border border-[var(--color-border)] overflow-hidden">
+						<img
+							src={url}
+							alt={item.label}
+							loading="lazy"
+							class="w-full aspect-[3/4] object-cover bg-gray-100"
+						/>
+						<div class="flex items-center justify-between px-3 py-2">
+							<span class="text-sm font-medium">{item.label}</span>
+							<a href={url} download="{$page.params.id}_{item.type}.jpg" class="text-xs text-blue-600 hover:underline">Pobierz</a>
+						</div>
+					</div>
+				{/each}
+			</div>
+		</section>
+
 		<div class="grid gap-6 md:grid-cols-2">
 			<!-- Basic info -->
 			<section class="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
@@ -335,32 +360,5 @@
 			</div>
 		</details>
 
-		<!-- Mapy do pobrania -->
-		<details class="group mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
-			<summary class="flex cursor-pointer items-center justify-between px-5 py-4">
-				<h2 class="text-lg font-semibold text-[var(--color-primary)]">Mapy do pobrania</h2>
-				<svg class="h-5 w-5 shrink-0 text-[var(--color-text-muted)] transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-			</summary>
-			<div class="grid gap-4 px-5 pb-5 md:grid-cols-2">
-				{#each [
-					{ type: 'ortho', label: 'Ortofotomapa' },
-					{ type: 'map', label: 'Mapa bazowa' },
-				] as item}
-					{@const url = `/api/plots/${encodeURIComponent($page.params.id ?? '')}/snapshot/${item.type}`}
-					<div class="rounded-lg border border-[var(--color-border)] overflow-hidden">
-						<img
-							src={url}
-							alt={item.label}
-							loading="lazy"
-							class="w-full aspect-[4/3] object-cover bg-gray-100"
-						/>
-						<div class="flex items-center justify-between px-3 py-2">
-							<span class="text-sm font-medium">{item.label}</span>
-							<a href={url} download="{$page.params.id}_{item.type}.jpg" class="text-xs text-blue-600 hover:underline">Pobierz</a>
-						</div>
-					</div>
-				{/each}
-			</div>
-		</details>
 	{/if}
 </div>
