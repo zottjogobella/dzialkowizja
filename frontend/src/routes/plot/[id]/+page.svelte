@@ -148,7 +148,7 @@
 							src={url}
 							alt={item.label}
 							loading="lazy"
-							class="w-full aspect-[3/4] object-cover bg-gray-100"
+							class="w-full bg-gray-100"
 						/>
 						<div class="flex items-center justify-between px-3 py-2">
 							<span class="text-sm font-medium">{item.label}</span>

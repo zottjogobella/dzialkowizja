@@ -46,12 +46,34 @@ def _pad_bbox(
     bbox: tuple[float, float, float, float],
     factor: float | None = None,
 ) -> tuple[float, float, float, float]:
+    """Pad bbox and make it square (in Mercator meters) so images aren't stretched."""
     if factor is None:
         factor = settings.snapshot_bbox_padding
     min_lng, min_lat, max_lng, max_lat = bbox
-    dlng = (max_lng - min_lng) * factor
-    dlat = (max_lat - min_lat) * factor
-    return (min_lng - dlng, min_lat - dlat, max_lng + dlng, max_lat + dlat)
+
+    # Convert to 3857 to work in meters
+    min_x, min_y = _to_3857.transform(min_lng, min_lat)
+    max_x, max_y = _to_3857.transform(max_lng, max_lat)
+
+    # Add padding
+    dx = (max_x - min_x) * factor
+    dy = (max_y - min_y) * factor
+    min_x -= dx
+    min_y -= dy
+    max_x += dx
+    max_y += dy
+
+    # Make square
+    cx, cy = (min_x + max_x) / 2, (min_y + max_y) / 2
+    half = max(max_x - min_x, max_y - min_y) / 2
+    min_x, min_y = cx - half, cy - half
+    max_x, max_y = cx + half, cy + half
+
+    # Back to 4326
+    _to_4326 = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
+    min_lng2, min_lat2 = _to_4326.transform(min_x, min_y)
+    max_lng2, max_lat2 = _to_4326.transform(max_x, max_y)
+    return (min_lng2, min_lat2, max_lng2, max_lat2)
 
 
 def _project_ring_to_pixels(
@@ -171,7 +193,7 @@ async def _generate_ortho(
     geometry: dict,
     bbox_4326: tuple[float, float, float, float],
 ) -> bytes:
-    w, h = settings.snapshot_width, settings.snapshot_height
+    w = h = settings.snapshot_size
     min_lng, min_lat, max_lng, max_lat = bbox_4326
     min_x, min_y = _to_3857.transform(min_lng, min_lat)
     max_x, max_y = _to_3857.transform(max_lng, max_lat)
@@ -234,7 +256,7 @@ async def _generate_map(
     geometry: dict,
     bbox_4326: tuple[float, float, float, float],
 ) -> bytes:
-    w, h = settings.snapshot_width, settings.snapshot_height
+    w = h = settings.snapshot_size
     min_lng, min_lat, max_lng, max_lat = bbox_4326
 
     zoom = _compute_zoom(bbox_4326, w)
@@ -329,4 +351,4 @@ async def generate_snapshot(
     else:
         data = await _generate_map(geometry, bbox)
 
-    return data, settings.snapshot_width, settings.snapshot_height
+    return data, settings.snapshot_size, settings.snapshot_size
