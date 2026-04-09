@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import 'maplibre-gl/dist/maplibre-gl.css';
+	import { distance, midpoint, point } from '@turf/turf';
 
 	interface Props {
 		geometry: Record<string, unknown> | null;
@@ -22,6 +23,7 @@
 
 	let layerVisible = $state<Record<string, boolean>>({ egib: false, bdot: false });
 	let gesutVisible = $state(false);
+	let showDimensions = $state(true);
 
 	const FELT_COLORS = [
 		'#50957f', '#9fa145', '#80b66d', '#7aa824', '#60759f', '#377ca4',
@@ -119,6 +121,48 @@
 		return buildings.features.filter(f => f.properties?.source === src).length;
 	}
 
+	function computeDimensionLabels(feature: any): GeoJSON.FeatureCollection {
+		const rings: number[][][] = [];
+		if (feature.geometry.type === 'Polygon') {
+			rings.push(feature.geometry.coordinates[0]);
+		} else if (feature.geometry.type === 'MultiPolygon') {
+			for (const poly of feature.geometry.coordinates) {
+				rings.push(poly[0]);
+			}
+		}
+
+		const features: GeoJSON.Feature[] = [];
+		for (const ring of rings) {
+			for (let i = 0; i < ring.length - 1; i++) {
+				const a = point(ring[i] as [number, number]);
+				const b = point(ring[i + 1] as [number, number]);
+				const d = distance(a, b, { units: 'meters' });
+				if (d < 1) continue;
+				const mid = midpoint(a, b);
+				const dx = ring[i + 1][0] - ring[i][0];
+				const dy = ring[i + 1][1] - ring[i][1];
+				let bearing = -Math.atan2(dx, dy) * (180 / Math.PI) + 90;
+				// Keep text readable (not upside down)
+				if (bearing > 90) bearing -= 180;
+				if (bearing < -90) bearing += 180;
+				mid.properties = {
+					label: d >= 100 ? `${d.toFixed(0)} m` : `${d.toFixed(1)} m`,
+					bearing
+				};
+				features.push(mid);
+			}
+		}
+		return { type: 'FeatureCollection', features };
+	}
+
+	function toggleDimensions() {
+		showDimensions = !showDimensions;
+		if (!map || !mapReady) return;
+		if (map.getLayer('dimension-labels')) {
+			map.setLayoutProperty('dimension-labels', 'visibility', showDimensions ? 'visible' : 'none');
+		}
+	}
+
 	function applyPlotStyle() {
 		if (!map || !mapReady) return;
 		if (map.getLayer('plot-fill')) {
@@ -149,6 +193,7 @@
 				container: mapContainer,
 				style: {
 					version: 8,
+					glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
 					sources: {
 						carto: {
 							type: 'raster',
@@ -204,6 +249,31 @@
 						'line-color': plotStroke,
 						'line-width': plotStrokeWidth,
 						'line-opacity': plotStrokeOpacity / 100
+					}
+				});
+
+				// Dimension labels
+				const labels = computeDimensionLabels(geometry);
+				map.addSource('dimension-labels-src', { type: 'geojson', data: labels });
+				map.addLayer({
+					id: 'dimension-labels',
+					type: 'symbol',
+					source: 'dimension-labels-src',
+					layout: {
+						'text-field': ['get', 'label'],
+						'text-size': 11,
+						'text-font': ['Open Sans Regular'],
+						'text-anchor': 'center',
+						'text-allow-overlap': false,
+						'text-rotate': ['get', 'bearing'],
+						'text-rotation-alignment': 'map',
+						'text-pitch-alignment': 'map',
+						visibility: showDimensions ? 'visible' : 'none'
+					},
+					paint: {
+						'text-color': '#1e3a5f',
+						'text-halo-color': '#ffffff',
+						'text-halo-width': 1.5
 					}
 				});
 
@@ -280,6 +350,17 @@
 			</div>
 
 			<div class="flex flex-wrap gap-1">
+				<button
+					onclick={toggleDimensions}
+					class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium shadow backdrop-blur-sm transition-colors
+						{showDimensions ? 'bg-white/90 text-gray-800' : 'bg-white/50 text-gray-400'}"
+				>
+					<span
+						class="inline-block h-2.5 w-2.5 rounded-sm"
+						style="background:#1e3a5f; opacity:{showDimensions ? 1 : 0.3}"
+					></span>
+					Wymiary
+				</button>
 				<button
 					onclick={toggleGesut}
 					class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium shadow backdrop-blur-sm transition-colors

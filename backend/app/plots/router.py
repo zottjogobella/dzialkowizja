@@ -7,9 +7,14 @@ import logging
 
 import psycopg2
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response as FastAPIResponse
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_auth
 from app.config import settings
+from app.db.engine import get_db
+from app.db.models import PlotSnapshot
 from app.plots.schemas import Listing
 
 logger = logging.getLogger(__name__)
@@ -109,8 +114,9 @@ def _fetch_plot_centroid(id_dzialki: str) -> tuple[float, float] | None:
         conn.close()
 
 
-def _fetch_listings(lng: float, lat: float, radius_m: int = 500, limit: int = 10) -> dict:
+def _fetch_listings(lng: float, lat: float, limit: int = 10) -> dict:
     """Get active + inactive listings near a point from przetargi DB."""
+    radius_m = settings.listings_radius_m
     conn = psycopg2.connect(
         host=settings.przetargi_db_host,
         port=settings.przetargi_db_port,
@@ -258,8 +264,9 @@ def _fetch_nearest_transactions(cx: float, cy: float, limit: int = 10) -> list[d
         conn.close()
 
 
-def _fetch_buildings(id_dzialki: str, buffer_m: int = 300, limit: int = 1000) -> dict:
+def _fetch_buildings(id_dzialki: str, limit: int = 1000) -> dict:
     """Get building footprints near a plot from egib_budynki + buildings_bdot."""
+    buffer_m = settings.buildings_buffer_m
     conn = psycopg2.connect(
         host=settings.geo_db_host,
         port=settings.geo_db_port,
@@ -365,6 +372,72 @@ async def get_plot_listings(id_dzialki: str, _user=Depends(require_auth)):
     except Exception:
         logger.exception("Failed to fetch listings from przetargi DB")
         return {"active": [], "inactive": []}
+
+
+@router.get("/{id_dzialki:path}/snapshot/{snapshot_type}")
+async def get_plot_snapshot(
+    id_dzialki: str,
+    snapshot_type: str,
+    _user=Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get or generate a plot snapshot (ortho or map). Lazy-loaded and cached in DB."""
+    if snapshot_type not in ("ortho", "map"):
+        raise HTTPException(status_code=400, detail="Typ: ortho lub map")
+
+    # Check DB cache
+    stmt = select(PlotSnapshot).where(
+        PlotSnapshot.id_dzialki == id_dzialki,
+        PlotSnapshot.snapshot_type == snapshot_type,
+    )
+    result = await db.execute(stmt)
+    snapshot = result.scalar_one_or_none()
+
+    if snapshot is not None:
+        age = (datetime.datetime.now(datetime.timezone.utc) - snapshot.created_at).days
+        if age < settings.snapshot_max_age_days:
+            return FastAPIResponse(
+                content=snapshot.image_data,
+                media_type="image/jpeg",
+                headers={
+                    "Cache-Control": "public, max-age=604800",
+                    "Content-Disposition": f'inline; filename="{id_dzialki}_{snapshot_type}.jpg"',
+                },
+            )
+        await db.delete(snapshot)
+        await db.commit()
+
+    # Generate
+    geometry_feature = await asyncio.to_thread(_fetch_plot_geometry, id_dzialki)
+    if geometry_feature is None:
+        raise HTTPException(status_code=404, detail="Działka nie znaleziona")
+
+    from app.plots.snapshots import generate_snapshot
+
+    try:
+        image_data, width, height = await generate_snapshot(geometry_feature, snapshot_type)
+    except Exception:
+        logger.exception("Snapshot generation failed for %s/%s", id_dzialki, snapshot_type)
+        raise HTTPException(status_code=502, detail="Nie udało się wygenerować zdjęcia")
+
+    new_snapshot = PlotSnapshot(
+        id_dzialki=id_dzialki,
+        snapshot_type=snapshot_type,
+        image_data=image_data,
+        width=width,
+        height=height,
+    )
+    db.add(new_snapshot)
+    await db.commit()
+
+    return FastAPIResponse(
+        content=image_data,
+        media_type="image/jpeg",
+        headers={
+            "Cache-Control": "public, max-age=604800",
+            "Content-Disposition": f'inline; filename="{id_dzialki}_{snapshot_type}.jpg"',
+        },
+    )
 
 
 @router.get("/{id_dzialki:path}")

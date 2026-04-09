@@ -44,6 +44,16 @@ class Settings(BaseSettings):
     # Google
     google_api_key: str = ""
 
+    # Buffer distances (meters)
+    buildings_buffer_m: int = 300
+    listings_radius_m: int = 500
+
+    # Snapshot generation
+    snapshot_width: int = 800
+    snapshot_height: int = 600
+    snapshot_bbox_padding: float = 0.3
+    snapshot_max_age_days: int = 30
+
     # Rate Limiting
     rate_limit_requests: int = 60
     rate_limit_window_seconds: int = 60
