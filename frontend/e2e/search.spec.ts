@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }) => {
 	await expect(page.locator('input[placeholder*="działki"]')).toBeVisible();
 });
 
-test.describe('Google Places autocomplete', () => {
+test.describe('Address search (PRG)', () => {
 	test('returns suggestions for a Polish address', async ({ page }) => {
 		await typeInto(page.locator('input[placeholder*="działki"]'), 'Poznanska 1, Poznan');
 
@@ -37,23 +37,16 @@ test.describe('Google Places autocomplete', () => {
 		await expect(badge).toBeVisible();
 	});
 
-	test('selecting a suggestion calls resolve endpoint', async ({ page }) => {
-		await typeInto(page.locator('input[placeholder*="działki"]'), 'Poznanska 1, Poznan');
+	test('selecting an address navigates to plot page', async ({ page }) => {
+		await typeInto(page.locator('input[placeholder*="działki"]'), 'Poznanska, Poznan');
 
 		const listbox = page.locator('#search-listbox');
 		await expect(listbox).toBeVisible({ timeout: 10_000 });
 
-		const resolvePromise = page.waitForResponse(
-			res => res.url().includes('/api/search/resolve'),
-			{ timeout: 15_000 }
-		);
-
 		await listbox.locator('li').first().click();
 
-		const resolveResponse = await resolvePromise;
-		expect(resolveResponse.status()).toBe(200);
-		const body = await resolveResponse.json();
-		expect(body).toHaveProperty('id_dzialki');
+		await page.waitForURL(/\/plot\//, { timeout: 10_000 });
+		expect(page.url()).toContain('/plot/');
 	});
 });
 

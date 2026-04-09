@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { searchSuggestions, resolvePlace, type SearchSuggestion } from '$lib/api/search';
+	import { searchSuggestions, type SearchSuggestion } from '$lib/api/search';
 	import { recordSearch } from '$lib/api/history';
 	import { searchQuery, hasSearched } from '$lib/stores/search';
 	import { loadHistory } from '$lib/stores/history';
@@ -13,8 +13,6 @@
 	let loading = $state(false);
 	let open = $state(false);
 	let selectedIndex = $state(-1);
-	let error = $state('');
-	let sessionToken = $state(crypto.randomUUID());
 
 	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 	let abortController: AbortController | undefined;
@@ -36,12 +34,11 @@
 
 		loading = true;
 		open = true;
-		error = '';
 
 		debounceTimer = setTimeout(async () => {
 			abortController = new AbortController();
 			try {
-				const results = await searchSuggestions(query, abortController.signal, sessionToken);
+				const results = await searchSuggestions(query, abortController.signal);
 				suggestions = results;
 				selectedIndex = -1;
 				open = results.length > 0;
@@ -60,41 +57,15 @@
 		selectedIndex = -1;
 	}
 
-	async function selectSuggestion(suggestion: SearchSuggestion) {
+	function selectSuggestion(suggestion: SearchSuggestion) {
 		inputValue = suggestion.label;
 		searchQuery.set(suggestion.label);
 		hasSearched.set(true);
 		closeDropdown();
-		error = '';
 
-		if (suggestion.place_id) {
-			// Google address: resolve via PRG to find plot
-			loading = true;
-			try {
-				const resolved = await resolvePlace(suggestion.place_id, sessionToken);
-				sessionToken = crypto.randomUUID();
-				if (resolved.id_dzialki) {
-					recordSearch({
-						query_text: suggestion.label,
-						query_type: suggestion.type,
-						result_count: suggestions.length,
-						top_result_id: resolved.id_dzialki
-					}).then(() => loadHistory()).catch(() => {});
-					goto(`/plot/${encodeURIComponent(resolved.id_dzialki)}`);
-				} else {
-					error = 'Nie znaleziono działki dla tego adresu';
-				}
-			} catch {
-				error = 'Błąd podczas wyszukiwania działki';
-			} finally {
-				loading = false;
-			}
-			return;
-		}
-
-		// Lot or legacy address with direct id_dzialki
 		const plotId = suggestion.type === 'lot' ? suggestion.label : suggestion.id_dzialki;
 
+		// Record search in history (fire-and-forget)
 		recordSearch({
 			query_text: suggestion.label,
 			query_type: suggestion.type,
@@ -220,9 +191,5 @@
 				Szukam...
 			</div>
 		</div>
-	{/if}
-
-	{#if error}
-		<p class="mt-2 text-center text-sm text-red-600">{error}</p>
 	{/if}
 </div>

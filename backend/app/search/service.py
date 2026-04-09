@@ -19,6 +19,17 @@ def is_lot_query(q: str) -> bool:
     return len(cleaned) > 0 and cleaned.replace("-", "").isdigit()
 
 
+def _geo_connect():
+    return psycopg2.connect(
+        host=settings.geo_db_host,
+        port=settings.geo_db_port,
+        dbname=settings.geo_db_name,
+        user=settings.geo_db_user,
+        password=settings.geo_db_password,
+        connect_timeout=10,
+    )
+
+
 async def search_lots(q: str, limit: int = 5) -> list[SearchSuggestion]:
     import asyncio
 
@@ -26,14 +37,7 @@ async def search_lots(q: str, limit: int = 5) -> list[SearchSuggestion]:
         return []
 
     def _query() -> list[tuple]:
-        conn = psycopg2.connect(
-            host=settings.geo_db_host,
-            port=settings.geo_db_port,
-            dbname=settings.geo_db_name,
-            user=settings.geo_db_user,
-            password=settings.geo_db_password,
-            connect_timeout=10,
-        )
+        conn = _geo_connect()
         try:
             prefix = q
             upper = prefix[:-1] + chr(ord(prefix[-1]) + 1)
@@ -64,47 +68,117 @@ async def search_lots(q: str, limit: int = 5) -> list[SearchSuggestion]:
     ]
 
 
+def _parse_address_query(q: str) -> dict:
+    """Parse user input into city, street, and number components.
+
+    Handles formats like:
+      "Poznańska 1, Poznań"  -> city=Poznań, street=Poznańska, number=1
+      "Poznań, Poznańska 1"  -> city=Poznań, street=Poznańska, number=1
+      "Poznań"               -> city=Poznań
+      "Poznańska 1"          -> street=Poznańska, number=1
+    """
+    # Strip commas from digits (e.g., "1," -> "1")
+    q = q.strip()
+
+    # Split on comma
+    parts = [p.strip() for p in q.split(",") if p.strip()]
+
+    city_tokens: list[str] = []
+    street_tokens: list[str] = []
+    number = ""
+
+    if len(parts) >= 2:
+        # Two parts: one is likely city, other is street+number
+        # Heuristic: shorter part or part without digits is the city
+        for part in parts:
+            tokens = part.split()
+            digits = [t for t in tokens if t.isdigit()]
+            words = [t for t in tokens if not t.isdigit()]
+            if digits:
+                street_tokens.extend(words)
+                number = digits[0]
+            elif not city_tokens:
+                city_tokens = words
+            else:
+                street_tokens.extend(words)
+    else:
+        # Single part: split into words
+        tokens = parts[0].split() if parts else []
+        digits = [t for t in tokens if t.isdigit()]
+        words = [t for t in tokens if not t.isdigit()]
+        if digits:
+            number = digits[0]
+        # All non-digit tokens could be city or street
+        # We'll search across both columns
+        city_tokens = words
+        street_tokens = words
+
+    return {
+        "city_tokens": city_tokens,
+        "street_tokens": street_tokens,
+        "number": number,
+    }
+
+
 async def search_addresses(q: str, limit: int = 5) -> list[SearchSuggestion]:
-    """Search addresses in gruntomat PRG data (addresses + lot_addresses + lots)."""
+    """Search addresses in gruntomat PRG data using f_unaccent + trigram indexes."""
     import asyncio
 
     if not settings.geo_db_user:
         return []
 
-    text_tokens = [t for t in q.split() if not t.isdigit()]
-    digit_tokens = [t for t in q.split() if t.isdigit()]
-    if not text_tokens and not digit_tokens:
+    parsed = _parse_address_query(q)
+    city_tokens = parsed["city_tokens"]
+    street_tokens = parsed["street_tokens"]
+    number = parsed["number"]
+
+    if not city_tokens and not street_tokens and not number:
         return []
 
     def _query() -> list[tuple]:
-        conn = psycopg2.connect(
-            host=settings.geo_db_host,
-            port=settings.geo_db_port,
-            dbname=settings.geo_db_name,
-            user=settings.geo_db_user,
-            password=settings.geo_db_password,
-            connect_timeout=10,
-        )
+        conn = _geo_connect()
         try:
-            addr_expr = (
-                "COALESCE(miejscowosc, '') || ' ' || "
-                "COALESCE(ulica, '')"
-            )
-            where_clauses = []
+            where_clauses: list[str] = []
             params: list = []
-            if text_tokens:
-                where_clauses.append(f"({addr_expr}) ILIKE ALL(%s)")
-                params.append([f"%{t}%" for t in text_tokens])
-            if digit_tokens:
+
+            # Build WHERE using f_unaccent for diacritics-insensitive search
+            # Each token is matched against the relevant column
+            if city_tokens and street_tokens and city_tokens != street_tokens:
+                # Separate city and street tokens (comma-separated input)
+                for t in city_tokens:
+                    where_clauses.append(
+                        "f_unaccent(miejscowosc) ILIKE f_unaccent(%s)"
+                    )
+                    params.append(f"%{t}%")
+                for t in street_tokens:
+                    where_clauses.append(
+                        "f_unaccent(ulica) ILIKE f_unaccent(%s)"
+                    )
+                    params.append(f"%{t}%")
+            else:
+                # Same tokens — search across both columns
+                tokens = city_tokens or street_tokens
+                for t in tokens:
+                    where_clauses.append(
+                        "(f_unaccent(miejscowosc) ILIKE f_unaccent(%s)"
+                        " OR f_unaccent(ulica) ILIKE f_unaccent(%s))"
+                    )
+                    params.extend([f"%{t}%", f"%{t}%"])
+
+            if number:
                 where_clauses.append("numer LIKE %s")
-                params.append(f"{digit_tokens[0]}%")
+                params.append(f"{number}%")
 
             if not where_clauses:
                 return []
 
             where_sql = " AND ".join(where_clauses)
-            has_numer = bool(digit_tokens)
-            distinct_cols = "miejscowosc, ulica, numer" if has_numer else "miejscowosc, ulica"
+            has_numer = bool(number)
+            distinct_cols = (
+                "miejscowosc, ulica, numer"
+                if has_numer
+                else "miejscowosc, ulica"
+            )
 
             with conn.cursor() as cur:
                 cur.execute(
@@ -152,69 +226,3 @@ async def search_addresses(q: str, limit: int = 5) -> list[SearchSuggestion]:
             )
         )
     return results
-
-
-async def resolve_address_to_plot(
-    city: str, street: str, number: str
-) -> str | None:
-    """Match structured address against PRG and return id_dzialki via ST_Contains."""
-    import asyncio
-
-    if not settings.geo_db_user:
-        return None
-
-    def _query() -> str | None:
-        conn = psycopg2.connect(
-            host=settings.geo_db_host,
-            port=settings.geo_db_port,
-            dbname=settings.geo_db_name,
-            user=settings.geo_db_user,
-            password=settings.geo_db_password,
-            connect_timeout=10,
-        )
-        try:
-            with conn.cursor() as cur:
-                # Try exact match first (city + street + number)
-                where_parts = ["miejscowosc ILIKE %s"]
-                params: list = [city]
-                if street:
-                    where_parts.append("ulica ILIKE %s")
-                    params.append(street)
-                if number:
-                    where_parts.append("numer = %s")
-                    params.append(number)
-
-                where_sql = " AND ".join(where_parts)
-                cur.execute(
-                    f"SELECT le.id_dzialki"
-                    f" FROM addresses a"
-                    f" JOIN lots_enriched le ON ST_Contains(le.geom, a.geom)"
-                    f" WHERE {where_sql}"
-                    f" LIMIT 1",
-                    params,
-                )
-                row = cur.fetchone()
-                if row:
-                    return row[0]
-
-                # Fallback: try without number (street-level match)
-                if number and street:
-                    cur.execute(
-                        "SELECT le.id_dzialki"
-                        " FROM addresses a"
-                        " JOIN lots_enriched le ON ST_Contains(le.geom, a.geom)"
-                        " WHERE miejscowosc ILIKE %s AND ulica ILIKE %s"
-                        " LIMIT 1",
-                        (city, street),
-                    )
-                    row = cur.fetchone()
-                    return row[0] if row else None
-
-                return None
-        finally:
-            conn.close()
-
-    try:
-        return await asyncio.to_thread(_query)
-    except Exception:
-        return None
