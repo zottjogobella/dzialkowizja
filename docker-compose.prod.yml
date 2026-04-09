@@ -46,6 +46,7 @@ services:
       TRANSAKCJE_DB_PASSWORD: deploy
       REDIS_URL: redis://redis:6379/0
       FRONTEND_URL: http://45.137.213.188
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
     depends_on:
       appdb:
         condition: service_healthy
