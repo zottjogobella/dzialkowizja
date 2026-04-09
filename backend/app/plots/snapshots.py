@@ -109,7 +109,7 @@ def _draw_scale_bar(
     meters_per_pixel = (max_x - min_x) / w
 
     # Pick a nice round scale length
-    target_px = w * 0.2  # aim for ~20% of image width
+    target_px = w * 0.2
     target_m = target_px * meters_per_pixel
     nice_values = [5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000]
     scale_m = nice_values[0]
@@ -123,11 +123,12 @@ def _draw_scale_bar(
     bar_h = 6
     margin = 15
     text_margin = 4
-
-    # Label
     label = f"{scale_m} m" if scale_m < 1000 else f"{scale_m / 1000:.0f} km"
 
-    draw = ImageDraw.Draw(img)
+    # Use RGBA overlay so alpha works
+    overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
     try:
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 13)
     except (OSError, IOError):
@@ -143,25 +144,25 @@ def _draw_scale_bar(
     bar_y2 = h - margin
     bar_y1 = bar_y2 - bar_h
 
-    # Background
-    bg_x1 = bar_x1 - 6
-    bg_y1 = bar_y1 - text_h - text_margin - 6
-    bg_x2 = bar_x2 + 6
-    bg_y2 = bar_y2 + 6
-    draw.rounded_rectangle([bg_x1, bg_y1, bg_x2, bg_y2], radius=4, fill=(255, 255, 255, 200))
+    # Semi-transparent white background
+    bg_x1 = bar_x1 - 8
+    bg_y1 = bar_y1 - text_h - text_margin - 8
+    bg_x2 = bar_x2 + 8
+    bg_y2 = bar_y2 + 8
+    draw.rounded_rectangle([bg_x1, bg_y1, bg_x2, bg_y2], radius=4, fill=(255, 255, 255, 210))
 
     # Bar
-    draw.rectangle([bar_x1, bar_y1, bar_x2, bar_y2], fill=(50, 50, 50))
+    draw.rectangle([bar_x1, bar_y1, bar_x2, bar_y2], fill=(50, 50, 50, 255))
     # Ticks at ends
-    draw.rectangle([bar_x1, bar_y1 - 3, bar_x1 + 1, bar_y2], fill=(50, 50, 50))
-    draw.rectangle([bar_x2 - 1, bar_y1 - 3, bar_x2, bar_y2], fill=(50, 50, 50))
+    draw.rectangle([bar_x1, bar_y1 - 4, bar_x1 + 2, bar_y2], fill=(50, 50, 50, 255))
+    draw.rectangle([bar_x2 - 2, bar_y1 - 4, bar_x2, bar_y2], fill=(50, 50, 50, 255))
 
     # Text centered above bar
     text_x = bar_x1 + (bar_px - text_w) // 2
     text_y = bar_y1 - text_h - text_margin
-    draw.text((text_x, text_y), label, fill=(50, 50, 50), font=font)
+    draw.text((text_x, text_y), label, fill=(50, 50, 50, 255), font=font)
 
-    return img
+    return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
 
 # --- Ortho snapshot (single WMS request) ---
