@@ -8,7 +8,7 @@ import math
 from typing import Literal
 
 import httpx
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from pyproj import Transformer
 
 from app.config import settings
@@ -99,6 +99,71 @@ def _draw_plot_outline(
     return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
 
+def _draw_scale_bar(
+    img: Image.Image,
+    bbox_3857: tuple[float, float, float, float],
+) -> Image.Image:
+    """Draw a scale bar in the bottom-right corner."""
+    w, h = img.size
+    min_x, min_y, max_x, max_y = bbox_3857
+    meters_per_pixel = (max_x - min_x) / w
+
+    # Pick a nice round scale length
+    target_px = w * 0.2  # aim for ~20% of image width
+    target_m = target_px * meters_per_pixel
+    nice_values = [5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000]
+    scale_m = nice_values[0]
+    for v in nice_values:
+        if v <= target_m:
+            scale_m = v
+        else:
+            break
+
+    bar_px = int(scale_m / meters_per_pixel)
+    bar_h = 6
+    margin = 15
+    text_margin = 4
+
+    # Label
+    label = f"{scale_m} m" if scale_m < 1000 else f"{scale_m / 1000:.0f} km"
+
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 13)
+    except (OSError, IOError):
+        font = ImageFont.load_default()
+
+    text_bbox = draw.textbbox((0, 0), label, font=font)
+    text_w = text_bbox[2] - text_bbox[0]
+    text_h = text_bbox[3] - text_bbox[1]
+
+    # Position: bottom-right
+    bar_x2 = w - margin
+    bar_x1 = bar_x2 - bar_px
+    bar_y2 = h - margin
+    bar_y1 = bar_y2 - bar_h
+
+    # Background
+    bg_x1 = bar_x1 - 6
+    bg_y1 = bar_y1 - text_h - text_margin - 6
+    bg_x2 = bar_x2 + 6
+    bg_y2 = bar_y2 + 6
+    draw.rounded_rectangle([bg_x1, bg_y1, bg_x2, bg_y2], radius=4, fill=(255, 255, 255, 200))
+
+    # Bar
+    draw.rectangle([bar_x1, bar_y1, bar_x2, bar_y2], fill=(50, 50, 50))
+    # Ticks at ends
+    draw.rectangle([bar_x1, bar_y1 - 3, bar_x1 + 1, bar_y2], fill=(50, 50, 50))
+    draw.rectangle([bar_x2 - 1, bar_y1 - 3, bar_x2, bar_y2], fill=(50, 50, 50))
+
+    # Text centered above bar
+    text_x = bar_x1 + (bar_px - text_w) // 2
+    text_y = bar_y1 - text_h - text_margin
+    draw.text((text_x, text_y), label, fill=(50, 50, 50), font=font)
+
+    return img
+
+
 # --- Ortho snapshot (single WMS request) ---
 
 async def _generate_ortho(
@@ -124,6 +189,7 @@ async def _generate_ortho(
 
     img = Image.open(io.BytesIO(resp.content)).convert("RGB")
     img = _draw_plot_outline(img, geometry, bbox_3857)
+    img = _draw_scale_bar(img, bbox_3857)
 
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85)
@@ -237,7 +303,9 @@ async def _generate_map(
     # Draw plot outline
     min_x, min_y = _to_3857.transform(min_lng, min_lat)
     max_x, max_y = _to_3857.transform(max_lng, max_lat)
-    img = _draw_plot_outline(img, geometry, (min_x, min_y, max_x, max_y))
+    bbox_3857 = (min_x, min_y, max_x, max_y)
+    img = _draw_plot_outline(img, geometry, bbox_3857)
+    img = _draw_scale_bar(img, bbox_3857)
 
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85)

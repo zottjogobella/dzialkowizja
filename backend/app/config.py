@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     # Snapshot generation
     snapshot_width: int = 600
     snapshot_height: int = 800
-    snapshot_bbox_padding: float = 0.3
+    snapshot_bbox_padding: float = 0.6
     snapshot_max_age_days: int = 30
 
     # Rate Limiting
