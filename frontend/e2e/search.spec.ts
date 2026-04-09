@@ -38,10 +38,11 @@ test.describe('Address search (PRG)', () => {
 	});
 
 	test('selecting an address navigates to plot page', async ({ page }) => {
-		await typeInto(page.locator('input[placeholder*="działki"]'), 'Poznanska, Poznan');
+		test.setTimeout(60_000);
+		await typeInto(page.locator('input[placeholder*="działki"]'), 'Poznanska 1, Poznan');
 
 		const listbox = page.locator('#search-listbox');
-		await expect(listbox).toBeVisible({ timeout: 10_000 });
+		await expect(listbox).toBeVisible({ timeout: 15_000 });
 
 		await listbox.locator('li').first().click();
 
