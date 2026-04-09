@@ -25,6 +25,7 @@
 	let layerVisible = $state<Record<string, boolean>>({ egib: false, bdot: false, osm: false });
 	let gesutVisible = $state(false);
 	let showDimensions = $state(true);
+	let buildings3d = $state(true);
 
 	const FELT_COLORS = [
 		'#50957f', '#9fa145', '#80b66d', '#7aa824', '#60759f', '#377ca4',
@@ -79,18 +80,32 @@
 			const filter = ['==', ['get', 'source'], layer.source];
 
 			const vis = layerVisible[layer.source] ? 'visible' : 'none';
+			const vis3d = layerVisible[layer.source] && buildings3d ? 'visible' : 'none';
+			const vis2d = layerVisible[layer.source] && !buildings3d ? 'visible' : 'none';
 
 			m.addLayer({
 				id: `buildings-${layer.source}-3d`,
 				type: 'fill-extrusion',
 				source: 'buildings',
 				filter,
-				layout: { visibility: vis },
+				layout: { visibility: vis3d },
 				paint: {
 					'fill-extrusion-color': layer.color,
 					'fill-extrusion-height': ['get', 'height'],
 					'fill-extrusion-base': 0,
 					'fill-extrusion-opacity': 0.85
+				}
+			});
+
+			m.addLayer({
+				id: `buildings-${layer.source}-2d`,
+				type: 'fill',
+				source: 'buildings',
+				filter,
+				layout: { visibility: vis2d },
+				paint: {
+					'fill-color': layer.color,
+					'fill-opacity': 0.7
 				}
 			});
 
@@ -318,11 +333,33 @@
 
 	function toggleLayer(src: string) {
 		layerVisible[src] = !layerVisible[src];
+		applyBuildingVisibility();
+	}
+
+	function toggleBuildings3d() {
+		buildings3d = !buildings3d;
 		if (!map || !mapReady) return;
-		const vis = layerVisible[src] ? 'visible' : 'none';
-		if (map.getLayer(`buildings-${src}-3d`)) {
-			map.setLayoutProperty(`buildings-${src}-3d`, 'visibility', vis);
-			map.setLayoutProperty(`buildings-${src}-outline`, 'visibility', vis);
+		// Adjust pitch for 2D/3D
+		map.easeTo({ pitch: buildings3d ? 45 : 0, duration: 400 });
+		applyBuildingVisibility();
+	}
+
+	function applyBuildingVisibility() {
+		if (!map || !mapReady) return;
+		for (const layer of LAYERS) {
+			const on = layerVisible[layer.source];
+			const vis3d = on && buildings3d ? 'visible' : 'none';
+			const vis2d = on && !buildings3d ? 'visible' : 'none';
+			const visOutline = on ? 'visible' : 'none';
+			if (map.getLayer(`buildings-${layer.source}-3d`)) {
+				map.setLayoutProperty(`buildings-${layer.source}-3d`, 'visibility', vis3d);
+			}
+			if (map.getLayer(`buildings-${layer.source}-2d`)) {
+				map.setLayoutProperty(`buildings-${layer.source}-2d`, 'visibility', vis2d);
+			}
+			if (map.getLayer(`buildings-${layer.source}-outline`)) {
+				map.setLayoutProperty(`buildings-${layer.source}-outline`, 'visibility', visOutline);
+			}
 		}
 	}
 </script>
@@ -391,6 +428,12 @@
 							</button>
 						{/if}
 					{/each}
+					<button
+						onclick={toggleBuildings3d}
+						class="rounded-lg px-2.5 py-1.5 text-xs font-medium shadow backdrop-blur-sm transition-colors bg-white/90 text-gray-800"
+					>
+						{buildings3d ? '2D' : '3D'}
+					</button>
 				{/if}
 			</div>
 		</div>
