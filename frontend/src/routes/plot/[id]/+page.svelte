@@ -137,7 +137,7 @@
 		<!-- Zrzuty mapy -->
 		<section class="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
 			<h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Zrzuty mapy</h2>
-			<div class="grid gap-4 md:grid-cols-2">
+			<div class="grid gap-4 grid-cols-2">
 				{#each [
 					{ type: 'ortho', label: 'Ortofotomapa' },
 					{ type: 'map', label: 'Mapa bazowa' },
@@ -148,7 +148,7 @@
 							src={url}
 							alt={item.label}
 							loading="lazy"
-							class="w-full bg-gray-100"
+							class="aspect-square w-full object-contain bg-gray-100"
 						/>
 						<div class="flex items-center justify-between px-3 py-2">
 							<span class="text-sm font-medium">{item.label}</span>
