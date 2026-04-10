@@ -39,14 +39,40 @@ async def search_lots(q: str, limit: int = 5) -> list[SearchSuggestion]:
     def _query() -> list[tuple]:
         conn = _geo_connect()
         try:
-            prefix = q
-            upper = prefix[:-1] + chr(ord(prefix[-1]) + 1)
             with conn.cursor() as cur:
+                # 1. Try an exact match first. This uses
+                #    idx_lots_enriched_id_dzialki (default collation
+                #    btree) directly and resolves full plot IDs —
+                #    including those the user pasted from somewhere —
+                #    in well under a millisecond.
                 cur.execute(
                     "SELECT id_dzialki, COALESCE(gmina, ''), COALESCE(miejscowosc, '')"
-                    " FROM lots_enriched"
-                    " WHERE id_dzialki >= %s AND id_dzialki < %s"
-                    " ORDER BY id_dzialki LIMIT %s",
+                    " FROM lots_enriched WHERE id_dzialki = %s LIMIT %s",
+                    (q, limit),
+                )
+                rows = cur.fetchall()
+                if rows:
+                    return rows
+
+                # 2. Fall back to a prefix range for partial queries
+                #    ("220404", "220404_2.0016", …). COLLATE "C" is
+                #    necessary because the default locale-aware
+                #    collation assigns UCA weights to punctuation like
+                #    '/', which makes the usual lexicographic range
+                #    return zero rows for IDs that contain slashes. The
+                #    existing btree index is built on the default
+                #    collation so this path does not use it and can be
+                #    slow on long, highly-selective prefixes — which is
+                #    acceptable because those already hit the exact
+                #    branch above.
+                prefix = q
+                upper = prefix[:-1] + chr(ord(prefix[-1]) + 1)
+                cur.execute(
+                    'SELECT id_dzialki, COALESCE(gmina, \'\'), COALESCE(miejscowosc, \'\')'
+                    ' FROM lots_enriched'
+                    ' WHERE id_dzialki COLLATE "C" >= %s COLLATE "C"'
+                    '   AND id_dzialki COLLATE "C" < %s COLLATE "C"'
+                    ' ORDER BY id_dzialki COLLATE "C" LIMIT %s',
                     (prefix, upper, limit),
                 )
                 return cur.fetchall()
