@@ -1,7 +1,16 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import 'maplibre-gl/dist/maplibre-gl.css';
-	import { distance, midpoint, point, buffer } from '@turf/turf';
+	import {
+		distance,
+		midpoint,
+		point,
+		buffer,
+		intersect,
+		area as turfArea,
+		union,
+		featureCollection,
+	} from '@turf/turf';
 	import type { Transaction, Listing, Investment } from '$lib/types/plot';
 	import { getPlotPowerlines, type PowerlineSource } from '$lib/api/plots';
 
@@ -55,6 +64,13 @@
 	let osmLinesVisible = $state(false);
 	let osmLinesBuffer = $state(10);
 	let bdotDevicesVisible = $state(false);
+	// Buffered polygon FCs kept in state so a $derived can compute the
+	// plot ∩ buffer intersection area reactively as the slider moves.
+	let bdotBufferedFC = $state<GeoJSON.FeatureCollection | null>(null);
+	let osmBufferedFC = $state<GeoJSON.FeatureCollection | null>(null);
+	// Placeholder zł/m² rate for the claim calculator — will be replaced
+	// by a lookup driven by the valuation spreadsheet once it's loaded.
+	let valuationPerM2 = $state(0);
 	// Cached raw features per source (fetched on first enable, reused for buffer changes)
 	let powerlineFeatures = $state<Record<PowerlineSource, GeoJSON.FeatureCollection | null>>({
 		bdot: null,
@@ -207,6 +223,60 @@
 		}
 	}
 
+	function plotAsFeature(): GeoJSON.Feature | null {
+		if (!geometry) return null;
+		const g = geometry as any;
+		if (g.type === 'Feature') return g;
+		if (g.type === 'FeatureCollection' && g.features?.[0]) return g.features[0];
+		return { type: 'Feature', properties: {}, geometry: g };
+	}
+
+	function computeIntersectionArea(bufferedFC: GeoJSON.FeatureCollection | null): number {
+		const plot = plotAsFeature();
+		if (!plot || !bufferedFC || bufferedFC.features.length === 0) return 0;
+		try {
+			// Union all buffer polygons pairwise so overlapping buffers are
+			// not double-counted when we intersect with the plot.
+			const polys = bufferedFC.features.filter(
+				(f: any) =>
+					f.geometry &&
+					(f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'),
+			);
+			if (polys.length === 0) return 0;
+			let merged: any = polys[0];
+			for (let i = 1; i < polys.length; i++) {
+				try {
+					const u = union(featureCollection([merged, polys[i] as any]) as any);
+					if (u) merged = u;
+				} catch {
+					// Pairwise union can fail on degenerate geometry — skip
+					// that buffer polygon and keep going.
+				}
+			}
+			const inter = intersect(featureCollection([plot as any, merged]) as any);
+			if (!inter) return 0;
+			return turfArea(inter);
+		} catch (e) {
+			console.warn('plot ∩ buffer area computation failed', e);
+			return 0;
+		}
+	}
+
+	// Reactive — updates whenever the buffered FC (which itself updates on
+	// slider change) or the plot geometry changes.
+	const bdotIntersectM2 = $derived(
+		bdotLinesVisible && bdotLinesBuffer > 0
+			? computeIntersectionArea(bdotBufferedFC)
+			: 0,
+	);
+	const osmIntersectM2 = $derived(
+		osmLinesVisible && osmLinesBuffer > 0
+			? computeIntersectionArea(osmBufferedFC)
+			: 0,
+	);
+	const bdotClaimZl = $derived(bdotIntersectM2 * valuationPerM2);
+	const osmClaimZl = $derived(osmIntersectM2 * valuationPerM2);
+
 	function computeBufferedFC(
 		fc: GeoJSON.FeatureCollection | null,
 		bufferM: number,
@@ -236,6 +306,9 @@
 		if (source === 'bdot' || source === 'osm') {
 			const bufferM = source === 'bdot' ? bdotLinesBuffer : osmLinesBuffer;
 			const buffered = computeBufferedFC(fc, bufferM);
+			// Stash in state so the plot ∩ buffer $derived picks it up.
+			if (source === 'bdot') bdotBufferedFC = buffered;
+			else osmBufferedFC = buffered;
 			const bufSrc = map.getSource(`pl-${source}-buffer`);
 			if (bufSrc && 'setData' in bufSrc) (bufSrc as any).setData(buffered);
 		}
@@ -1023,6 +1096,57 @@
 								{/if}
 							</label>
 						</section>
+
+						<!-- 7. Strefa / Roszczenie (order-last → zawsze po prawej) -->
+						{#if bdotLinesVisible || osmLinesVisible}
+							<section class="order-last min-w-[240px] flex-1 rounded-lg border border-amber-200 bg-amber-50/60 p-2">
+								<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700">Strefa · Roszczenie</h4>
+
+								{#if bdotLinesVisible}
+									<div class="flex items-baseline justify-between gap-2 py-0.5">
+										<span class="text-gray-600">Strefa BDOT ∩ działka</span>
+										<span class="font-mono text-gray-900">{Math.round(bdotIntersectM2).toLocaleString('pl-PL')} m²</span>
+									</div>
+								{/if}
+								{#if osmLinesVisible}
+									<div class="flex items-baseline justify-between gap-2 py-0.5">
+										<span class="text-gray-600">Strefa OSM ∩ działka</span>
+										<span class="font-mono text-gray-900">{Math.round(osmIntersectM2).toLocaleString('pl-PL')} m²</span>
+									</div>
+								{/if}
+
+								<label class="mt-2 flex items-center justify-between gap-2 border-t border-amber-200 pt-2 text-[10px] text-gray-500">
+									<span>Wycena <em class="not-italic text-gray-400">(zł/m²)</em></span>
+									<input
+										type="number"
+										min="0"
+										step="0.01"
+										bind:value={valuationPerM2}
+										placeholder="—"
+										class="w-20 rounded border border-gray-300 bg-white px-1.5 py-0.5 text-right font-mono text-[11px]"
+									/>
+								</label>
+
+								{#if valuationPerM2 > 0}
+									{#if bdotLinesVisible}
+										<div class="flex items-baseline justify-between gap-2 py-0.5">
+											<span class="text-gray-600">Roszczenie BDOT</span>
+											<span class="font-mono font-semibold text-amber-800">{Math.round(bdotClaimZl).toLocaleString('pl-PL')} zł</span>
+										</div>
+									{/if}
+									{#if osmLinesVisible}
+										<div class="flex items-baseline justify-between gap-2 py-0.5">
+											<span class="text-gray-600">Roszczenie OSM</span>
+											<span class="font-mono font-semibold text-amber-800">{Math.round(osmClaimZl).toLocaleString('pl-PL')} zł</span>
+										</div>
+									{/if}
+								{:else}
+									<div class="mt-1 text-[10px] italic text-gray-400">
+										Wpisz wycenę żeby policzyć roszczenie
+									</div>
+								{/if}
+							</section>
+						{/if}
 
 						<!-- 6. Pinezki -->
 						<section class="min-w-[220px] flex-1">
