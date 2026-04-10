@@ -47,7 +47,7 @@
 	let gesutLoadingTiles = $state(false);
 	let gesutUrzadzeniaLoadingTiles = $state(false);
 	let showDimensions = $state(true);
-	let buildings3d = $state(true);
+	let buildings3d = $state(false);
 
 	// Powerlines state — separate per source
 	let bdotLinesVisible = $state(false);
@@ -490,8 +490,8 @@
 				},
 				center: initCenter,
 				zoom: 15,
-				pitch: 45,
-				bearing: -15,
+				pitch: 0,
+				bearing: 0,
 				maxPitch: 70,
 				// Required so getCanvas().toDataURL() captures the rendered tiles
 				// when the user triggers "Pobierz mapę"; has a small perf cost.
