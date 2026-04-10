@@ -46,6 +46,10 @@
 	let map: import('maplibre-gl').Map | undefined;
 	let orthoOpacity = $state(50);
 	let mapReady = $state(false);
+	// First-visit hint for the "download map image" button. Persisted in
+	// localStorage so it only appears once per browser.
+	const DOWNLOAD_HINT_KEY = 'dzialkowizja_download_hint_seen';
+	let showDownloadHint = $state(false);
 
 	const LAYERS = [
 		{ source: 'egib', label: 'EGiB', color: '#e8d5b7' },
@@ -418,7 +422,18 @@
 		return { type: 'FeatureCollection', features };
 	}
 
+	function dismissDownloadHint() {
+		showDownloadHint = false;
+		try {
+			localStorage.setItem(DOWNLOAD_HINT_KEY, '1');
+		} catch {
+			// localStorage may be blocked in some browsers — the hint will
+			// just come back next visit, which is harmless.
+		}
+	}
+
 	function downloadMapImage() {
+		if (showDownloadHint) dismissDownloadHint();
 		if (!map || !mapReady) return;
 		// Force a synchronous render so the current state is in the drawing
 		// buffer before we read it (otherwise we can get a stale frame when
@@ -875,6 +890,22 @@
 		}
 	});
 
+	// Show the download-map hint on first visit only. Waits until the map
+	// has loaded (so the button is actually visible) and stops showing once
+	// the user has either closed it or clicked the button itself.
+	$effect(() => {
+		if (!browser || loading || !mapReady) return;
+		try {
+			if (localStorage.getItem(DOWNLOAD_HINT_KEY)) return;
+		} catch {
+			return; // storage blocked — don't pester the user
+		}
+		const t = setTimeout(() => {
+			showDownloadHint = true;
+		}, 700);
+		return () => clearTimeout(t);
+	});
+
 	function handleSlider(e: Event) {
 		const value = parseInt((e.target as HTMLInputElement).value);
 		orthoOpacity = value;
@@ -936,6 +967,30 @@
 					<path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
 				</svg>
 			</button>
+
+			<!-- First-visit hint pointing at the download button -->
+			{#if showDownloadHint}
+				<div
+					role="dialog"
+					aria-label="Wskazówka: pobierz widok mapy"
+					class="absolute left-14 top-3 flex max-w-xs items-start gap-2 rounded-lg bg-gray-900/95 p-3 text-xs text-white shadow-lg"
+				>
+					<!-- Arrow pointing left at the button -->
+					<div class="absolute -left-1.5 top-3 h-3 w-3 rotate-45 bg-gray-900/95"></div>
+					<div class="flex-1 leading-snug">
+						<div class="font-semibold">Pobierz widok mapy</div>
+						<div class="mt-0.5 text-gray-300">
+							Kliknij, aby zapisać aktualny widok (z wszystkimi włączonymi warstwami) jako PNG.
+						</div>
+					</div>
+					<button
+						onclick={dismissDownloadHint}
+						class="-mr-1 -mt-1 text-lg leading-none text-gray-400 hover:text-white"
+						title="Zamknij wskazówkę"
+						aria-label="Zamknij wskazówkę"
+					>&times;</button>
+				</div>
+			{/if}
 		{/if}
 	</div>
 
