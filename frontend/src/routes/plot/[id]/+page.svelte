@@ -7,8 +7,10 @@
 		getPlotBuildings,
 		getPlotTransactions,
 		getPlotInvestments,
+		getPlotRoszczenie,
 		type ListingsResponse,
 		type InvestmentType,
+		type RoszczenieRow,
 	} from '$lib/api/plots';
 	import type { PlotDetail, Listing, Transaction, Investment } from '$lib/types/plot';
 	import PlotMap from '$lib/components/PlotMap.svelte';
@@ -28,6 +30,7 @@
 	let investmentsLoading = $state(true);
 	let investmentsType = $state<InvestmentType>('all');
 	let investmentsMonths = $state(24);
+	let roszczenieRow = $state<RoszczenieRow | null>(null);
 
 	const allListings = $derived([...activeListings, ...inactiveListings]);
 
@@ -91,6 +94,16 @@
 			})
 			.finally(() => {
 				transactionsLoading = false;
+			});
+
+		// Pre-computed claim value from roszczenia.csv (null if plot isn't in the sheet)
+		roszczenieRow = null;
+		getPlotRoszczenie(id)
+			.then((row) => {
+				roszczenieRow = row;
+			})
+			.catch(() => {
+				roszczenieRow = null;
 			});
 	});
 
@@ -193,6 +206,7 @@
 				{transactions}
 				listings={allListings}
 				{investments}
+				{roszczenieRow}
 				loading={geometryLoading}
 				onPinClick={handlePinClick}
 			/>

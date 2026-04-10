@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, LargeBinary, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, LargeBinary, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import INET, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -76,3 +76,20 @@ class PlotSnapshot(Base):
     width: Mapped[int] = mapped_column(Integer, nullable=False)
     height: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Roszczenie(Base):
+    """Pre-computed claim values loaded from the roszczenia.csv spreadsheet.
+
+    Minimal two-column mapping id_dzialki → wartosc_roszczenia. Only rows
+    owned by legal entities (``os prawna``/``panstwo``) are imported —
+    individuals are filtered out during ingest. Stored in the app DB so
+    the data stays local to this project and is not touched in gruntomat.
+    """
+
+    __tablename__ = "roszczenia"
+    __table_args__ = (Index("ix_roszczenia_lot", "id_dzialki"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id_dzialki: Mapped[str] = mapped_column(String(255), nullable=False)
+    wartosc_roszczenia: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)

@@ -1,15 +1,16 @@
 """Powerlines endpoint: returns BDOT10k or OSM electric lines / devices near a plot.
 
 Three sources exposed through `?source=`:
-  - `bdot`:          rows from bdot_power_lines (BDOT10k OT_SULN_L,
-                     ingested by backend/scripts/ingest_bdot_powerlines.py)
+  - `bdot`:          rows from bdot_suln_l (BDOT10k SULN_L, ~390k rows
+                     covering all 16 województw — uploaded by a sibling
+                     project to gruntomat_geo)
   - `osm`:           rows from osm_power_lines (OSM power=line/minor_line/cable,
                      extracted by backend/scripts/extract_osm_powerlines.py)
   - `bdot_devices`:  rows from bdot_power_devices (BDOT10k point/polygon
                      devices: słupy, transformatory, podstacje, elektrownie,
                      ingested by backend/scripts/ingest_bdot_power_devices.py)
 
-All source tables live in gruntomat and store geometries as EPSG:2180.
+All source tables live in gruntomat_geo and store geometries as EPSG:2180.
 The endpoint uses ST_DWithin against the plot geometry (not the centroid)
 for correctness on large / elongated parcels, and returns geometries
 transformed to EPSG:4326 wrapped in a GeoJSON FeatureCollection.
@@ -69,13 +70,16 @@ def _fetch_powerlines(
                 return None
 
             if source == "bdot":
+                # Now backed by `bdot_suln_l` — the full BDOT10k SULN_L
+                # dataset covering all 16 województw (~390k rows) that was
+                # uploaded by a sibling project. The old `bdot_power_lines`
+                # table was a POC with only opolskie and has been dropped.
                 sql = """
                     SELECT ST_AsGeoJSON(ST_Transform(p.geom, 4326))::json AS geometry,
-                           p.gml_id,
+                           p.lokalnyid,
                            p.rodzaj,
-                           p.napiecie_klasa,
-                           p.source_woj
-                    FROM bdot_power_lines p,
+                           p.woj_teryt
+                    FROM bdot_suln_l p,
                          (SELECT geom FROM lots_enriched WHERE id_dzialki = %s) lot
                     WHERE ST_DWithin(p.geom, lot.geom, %s)
                     LIMIT %s
@@ -83,15 +87,14 @@ def _fetch_powerlines(
                 cur.execute(sql, (id_dzialki, buffer_m, limit))
                 rows = cur.fetchall()
                 features = []
-                for geom, gml_id, rodzaj, klasa, woj in rows:
+                for geom, lokalny_id, rodzaj, woj in rows:
                     geometry = json.loads(geom) if isinstance(geom, str) else geom
                     features.append({
                         "type": "Feature",
                         "properties": {
                             "source": "bdot",
-                            "gml_id": gml_id,
+                            "lokalny_id": lokalny_id,
                             "rodzaj": rodzaj,
-                            "napiecie_klasa": klasa,
                             "source_woj": woj,
                         },
                         "geometry": geometry,

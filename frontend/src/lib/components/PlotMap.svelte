@@ -12,7 +12,11 @@
 		featureCollection,
 	} from '@turf/turf';
 	import type { Transaction, Listing, Investment } from '$lib/types/plot';
-	import { getPlotPowerlines, type PowerlineSource } from '$lib/api/plots';
+	import {
+		getPlotPowerlines,
+		type PowerlineSource,
+		type RoszczenieRow,
+	} from '$lib/api/plots';
 
 	interface Props {
 		idDzialki: string;
@@ -22,6 +26,7 @@
 		transactions?: Transaction[];
 		listings?: Listing[];
 		investments?: Investment[];
+		roszczenieRow?: RoszczenieRow | null;
 		onPinClick?: (kind: 'transaction' | 'listing' | 'investment', id: number) => void;
 	}
 
@@ -33,6 +38,7 @@
 		transactions = [],
 		listings = [],
 		investments = [],
+		roszczenieRow = null,
 		onPinClick,
 	}: Props = $props();
 
@@ -1098,9 +1104,18 @@
 						</section>
 
 						<!-- 7. Strefa / Roszczenie (order-last → zawsze po prawej) -->
-						{#if bdotLinesVisible || osmLinesVisible}
+						{#if bdotLinesVisible || osmLinesVisible || roszczenieRow}
 							<section class="order-last min-w-[240px] flex-1 rounded-lg border border-amber-200 bg-amber-50/60 p-2">
 								<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700">Strefa · Roszczenie</h4>
+
+								{#if roszczenieRow}
+									<div class="mb-2 rounded border border-amber-300 bg-white/80 p-2">
+										<div class="text-[10px] uppercase tracking-wider text-amber-700">Roszczenie z arkusza</div>
+										<div class="font-mono text-sm font-semibold text-amber-900">
+											{Math.round(roszczenieRow.wartosc_roszczenia).toLocaleString('pl-PL')} zł
+										</div>
+									</div>
+								{/if}
 
 								{#if bdotLinesVisible}
 									<div class="flex items-baseline justify-between gap-2 py-0.5">

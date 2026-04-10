@@ -92,3 +92,23 @@ export async function getPlotPowerlines(
 	);
 }
 
+export interface RoszczenieRow {
+	id_dzialki: string;
+	wartosc_roszczenia: number;
+}
+
+/** Return the pre-computed claim value for a plot, or null if not in the sheet. */
+export async function getPlotRoszczenie(idDzialki: string): Promise<RoszczenieRow | null> {
+	try {
+		return await apiGet<RoszczenieRow>(
+			`/api/roszczenia/${encodeURIComponent(idDzialki)}`,
+		);
+	} catch (e: any) {
+		// apiGet throws on non-2xx — a 404 means "not in the sheet" which
+		// is a valid outcome, not an error worth surfacing to the user.
+		const msg = String(e?.message ?? e);
+		if (e?.status === 404 || msg.includes('404')) return null;
+		throw e;
+	}
+}
+
