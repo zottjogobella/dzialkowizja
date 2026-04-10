@@ -3,6 +3,7 @@
 	import { getPlot, getPlotGeometry, getPlotListings, getPlotBuildings, getPlotTransactions, type ListingsResponse } from '$lib/api/plots';
 	import type { PlotDetail, Listing, Transaction } from '$lib/types/plot';
 	import PlotMap from '$lib/components/PlotMap.svelte';
+	import PriceChart from '$lib/components/PriceChart.svelte';
 
 	let plot = $state<PlotDetail | null>(null);
 	let loading = $state(true);
@@ -109,6 +110,59 @@
 	};
 	const RODZAJ_RYNKU: Record<number, string> = { 1: 'Pierwotny', 2: 'Wtórny' };
 	const RODZAJ_TRANSAKCJI: Record<number, string> = { 1: 'Sprzedaż', 2: 'Zamiana', 3: 'Inne' };
+
+	// Transaction chart datasets
+	const txPriceVsDistance = $derived(
+		transactions
+			.filter((t) => t.cena_za_m2 != null && t.distance_m != null)
+			.map((t) => ({
+				x: t.distance_m!,
+				y: t.cena_za_m2!,
+				label: t.data_transakcji ?? ''
+			}))
+	);
+
+	const txPriceVsTime = $derived(
+		transactions
+			.filter((t) => t.cena_za_m2 != null && t.data_transakcji)
+			.map((t) => ({
+				x: new Date(t.data_transakcji!).getTime(),
+				y: t.cena_za_m2!,
+				label: t.data_transakcji ?? ''
+			}))
+			.sort((a, b) => a.x - b.x)
+	);
+
+	const txPriceDistribution = $derived(
+		transactions
+			.filter((t) => t.cena_za_m2 != null)
+			.map((t) => ({ x: 0, y: t.cena_za_m2! }))
+	);
+
+	// Listings chart datasets (combine active + inactive)
+	const allListings = $derived([...activeListings, ...inactiveListings]);
+
+	const listingPriceVsTime = $derived(
+		allListings
+			.filter((l) => l.price_per_meter != null && l.publish_date)
+			.map((l) => ({
+				x: new Date(l.publish_date!).getTime(),
+				y: Number(l.price_per_meter!),
+				label: l.publish_date ?? ''
+			}))
+			.sort((a, b) => a.x - b.x)
+	);
+
+	const listingPriceDistribution = $derived(
+		allListings
+			.filter((l) => l.price_per_meter != null)
+			.map((l) => ({ x: 0, y: Number(l.price_per_meter!) }))
+	);
+
+	function formatTimeAxis(ts: number): string {
+		const d = new Date(ts);
+		return d.toLocaleDateString('pl-PL', { year: 'numeric', month: 'short' });
+	}
 </script>
 
 <svelte:head>
@@ -253,6 +307,37 @@
 				{:else if transactions.length === 0}
 					<p class="text-sm text-[var(--color-text-muted)]">Brak transakcji w okolicy</p>
 				{:else}
+					<div class="mb-4 grid gap-4 md:grid-cols-3">
+						<div class="rounded-lg border border-[var(--color-border)] p-3">
+							<PriceChart
+								type="scatter"
+								datasets={[{ label: 'Transakcje', color: '#2563eb', points: txPriceVsDistance }]}
+								xLabel="Odległość (m)"
+								yLabel="Cena za m² (zł)"
+								title="Cena/m² vs odległość"
+							/>
+						</div>
+						<div class="rounded-lg border border-[var(--color-border)] p-3">
+							<PriceChart
+								type="scatter"
+								datasets={[{ label: 'Transakcje', color: '#2563eb', points: txPriceVsTime }]}
+								xLabel="Data"
+								yLabel="Cena za m² (zł)"
+								title="Cena/m² vs czas"
+								xAsTime
+							/>
+						</div>
+						<div class="rounded-lg border border-[var(--color-border)] p-3">
+							<PriceChart
+								type="histogram"
+								datasets={[{ label: 'Transakcje', color: '#2563eb', points: txPriceDistribution }]}
+								xLabel="Cena za m² (zł)"
+								yLabel="Liczba"
+								title="Rozkład cen/m²"
+							/>
+						</div>
+					</div>
+
 					<div class="overflow-x-auto rounded-lg border border-[var(--color-border)]">
 						<table class="w-full text-sm">
 							<thead class="bg-[var(--color-surface)] text-left text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
@@ -309,6 +394,28 @@
 				{:else if activeListings.length === 0 && inactiveListings.length === 0}
 					<p class="text-sm text-[var(--color-text-muted)]">Brak ogłoszeń w okolicy</p>
 				{:else}
+					<div class="mb-4 grid gap-4 md:grid-cols-2">
+						<div class="rounded-lg border border-[var(--color-border)] p-3">
+							<PriceChart
+								type="scatter"
+								datasets={[{ label: 'Ogłoszenia', color: '#16a34a', points: listingPriceVsTime }]}
+								xLabel="Data"
+								yLabel="Cena za m² (zł)"
+								title="Cena/m² vs czas"
+								xAsTime
+							/>
+						</div>
+						<div class="rounded-lg border border-[var(--color-border)] p-3">
+							<PriceChart
+								type="histogram"
+								datasets={[{ label: 'Ogłoszenia', color: '#16a34a', points: listingPriceDistribution }]}
+								xLabel="Cena za m² (zł)"
+								yLabel="Liczba"
+								title="Rozkład cen/m²"
+							/>
+						</div>
+					</div>
+
 					{#snippet listingCard(listing: Listing, faded: boolean)}
 						<a
 							href={listing.url ?? '#'}
