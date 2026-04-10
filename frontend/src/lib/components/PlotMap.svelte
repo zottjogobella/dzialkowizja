@@ -31,7 +31,6 @@
 	let map: import('maplibre-gl').Map | undefined;
 	let orthoOpacity = $state(50);
 	let mapReady = $state(false);
-	let panelOpen = $state(true);
 
 	const LAYERS = [
 		{ source: 'egib', label: 'EGiB', color: '#e8d5b7' },
@@ -796,45 +795,35 @@
 	}
 </script>
 
-<div class="relative h-[500px] w-full overflow-hidden rounded-xl border border-[var(--color-border)]">
-	{#if loading}
-		<div class="flex h-full items-center justify-center bg-[var(--color-surface)]">
-			<div class="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-border)] border-t-[var(--color-primary)]"></div>
-		</div>
-	{:else}
-		<div bind:this={mapContainer} class="h-full w-full"></div>
+<div class="w-full space-y-2">
+	<div class="relative h-[600px] w-full overflow-hidden rounded-xl border border-[var(--color-border)]">
+		{#if loading}
+			<div class="flex h-full items-center justify-center bg-[var(--color-surface)]">
+				<div class="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-border)] border-t-[var(--color-primary)]"></div>
+			</div>
+		{:else}
+			<div bind:this={mapContainer} class="h-full w-full"></div>
 
-		<!-- Left side: controls panel (collapsible, open by default) -->
-		<div class="pointer-events-none absolute inset-y-3 left-3 flex items-start">
-			{#if panelOpen}
-				<div
-					class="pointer-events-auto flex max-h-full w-72 flex-col overflow-hidden rounded-xl bg-white/95 shadow-lg backdrop-blur-sm"
-				>
-					<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
-						<span class="text-xs font-semibold uppercase tracking-wider text-gray-700">Warstwy mapy</span>
-						<div class="flex items-center gap-3">
-							<button
-								onclick={downloadMapImage}
-								class="text-gray-400 hover:text-gray-700"
-								title="Pobierz aktualny widok mapy"
-								aria-label="Pobierz mapę"
-							>
-								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
-								</svg>
-							</button>
-							<button
-								onclick={() => (panelOpen = false)}
-								class="text-lg leading-none text-gray-400 hover:text-gray-700"
-								title="Zwiń panel"
-								aria-label="Zwiń panel"
-							>&times;</button>
-						</div>
-					</div>
+			<!-- Floating download button, top-right of the map -->
+			<button
+				onclick={downloadMapImage}
+				class="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-gray-600 shadow backdrop-blur-sm hover:bg-white hover:text-gray-900"
+				title="Pobierz aktualny widok mapy"
+				aria-label="Pobierz mapę"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+				</svg>
+			</button>
+		{/if}
+	</div>
 
-					<div class="flex-1 space-y-4 overflow-y-auto px-4 py-3 text-xs text-gray-700">
+	{#if !loading}
+		<!-- Always-visible full-width controls, laid out horizontally under the map -->
+		<div class="w-full rounded-xl border border-[var(--color-border)] bg-white/95 p-4 text-xs text-gray-700 shadow-sm">
+			<div class="flex flex-wrap gap-x-6 gap-y-4">
 						<!-- 1. Mapa bazowa -->
-						<section>
+						<section class="min-w-[220px] flex-1">
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Mapa bazowa</h4>
 							<label class="flex items-center gap-2">
 								<span>Carto</span>
@@ -849,7 +838,7 @@
 						</section>
 
 						<!-- 2. Działka -->
-						<section>
+						<section class="min-w-[180px] flex-1">
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Działka</h4>
 							<label class="flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={showDimensions} onchange={toggleDimensions} class="accent-blue-600" />
@@ -915,7 +904,7 @@
 
 						<!-- 3. Budynki -->
 						{#if buildings && buildings.features.length > 0}
-							<section>
+							<section class="min-w-[180px] flex-1">
 								<div class="mb-1.5 flex items-center justify-between">
 									<h4 class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Budynki</h4>
 									<button
@@ -945,7 +934,7 @@
 						{/if}
 
 						<!-- 4. Sieci uzbrojenia (GESUT WMS) -->
-						<section>
+						<section class="min-w-[220px] flex-1">
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Sieci uzbrojenia (GESUT)</h4>
 							<label class="flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={gesutVisible} onchange={toggleGesut} class="accent-blue-600" />
@@ -966,7 +955,7 @@
 						</section>
 
 						<!-- 5. Linie energetyczne (wektorowe + bufor) -->
-						<section>
+						<section class="min-w-[280px] flex-[2]">
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Linie energetyczne</h4>
 
 							<label class="flex cursor-pointer items-center gap-2 py-1">
@@ -1036,7 +1025,7 @@
 						</section>
 
 						<!-- 6. Pinezki -->
-						<section>
+						<section class="min-w-[220px] flex-1">
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Pinezki</h4>
 							<label class="flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={txPinsVisible} onchange={() => togglePins('tx')} class="accent-blue-600" />
@@ -1057,21 +1046,7 @@
 								<span class="text-[10px] text-gray-400">{investments.filter(i => i.lng != null).length}</span>
 							</label>
 						</section>
-					</div>
-				</div>
-			{:else}
-				<button
-					onclick={() => (panelOpen = true)}
-					class="pointer-events-auto flex h-9 items-center gap-1.5 rounded-lg bg-white/95 px-2.5 text-xs font-medium text-gray-700 shadow backdrop-blur-sm hover:bg-white"
-					title="Pokaż warstwy"
-					aria-label="Pokaż warstwy"
-				>
-					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-					</svg>
-					Warstwy
-				</button>
-			{/if}
+			</div>
 		</div>
 	{/if}
 </div>

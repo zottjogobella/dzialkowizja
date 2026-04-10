@@ -170,7 +170,7 @@
 	<title>{plot?.id_dzialki ?? 'Działka'} - Gruntify</title>
 </svelte:head>
 
-<div class="mx-auto w-full max-w-4xl px-6 py-6">
+<div class="mx-auto w-full max-w-6xl px-6 py-6">
 	<a href="/" class="mb-4 inline-block text-sm text-[var(--color-text-muted)] hover:underline">&larr; Wróć do wyszukiwania</a>
 
 	{#if loading}
