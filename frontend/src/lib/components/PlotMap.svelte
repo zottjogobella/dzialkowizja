@@ -74,8 +74,10 @@
 	// plot ∩ buffer intersection area reactively as the slider moves.
 	let bdotBufferedFC = $state<GeoJSON.FeatureCollection | null>(null);
 	let osmBufferedFC = $state<GeoJSON.FeatureCollection | null>(null);
-	// Placeholder zł/m² rate for the claim calculator — will be replaced
-	// by a lookup driven by the valuation spreadsheet once it's loaded.
+	// Placeholder zł rate for the claim calculator. Historically this was
+	// a zł/m² input the user typed manually; when the roszczenia.csv sheet
+	// has a row for the plot we auto-populate it with the sheet's total
+	// claim amount (see $effect below). The user can still overwrite it.
 	let valuationPerM2 = $state(0);
 	// Cached raw features per source (fetched on first enable, reused for buffer changes)
 	let powerlineFeatures = $state<Record<PowerlineSource, GeoJSON.FeatureCollection | null>>({
@@ -831,6 +833,16 @@
 		if (!map || !mapReady) return;
 		const src = map.getSource('pins-investment-src');
 		if (src && 'setData' in src) (src as any).setData(toFeatureCollection(investments, 'investment'));
+	});
+
+	// Autofill the "Wycena" input from the roszczenia.csv sheet when the
+	// plot has a matching row. Runs once per plot load — subsequent user
+	// edits stick because `valuationPerM2` only gets re-synced when the
+	// incoming `roszczenieRow` reference actually changes.
+	$effect(() => {
+		if (roszczenieRow) {
+			valuationPerM2 = roszczenieRow.wartosc_roszczenia;
+		}
 	});
 
 	function handleSlider(e: Event) {
