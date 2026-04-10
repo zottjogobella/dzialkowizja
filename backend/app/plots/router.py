@@ -128,6 +128,7 @@ def _fetch_listings(lng: float, lat: float, limit: int = 10) -> dict:
     columns = [
         "id", "name", "property_type", "deal_type", "price",
         "price_per_meter", "area", "city", "url", "site", "publish_date",
+        "lng", "lat",
     ]
     spatial_filter = (
         " geom_2180 IS NOT NULL"
@@ -136,7 +137,9 @@ def _fetch_listings(lng: float, lat: float, limit: int = 10) -> dict:
     )
     select_cols = (
         "id, name, property_type, deal_type, price, price_per_meter,"
-        " area, city, url, site, publish_date"
+        " area, city, url, site, publish_date,"
+        " ST_X(ST_Transform(geom_2180, 4326)) AS lng,"
+        " ST_Y(ST_Transform(geom_2180, 4326)) AS lat"
     )
 
     def _to_dicts(rows):
@@ -234,6 +237,8 @@ def _fetch_nearest_transactions(cx: float, cy: float, limit: int = 10) -> list[d
                     strona_kupujaca, strona_sprzedajaca,
                     miejscowosc, ulica, numer_porzadkowy,
                     dodatkowe_informacje,
+                    ST_X(ST_Transform(ST_SetSRID(ST_MakePoint(cx_2180, cy_2180), 2180), 4326)) AS lng,
+                    ST_Y(ST_Transform(ST_SetSRID(ST_MakePoint(cx_2180, cy_2180), 2180), 4326)) AS lat,
                     ST_Distance(
                         ST_SetSRID(ST_MakePoint(cx_2180, cy_2180), 2180),
                         ST_SetSRID(ST_MakePoint(%s, %s), 2180)

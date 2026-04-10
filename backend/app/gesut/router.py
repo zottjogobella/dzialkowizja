@@ -89,3 +89,69 @@ async def gesut_tile(
         logger.exception("GESUT WMS fetch failed")
 
     return Response(content=TRANSPARENT_PNG, media_type="image/png")
+
+
+@router.get("/tile-urzadzenia")
+async def gesut_tile_urzadzenia(
+    bbox: str = Query(..., description="minx,miny,maxx,maxy in EPSG:3857"),
+    width: int = Query(512, ge=1, le=2048),
+    height: int = Query(512, ge=1, le=2048),
+    _user=Depends(require_auth),
+):
+    """Proxy GESUT WMS tile (urzadzenia): convert EPSG:3857 bbox → 2180, fetch, return PNG."""
+    try:
+        parts = bbox.split(",")
+        if len(parts) != 4:
+            return Response(content=TRANSPARENT_PNG, media_type="image/png")
+        min_x, min_y, max_x, max_y = (float(v) for v in parts)
+    except (ValueError, TypeError):
+        return Response(content=TRANSPARENT_PNG, media_type="image/png")
+
+    # Convert 3857 → 2180 via PostGIS
+    pool = get_geo_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT ST_XMin(env), ST_YMin(env), ST_XMax(env), ST_YMax(env)
+            FROM (
+                SELECT ST_Transform(
+                    ST_MakeEnvelope($1, $2, $3, $4, 3857), 2180
+                ) AS env
+            ) t
+            """,
+            min_x,
+            min_y,
+            max_x,
+            max_y,
+        )
+
+    bbox_2180 = f"{row[0]},{row[1]},{row[2]},{row[3]}"
+
+    params = {
+        "SERVICE": "WMS",
+        "VERSION": "1.1.1",
+        "REQUEST": "GetMap",
+        "LAYERS": "przewod_urzadzenia",
+        "SRS": "EPSG:2180",
+        "BBOX": bbox_2180,
+        "WIDTH": str(width),
+        "HEIGHT": str(height),
+        "FORMAT": "image/png",
+        "STYLES": "",
+        "TRANSPARENT": "TRUE",
+    }
+
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
+            resp = await client.get(GESUT_WMS_URL, params=params)
+
+        if resp.status_code == 200 and "image" in resp.headers.get("content-type", ""):
+            return Response(
+                content=resp.content,
+                media_type="image/png",
+                headers={"Cache-Control": "public, max-age=86400"},
+            )
+    except Exception:
+        logger.exception("GESUT WMS fetch failed")
+
+    return Response(content=TRANSPARENT_PNG, media_type="image/png")

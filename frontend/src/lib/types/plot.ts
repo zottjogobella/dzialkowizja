@@ -48,6 +48,8 @@ export interface Listing {
 	url: string | null;
 	site: string | null;
 	publish_date: string | null;
+	lng: number | null;
+	lat: number | null;
 }
 
 export interface Transaction {
@@ -84,6 +86,27 @@ export interface Transaction {
 	centroid_x: number | null;
 	centroid_y: number | null;
 	dodatkowe_informacje: string | null;
+	distance_m: number | null;
+	lng: number | null;
+	lat: number | null;
+}
+
+export interface Investment {
+	id: number;
+	typ: string | null;
+	status: string | null;
+	data_wniosku: string | null;
+	data_decyzji: string | null;
+	inwestor: string | null;
+	organ: string | null;
+	miejscowosc: string | null;
+	adres: string | null;
+	opis: string | null;
+	kategoria: string | null;
+	rodzaj_inwestycji: string | null;
+	parcel_id: string | null;
+	lng: number | null;
+	lat: number | null;
 	distance_m: number | null;
 }
 

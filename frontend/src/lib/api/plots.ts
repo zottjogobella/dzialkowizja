@@ -1,4 +1,4 @@
-import type { PlotDetail, Listing, Transaction } from '$lib/types/plot';
+import type { PlotDetail, Listing, Transaction, Investment } from '$lib/types/plot';
 import { apiGet } from './client';
 
 export async function getPlot(idDzialki: string): Promise<PlotDetail> {
@@ -55,6 +55,40 @@ export async function getPlotTransactionStats(idDzialki: string): Promise<Transa
 export async function getPlotListingStats(idDzialki: string): Promise<ListingStat[]> {
 	return apiGet<ListingStat[]>(
 		`/api/plots/${encodeURIComponent(idDzialki)}/listings/stats`
+	);
+}
+
+export type InvestmentType = 'all' | 'pozwolenie' | 'zgloszenie';
+
+export async function getPlotInvestments(
+	idDzialki: string,
+	months: number = 24,
+	type: InvestmentType = 'all',
+	radiusM: number = 500,
+): Promise<Investment[]> {
+	const qs = new URLSearchParams({
+		months: String(months),
+		type,
+		radius_m: String(radiusM),
+	});
+	return apiGet<Investment[]>(
+		`/api/investments/${encodeURIComponent(idDzialki)}?${qs.toString()}`,
+	);
+}
+
+export type PowerlineSource = 'bdot' | 'osm' | 'bdot_devices';
+
+export async function getPlotPowerlines(
+	idDzialki: string,
+	source: PowerlineSource,
+	bufferM: number = 50,
+): Promise<GeoJSON.FeatureCollection> {
+	const qs = new URLSearchParams({
+		source,
+		buffer_m: String(bufferM),
+	});
+	return apiGet<GeoJSON.FeatureCollection>(
+		`/api/powerlines/${encodeURIComponent(idDzialki)}?${qs.toString()}`,
 	);
 }
 

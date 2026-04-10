@@ -50,7 +50,9 @@ def create_app() -> FastAPI:
     from app.auth.router import router as auth_router
     from app.gesut.router import router as gesut_router
     from app.history.router import router as history_router
+    from app.investments.router import router as investments_router
     from app.plots.router import router as plots_router
+    from app.powerlines.router import router as powerlines_router
     from app.search.router import router as search_router
 
     app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
@@ -58,6 +60,8 @@ def create_app() -> FastAPI:
     app.include_router(plots_router, prefix="/api/plots", tags=["plots"])
     app.include_router(gesut_router, prefix="/api/gesut", tags=["gesut"])
     app.include_router(history_router, prefix="/api/history", tags=["history"])
+    app.include_router(powerlines_router, prefix="/api/powerlines", tags=["powerlines"])
+    app.include_router(investments_router, prefix="/api/investments", tags=["investments"])
 
     @app.get("/health")
     async def health():
