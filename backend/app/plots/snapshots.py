@@ -198,7 +198,38 @@ def _draw_scale_bar(
     return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
 
-# --- Ortho snapshot (single WMS request) ---
+# --- Ortho snapshot (Geoportal WMTS tile stitching) ---
+#
+# The WMS GetMap endpoint (/wss/service/PZGIK/ORTO/WMS/StandardResolution) is
+# a dynamic render pipeline that periodically chokes. The WMTS variant of the
+# same layer (ORTOFOTOMAPA) serves pre-rendered 256px tiles from a CDN and
+# stays up independently. Native Web Mercator (EPSG:3857) tiling, so the
+# existing _lng_to_tile_x / _lat_to_tile_y helpers work unchanged.
+
+_ORTHO_WMTS_MAX_ZOOM = 19  # StandardResolution caps at z19 per GetCapabilities
+_ORTHO_WMTS_TILE_SIZE = 256
+_ORTHO_WMTS_URL_TEMPLATE = (
+    "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMTS/StandardResolution"
+    "?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTOFOTOMAPA"
+    "&TILEMATRIXSET=EPSG:3857&TILEMATRIX=EPSG:3857:{z}"
+    "&TILEROW={y}&TILECOL={x}&FORMAT=image/jpeg"
+)
+
+
+def _compute_ortho_zoom(
+    bbox_4326: tuple[float, float, float, float], target_w: int
+) -> int:
+    """Pick the highest zoom where stitched tiles stay within ~2×target width."""
+    min_lng, _, max_lng, _ = bbox_4326
+    span = max_lng - min_lng
+    if span <= 0:
+        return _ORTHO_WMTS_MAX_ZOOM
+    for z in range(_ORTHO_WMTS_MAX_ZOOM, 0, -1):
+        tiles_across = span / 360.0 * (1 << z)
+        if tiles_across * _ORTHO_WMTS_TILE_SIZE <= target_w * 2:
+            return z
+    return 15
+
 
 async def _generate_ortho(
     geometry: dict,
@@ -206,32 +237,103 @@ async def _generate_ortho(
 ) -> bytes:
     w = h = settings.snapshot_size
     min_lng, min_lat, max_lng, max_lat = bbox_4326
-    min_x, min_y = _to_3857.transform(min_lng, min_lat)
-    max_x, max_y = _to_3857.transform(max_lng, max_lat)
-    bbox_3857 = (min_x, min_y, max_x, max_y)
 
-    wms_url = (
-        "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution"
-        f"?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=Raster&STYLES="
-        f"&SRS=EPSG:3857&BBOX={min_x},{min_y},{max_x},{max_y}"
-        f"&WIDTH={w}&HEIGHT={h}&FORMAT=image/jpeg"
-    )
+    zoom = _compute_ortho_zoom(bbox_4326, w)
+    tx_min = _lng_to_tile_x(min_lng, zoom)
+    tx_max = _lng_to_tile_x(max_lng, zoom)
+    ty_min = _lat_to_tile_y(max_lat, zoom)  # Y is flipped
+    ty_max = _lat_to_tile_y(min_lat, zoom)
+
+    coords: list[tuple[int, int]] = [
+        (tx, ty)
+        for tx in range(tx_min, tx_max + 1)
+        for ty in range(ty_min, ty_max + 1)
+    ]
 
     try:
         async with httpx.AsyncClient(
             timeout=_ORTHO_WMS_TIMEOUT, follow_redirects=True
         ) as client:
-            resp = await client.get(wms_url)
-            resp.raise_for_status()
-    except (httpx.TimeoutException, httpx.TransportError, httpx.HTTPStatusError) as e:
+            urls = [
+                _ORTHO_WMTS_URL_TEMPLATE.format(z=zoom, x=tx, y=ty)
+                for (tx, ty) in coords
+            ]
+            responses = await asyncio.gather(
+                *(client.get(u) for u in urls), return_exceptions=True
+            )
+    except (httpx.TimeoutException, httpx.TransportError) as e:
         logger.warning(
-            "Geoportal ortho WMS unavailable (%s: %s) — falling back to basemap",
+            "Geoportal WMTS ortho unavailable (%s: %s) — falling back to basemap",
             type(e).__name__,
             e,
         )
         raise OrthoUpstreamError(str(e)) from e
 
-    img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+    tiles: dict[tuple[int, int], Image.Image] = {}
+    failures = 0
+    for (tx, ty), resp in zip(coords, responses):
+        if isinstance(resp, Exception):
+            failures += 1
+            continue
+        try:
+            resp.raise_for_status()
+            # Out-of-range tiles come back as text/xml ServiceException
+            if "image" not in resp.headers.get("content-type", ""):
+                failures += 1
+                continue
+            tiles[(tx, ty)] = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        except Exception:
+            failures += 1
+
+    # All-or-nothing: any tile failure means we'd splice gray patches into the
+    # ortho, which looks broken. Fall back to the basemap instead — the router
+    # catches OrthoUpstreamError and serves _generate_map without caching.
+    if failures or not tiles:
+        logger.warning(
+            "Geoportal WMTS ortho incomplete (%d/%d tiles failed at z=%d) — "
+            "falling back to basemap",
+            failures,
+            len(coords),
+            zoom,
+        )
+        raise OrthoUpstreamError(
+            f"{failures}/{len(coords)} WMTS tiles failed at z={zoom}"
+        )
+
+    # Stitch tiles into a single image
+    cols = tx_max - tx_min + 1
+    rows = ty_max - ty_min + 1
+    tile_px = _ORTHO_WMTS_TILE_SIZE
+    stitched = Image.new("RGB", (cols * tile_px, rows * tile_px), (240, 240, 240))
+    for (tx, ty), tile_img in tiles.items():
+        px = (tx - tx_min) * tile_px
+        py = (ty - ty_min) * tile_px
+        stitched.paste(tile_img, (px, py))
+
+    # Crop stitched image to exact target bbox
+    total_lng_min = _tile_lng(tx_min, zoom)
+    total_lng_max = _tile_lng(tx_max + 1, zoom)
+    total_lat_max = _tile_lat(ty_min, zoom)
+    total_lat_min = _tile_lat(ty_max + 1, zoom)
+
+    sw = stitched.width
+    sh = stitched.height
+    crop_x1 = int((min_lng - total_lng_min) / (total_lng_max - total_lng_min) * sw)
+    crop_x2 = int((max_lng - total_lng_min) / (total_lng_max - total_lng_min) * sw)
+    crop_y1 = int((total_lat_max - max_lat) / (total_lat_max - total_lat_min) * sh)
+    crop_y2 = int((total_lat_max - min_lat) / (total_lat_max - total_lat_min) * sh)
+    crop_x1 = max(0, crop_x1)
+    crop_y1 = max(0, crop_y1)
+    crop_x2 = min(sw, crop_x2)
+    crop_y2 = min(sh, crop_y2)
+
+    img = stitched.crop((crop_x1, crop_y1, crop_x2, crop_y2))
+    img = img.resize((w, h), Image.LANCZOS)
+
+    # Plot outline and scale bar (same as basemap snapshot)
+    min_x, min_y = _to_3857.transform(min_lng, min_lat)
+    max_x, max_y = _to_3857.transform(max_lng, max_lat)
+    bbox_3857 = (min_x, min_y, max_x, max_y)
     img = _draw_plot_outline(img, geometry, bbox_3857)
     img = _draw_scale_bar(img, bbox_3857)
 
