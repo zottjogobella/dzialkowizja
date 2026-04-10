@@ -31,6 +31,7 @@
 	let map: import('maplibre-gl').Map | undefined;
 	let orthoOpacity = $state(50);
 	let mapReady = $state(false);
+	let panelOpen = $state(true);
 
 	const LAYERS = [
 		{ source: 'egib', label: 'EGiB', color: '#e8d5b7' },
@@ -739,16 +740,23 @@
 	{:else}
 		<div bind:this={mapContainer} class="h-full w-full"></div>
 
-		<!-- Left side: always-visible controls panel -->
+		<!-- Left side: controls panel (collapsible, open by default) -->
 		<div class="pointer-events-none absolute inset-y-3 left-3 flex items-start">
-			<div
-				class="pointer-events-auto flex max-h-full w-72 flex-col overflow-hidden rounded-xl bg-white/95 shadow-lg backdrop-blur-sm"
-			>
-				<div class="border-b border-gray-100 px-4 py-2.5">
-					<span class="text-xs font-semibold uppercase tracking-wider text-gray-700">Warstwy mapy</span>
-				</div>
+			{#if panelOpen}
+				<div
+					class="pointer-events-auto flex max-h-full w-72 flex-col overflow-hidden rounded-xl bg-white/95 shadow-lg backdrop-blur-sm"
+				>
+					<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
+						<span class="text-xs font-semibold uppercase tracking-wider text-gray-700">Warstwy mapy</span>
+						<button
+							onclick={() => (panelOpen = false)}
+							class="text-lg leading-none text-gray-400 hover:text-gray-700"
+							title="Zwiń panel"
+							aria-label="Zwiń panel"
+						>&times;</button>
+					</div>
 
-				<div class="flex-1 space-y-4 overflow-y-auto px-4 py-3 text-xs text-gray-700">
+					<div class="flex-1 space-y-4 overflow-y-auto px-4 py-3 text-xs text-gray-700">
 						<!-- 1. Mapa bazowa -->
 						<section>
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Mapa bazowa</h4>
@@ -969,6 +977,19 @@
 						</section>
 					</div>
 				</div>
+			{:else}
+				<button
+					onclick={() => (panelOpen = true)}
+					class="pointer-events-auto flex h-9 items-center gap-1.5 rounded-lg bg-white/95 px-2.5 text-xs font-medium text-gray-700 shadow backdrop-blur-sm hover:bg-white"
+					title="Pokaż warstwy"
+					aria-label="Pokaż warstwy"
+				>
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+					</svg>
+					Warstwy
+				</button>
+			{/if}
 		</div>
 	{/if}
 </div>
