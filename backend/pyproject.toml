@@ -17,6 +17,9 @@ dependencies = [
     "psycopg2-binary>=2.9.0",
     "Pillow>=11.0.0",
     "pyproj>=3.7.0",
+    # Used by the GESUT vectorization POC: threshold → Zhang-Suen thinning
+    # (ximgproc is only in the contrib build) → findContours → approxPolyDP.
+    "opencv-contrib-python-headless>=4.10.0",
 ]
 
 [tool.ruff]

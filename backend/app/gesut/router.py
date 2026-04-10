@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
 import time
 from pathlib import Path
@@ -11,6 +12,7 @@ from fastapi import APIRouter, Depends, Query, Response
 
 from app.auth.dependencies import require_auth
 from app.db.geo import get_geo_pool
+from app.gesut.vectorize import vectorize_electric_lines
 
 logger = logging.getLogger(__name__)
 
@@ -180,3 +182,82 @@ async def gesut_tile_urzadzenia(
 ):
     """Proxy GESUT WMS tile (urządzenia uzbrojenia terenu) with disk cache."""
     return await _serve_tile("przewod_urzadzenia", bbox, width, height)
+
+
+@router.get("/vector")
+async def gesut_vector(
+    bbox: str = Query(..., description="minx,miny,maxx,maxy in EPSG:3857"),
+    _user=Depends(require_auth),
+):
+    """POC: vectorize the GESUT electric-line layer into GeoJSON.
+
+    Fetches the raster tile for `bbox` at 2048 px (reusing the shared disk
+    cache), runs an OpenCV thinning + contour pipeline, converts the
+    resulting pixel polylines to EPSG:2180, then reprojects to 4326 in
+    one PostGIS round-trip. Output is a `FeatureCollection` plus a `meta`
+    block with counts so we can evaluate quality end-to-end.
+
+    This endpoint intentionally does not paginate / cache the GeoJSON
+    itself — the upstream raster is already cached, and vectorisation
+    takes ~100-300 ms per 2048² tile which is fine for interactive toggle.
+    """
+    bbox_2180_str = await _bbox_3857_to_2180(bbox)
+    if bbox_2180_str is None:
+        return {"type": "FeatureCollection", "features": [], "meta": {"error": "bad bbox"}}
+
+    content = await _fetch_tile(
+        "przewod_elektroenergetyczny", bbox_2180_str, 2048, 2048
+    )
+    if content is None:
+        return {
+            "type": "FeatureCollection",
+            "features": [],
+            "meta": {"error": "upstream fetch failed"},
+        }
+
+    try:
+        parts = tuple(float(v) for v in bbox_2180_str.split(","))
+        bbox_2180 = (parts[0], parts[1], parts[2], parts[3])
+    except (ValueError, IndexError):
+        return {"type": "FeatureCollection", "features": [], "meta": {"error": "bad reprojected bbox"}}
+
+    result = await asyncio.to_thread(vectorize_electric_lines, content, bbox_2180)
+
+    meta = {
+        "raw_contour_count": result.raw_contour_count,
+        "kept_line_count": result.kept_line_count,
+        "non_zero_pixels": result.non_zero_pixels,
+    }
+
+    if not result.lines_2180:
+        return {"type": "FeatureCollection", "features": [], "meta": meta}
+
+    # Batch-reproject 2180 → 4326 in a single PostGIS round-trip.
+    wkts = [
+        "LINESTRING(" + ",".join(f"{x} {y}" for x, y in line) + ")"
+        for line in result.lines_2180
+    ]
+    pool = get_geo_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT ST_AsGeoJSON(
+                ST_Transform(ST_GeomFromText(wkt, 2180), 4326)
+            )::text
+            FROM unnest($1::text[]) AS wkt
+            """,
+            wkts,
+        )
+
+    features = []
+    for row in rows:
+        geo_json = row[0]
+        if not geo_json:
+            continue
+        features.append({
+            "type": "Feature",
+            "properties": {"source": "gesut_vector"},
+            "geometry": json.loads(geo_json),
+        })
+
+    return {"type": "FeatureCollection", "features": features, "meta": meta}
