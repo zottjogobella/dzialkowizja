@@ -162,7 +162,7 @@
 				if (bearing > 90) bearing -= 180;
 				if (bearing < -90) bearing += 180;
 				mid.properties = {
-					label: d >= 100 ? `${d.toFixed(0)} m` : `${d.toFixed(1)} m`,
+					label: `${Math.round(d)} m`,
 					bearing
 				};
 				features.push(mid);
@@ -296,7 +296,7 @@
 						source: 'dimension-labels-src',
 						layout: {
 							'text-field': ['get', 'label'],
-							'text-size': 11,
+							'text-size': 15,
 							'text-font': ['Noto Sans Regular'],
 							'text-anchor': 'center',
 							'text-allow-overlap': false,
