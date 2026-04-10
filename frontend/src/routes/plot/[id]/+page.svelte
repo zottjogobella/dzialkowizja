@@ -99,7 +99,7 @@
 		const id = $page.params.id ?? '';
 		if (!id) return;
 		investmentsLoading = true;
-		getPlotInvestments(id, investmentsMonths, investmentsType, 500)
+		getPlotInvestments(id, investmentsMonths, investmentsType, 1000)
 			.then((data) => {
 				investments = data;
 			})

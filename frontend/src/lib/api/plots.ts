@@ -64,7 +64,7 @@ export async function getPlotInvestments(
 	idDzialki: string,
 	months: number = 24,
 	type: InvestmentType = 'all',
-	radiusM: number = 500,
+	radiusM: number = 1000,
 ): Promise<Investment[]> {
 	const qs = new URLSearchParams({
 		months: String(months),

@@ -303,6 +303,33 @@
 		return { type: 'FeatureCollection', features };
 	}
 
+	function downloadMapImage() {
+		if (!map || !mapReady) return;
+		// Force a synchronous render so the current state is in the drawing
+		// buffer before we read it (otherwise we can get a stale frame when
+		// nothing has caused a redraw recently).
+		map.triggerRepaint();
+		requestAnimationFrame(() => {
+			if (!map) return;
+			try {
+				const canvas = map.getCanvas();
+				canvas.toBlob((blob) => {
+					if (!blob) return;
+					const url = URL.createObjectURL(blob);
+					const a = document.createElement('a');
+					a.href = url;
+					a.download = `mapa_${idDzialki.replace(/[^a-zA-Z0-9_.-]/g, '_')}.png`;
+					document.body.appendChild(a);
+					a.click();
+					document.body.removeChild(a);
+					setTimeout(() => URL.revokeObjectURL(url), 5000);
+				}, 'image/png');
+			} catch (e) {
+				console.error('Failed to capture map image', e);
+			}
+		});
+	}
+
 	function togglePins(kind: 'tx' | 'listing' | 'investment') {
 		if (!map || !mapReady) return;
 		let visible: boolean;
@@ -426,7 +453,7 @@
 						gesut: {
 							type: 'raster',
 							tiles: [
-								'/api/gesut/tile?bbox={bbox-epsg-3857}&width=512&height=512'
+								'/api/gesut/tile?bbox={bbox-epsg-3857}&width=2048&height=2048'
 							],
 							tileSize: 512,
 							// MapLibre treats a 512-size raster as "one level ahead":
@@ -442,7 +469,7 @@
 						'gesut-urzadzenia': {
 							type: 'raster',
 							tiles: [
-								'/api/gesut/tile-urzadzenia?bbox={bbox-epsg-3857}&width=512&height=512'
+								'/api/gesut/tile-urzadzenia?bbox={bbox-epsg-3857}&width=2048&height=2048'
 							],
 							tileSize: 512,
 							minzoom: 15,
@@ -461,8 +488,13 @@
 				zoom: 15,
 				pitch: 45,
 				bearing: -15,
-				maxPitch: 70
-			});
+				maxPitch: 70,
+				// Required so getCanvas().toDataURL() captures the rendered tiles
+				// when the user triggers "Pobierz mapę"; has a small perf cost.
+				// Not in MapLibre's typed MapOptions, but it IS a valid runtime
+				// option passed through to the underlying WebGL context.
+				preserveDrawingBuffer: true,
+			} as any);
 
 			map.addControl(new NavigationControl({ visualizePitch: true }), 'top-right');
 
@@ -748,12 +780,24 @@
 				>
 					<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
 						<span class="text-xs font-semibold uppercase tracking-wider text-gray-700">Warstwy mapy</span>
-						<button
-							onclick={() => (panelOpen = false)}
-							class="text-lg leading-none text-gray-400 hover:text-gray-700"
-							title="Zwiń panel"
-							aria-label="Zwiń panel"
-						>&times;</button>
+						<div class="flex items-center gap-3">
+							<button
+								onclick={downloadMapImage}
+								class="text-gray-400 hover:text-gray-700"
+								title="Pobierz aktualny widok mapy"
+								aria-label="Pobierz mapę"
+							>
+								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+								</svg>
+							</button>
+							<button
+								onclick={() => (panelOpen = false)}
+								class="text-lg leading-none text-gray-400 hover:text-gray-700"
+								title="Zwiń panel"
+								aria-label="Zwiń panel"
+							>&times;</button>
+						</div>
 					</div>
 
 					<div class="flex-1 space-y-4 overflow-y-auto px-4 py-3 text-xs text-gray-700">
