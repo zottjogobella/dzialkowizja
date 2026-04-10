@@ -236,7 +236,13 @@
 								'/api/gesut/tile?bbox={bbox-epsg-3857}&width=512&height=512'
 							],
 							tileSize: 512,
-							minzoom: 17,
+							// MapLibre treats a 512-size raster as "one level ahead":
+							// tiles are fetched at source_zoom = display_zoom - 1.
+							// With minzoom 17 the effective floor was display zoom 18,
+							// so small plots (which fitBounds lands at 17.5–17.9) never
+							// triggered any tile requests. Drop to 15 so any plot
+							// detail view reliably fetches electric lines.
+							minzoom: 15,
 							maxzoom: 20,
 							attribution: '&copy; <a href="https://integracja.gugik.gov.pl/">GUGiK GESUT</a>'
 						}
