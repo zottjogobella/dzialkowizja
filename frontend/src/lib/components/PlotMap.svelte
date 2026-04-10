@@ -1115,66 +1115,6 @@
 							</label>
 						</section>
 
-						<!-- 7. Strefa / Roszczenie (order-last → zawsze po prawej) -->
-						{#if bdotLinesVisible || osmLinesVisible || roszczenieRow}
-							<section class="order-last min-w-[240px] flex-1 rounded-lg border border-amber-200 bg-amber-50/60 p-2">
-								<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700">Strefa · Roszczenie</h4>
-
-								{#if roszczenieRow}
-									<div class="mb-2 rounded border border-amber-300 bg-white/80 p-2">
-										<div class="text-[10px] uppercase tracking-wider text-amber-700">Roszczenie z arkusza</div>
-										<div class="font-mono text-sm font-semibold text-amber-900">
-											{Math.round(roszczenieRow.wartosc_roszczenia).toLocaleString('pl-PL')} zł
-										</div>
-									</div>
-								{/if}
-
-								{#if bdotLinesVisible}
-									<div class="flex items-baseline justify-between gap-2 py-0.5">
-										<span class="text-gray-600">Strefa BDOT ∩ działka</span>
-										<span class="font-mono text-gray-900">{Math.round(bdotIntersectM2).toLocaleString('pl-PL')} m²</span>
-									</div>
-								{/if}
-								{#if osmLinesVisible}
-									<div class="flex items-baseline justify-between gap-2 py-0.5">
-										<span class="text-gray-600">Strefa OSM ∩ działka</span>
-										<span class="font-mono text-gray-900">{Math.round(osmIntersectM2).toLocaleString('pl-PL')} m²</span>
-									</div>
-								{/if}
-
-								<label class="mt-2 flex items-center justify-between gap-2 border-t border-amber-200 pt-2 text-[10px] text-gray-500">
-									<span>Wycena <em class="not-italic text-gray-400">(zł/m²)</em></span>
-									<input
-										type="number"
-										min="0"
-										step="0.01"
-										bind:value={valuationPerM2}
-										placeholder="—"
-										class="w-20 rounded border border-gray-300 bg-white px-1.5 py-0.5 text-right font-mono text-[11px]"
-									/>
-								</label>
-
-								{#if valuationPerM2 > 0}
-									{#if bdotLinesVisible}
-										<div class="flex items-baseline justify-between gap-2 py-0.5">
-											<span class="text-gray-600">Roszczenie BDOT</span>
-											<span class="font-mono font-semibold text-amber-800">{Math.round(bdotClaimZl).toLocaleString('pl-PL')} zł</span>
-										</div>
-									{/if}
-									{#if osmLinesVisible}
-										<div class="flex items-baseline justify-between gap-2 py-0.5">
-											<span class="text-gray-600">Roszczenie OSM</span>
-											<span class="font-mono font-semibold text-amber-800">{Math.round(osmClaimZl).toLocaleString('pl-PL')} zł</span>
-										</div>
-									{/if}
-								{:else}
-									<div class="mt-1 text-[10px] italic text-gray-400">
-										Wpisz wycenę żeby policzyć roszczenie
-									</div>
-								{/if}
-							</section>
-						{/if}
-
 						<!-- 6. Pinezki -->
 						<section class="min-w-[220px] flex-1">
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Pinezki</h4>
@@ -1199,5 +1139,112 @@
 						</section>
 			</div>
 		</div>
+
+		<!-- Standalone full-width Strefa · Roszczenie section: large numbers
+			 need room to breathe, and the claim values are the whole reason
+			 somebody is using this view, so give them their own container. -->
+		{#if bdotLinesVisible || osmLinesVisible || roszczenieRow}
+			<div class="w-full rounded-xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm">
+				<h3 class="mb-4 text-xs font-semibold uppercase tracking-wider text-amber-700">
+					Strefa · Roszczenie
+				</h3>
+
+				<div class="grid gap-6 md:grid-cols-3">
+					<!-- Column 1: pre-computed claim from the spreadsheet -->
+					{#if roszczenieRow}
+						<div class="rounded-lg border border-amber-300 bg-white/80 p-3">
+							<div class="text-[10px] font-semibold uppercase tracking-wider text-amber-700">
+								Roszczenie z arkusza
+							</div>
+							<div class="mt-1 font-mono text-2xl font-bold leading-tight tabular-nums text-amber-900">
+								{Math.round(roszczenieRow.wartosc_roszczenia).toLocaleString('pl-PL')} zł
+							</div>
+						</div>
+					{:else}
+						<div class="rounded-lg border border-dashed border-amber-200 bg-white/40 p-3 text-xs text-gray-500">
+							Działka nie występuje w arkuszu roszczeń.
+						</div>
+					{/if}
+
+					<!-- Column 2: live intersection area per source -->
+					<div class="space-y-1.5 text-sm">
+						{#if bdotLinesVisible}
+							<div class="flex items-baseline justify-between gap-3">
+								<span class="flex items-center gap-2 text-gray-600">
+									<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#c53030"></span>
+									Strefa BDOT ∩ działka
+								</span>
+								<span class="font-mono tabular-nums text-gray-900">
+									{Math.round(bdotIntersectM2).toLocaleString('pl-PL')} m²
+								</span>
+							</div>
+						{/if}
+						{#if osmLinesVisible}
+							<div class="flex items-baseline justify-between gap-3">
+								<span class="flex items-center gap-2 text-gray-600">
+									<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#0e7490"></span>
+									Strefa OSM ∩ działka
+								</span>
+								<span class="font-mono tabular-nums text-gray-900">
+									{Math.round(osmIntersectM2).toLocaleString('pl-PL')} m²
+								</span>
+							</div>
+						{/if}
+						{#if !bdotLinesVisible && !osmLinesVisible}
+							<div class="text-xs italic text-gray-400">
+								Włącz warstwę BDOT lub OSM żeby policzyć strefę
+							</div>
+						{/if}
+					</div>
+
+					<!-- Column 3: wycena input (autofilled from sheet, or manual)
+						 + derived claim rows when no sheet (otherwise the sheet
+						 value IS the claim and we don't recompute it from m²) -->
+					<div>
+						<label class="block">
+							<span class="mb-1 block text-xs text-gray-600">
+								Wycena
+								<em class="text-gray-400 not-italic">
+									({roszczenieRow ? 'zł — z arkusza' : 'zł/m²'})
+								</em>
+							</span>
+							<input
+								type="number"
+								min="0"
+								step="0.01"
+								bind:value={valuationPerM2}
+								placeholder="—"
+								class="w-full rounded border border-gray-300 bg-white px-2.5 py-1.5 text-right font-mono text-sm tabular-nums"
+							/>
+						</label>
+
+						{#if !roszczenieRow && valuationPerM2 > 0 && (bdotLinesVisible || osmLinesVisible)}
+							<div class="mt-2 space-y-1 border-t border-amber-200 pt-2 text-sm">
+								{#if bdotLinesVisible}
+									<div class="flex items-baseline justify-between gap-3">
+										<span class="text-gray-600">Roszczenie BDOT</span>
+										<span class="font-mono font-semibold tabular-nums text-amber-800">
+											{Math.round(bdotClaimZl).toLocaleString('pl-PL')} zł
+										</span>
+									</div>
+								{/if}
+								{#if osmLinesVisible}
+									<div class="flex items-baseline justify-between gap-3">
+										<span class="text-gray-600">Roszczenie OSM</span>
+										<span class="font-mono font-semibold tabular-nums text-amber-800">
+											{Math.round(osmClaimZl).toLocaleString('pl-PL')} zł
+										</span>
+									</div>
+								{/if}
+							</div>
+						{:else if !roszczenieRow}
+							<div class="mt-2 text-xs italic text-gray-400">
+								Wpisz wycenę i włącz warstwę BDOT/OSM żeby policzyć roszczenie
+							</div>
+						{/if}
+					</div>
+				</div>
+			</div>
+		{/if}
 	{/if}
 </div>
