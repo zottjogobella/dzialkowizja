@@ -421,29 +421,43 @@ async def get_plot_snapshot(
     if geometry_feature is None:
         raise HTTPException(status_code=404, detail="Działka nie znaleziona")
 
-    from app.plots.snapshots import generate_snapshot
+    from app.plots.snapshots import OrthoUpstreamError, generate_snapshot
 
+    cache_result = True
     try:
         image_data, width, height = await generate_snapshot(geometry_feature, snapshot_type)
+    except OrthoUpstreamError:
+        # Geoportal ortho WMS is down — serve the basemap snapshot instead,
+        # but don't cache it so we retry ortho once upstream recovers.
+        logger.warning(
+            "Ortho WMS unavailable for %s — serving basemap fallback", id_dzialki
+        )
+        try:
+            image_data, width, height = await generate_snapshot(geometry_feature, "map")
+        except Exception:
+            logger.exception("Basemap fallback also failed for %s", id_dzialki)
+            raise HTTPException(status_code=502, detail="Nie udało się wygenerować zdjęcia")
+        cache_result = False
     except Exception:
         logger.exception("Snapshot generation failed for %s/%s", id_dzialki, snapshot_type)
         raise HTTPException(status_code=502, detail="Nie udało się wygenerować zdjęcia")
 
-    new_snapshot = PlotSnapshot(
-        id_dzialki=id_dzialki,
-        snapshot_type=snapshot_type,
-        image_data=image_data,
-        width=width,
-        height=height,
-    )
-    db.add(new_snapshot)
-    await db.commit()
+    if cache_result:
+        new_snapshot = PlotSnapshot(
+            id_dzialki=id_dzialki,
+            snapshot_type=snapshot_type,
+            image_data=image_data,
+            width=width,
+            height=height,
+        )
+        db.add(new_snapshot)
+        await db.commit()
 
     return FastAPIResponse(
         content=image_data,
         media_type="image/jpeg",
         headers={
-            "Cache-Control": "public, max-age=604800",
+            "Cache-Control": "public, max-age=604800" if cache_result else "no-store",
             "Content-Disposition": f'inline; filename="{id_dzialki}_{snapshot_type}.jpg"',
         },
     )

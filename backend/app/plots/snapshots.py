@@ -17,7 +17,18 @@ logger = logging.getLogger(__name__)
 
 SnapshotType = Literal["ortho", "map"]
 
+
+class OrthoUpstreamError(RuntimeError):
+    """Raised when the Geoportal ortho WMS is unreachable or times out.
+
+    Distinguished from generic errors so the router can fall back to the
+    basemap snapshot without caching a degraded result.
+    """
+
+
 _to_3857 = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+
+_ORTHO_WMS_TIMEOUT = 15.0
 
 
 def _bbox_from_geometry(geom: dict) -> tuple[float, float, float, float]:
@@ -206,9 +217,19 @@ async def _generate_ortho(
         f"&WIDTH={w}&HEIGHT={h}&FORMAT=image/jpeg"
     )
 
-    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-        resp = await client.get(wms_url)
-        resp.raise_for_status()
+    try:
+        async with httpx.AsyncClient(
+            timeout=_ORTHO_WMS_TIMEOUT, follow_redirects=True
+        ) as client:
+            resp = await client.get(wms_url)
+            resp.raise_for_status()
+    except (httpx.TimeoutException, httpx.TransportError, httpx.HTTPStatusError) as e:
+        logger.warning(
+            "Geoportal ortho WMS unavailable (%s: %s) — falling back to basemap",
+            type(e).__name__,
+            e,
+        )
+        raise OrthoUpstreamError(str(e)) from e
 
     img = Image.open(io.BytesIO(resp.content)).convert("RGB")
     img = _draw_plot_outline(img, geometry, bbox_3857)
