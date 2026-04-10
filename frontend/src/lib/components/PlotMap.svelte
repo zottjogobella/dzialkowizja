@@ -925,10 +925,10 @@
 		{:else}
 			<div bind:this={mapContainer} class="h-full w-full"></div>
 
-			<!-- Floating download button, top-right of the map -->
+			<!-- Floating download button, top-left of the map -->
 			<button
 				onclick={downloadMapImage}
-				class="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-gray-600 shadow backdrop-blur-sm hover:bg-white hover:text-gray-900"
+				class="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-gray-600 shadow backdrop-blur-sm hover:bg-white hover:text-gray-900"
 				title="Pobierz aktualny widok mapy"
 				aria-label="Pobierz mapę"
 			>
