@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { getPlot, getPlotGeometry, getPlotListings, getPlotBuildings, getPlotTransactions, getPlotTransactionStats, getPlotListingStats, type ListingsResponse, type TransactionStat, type ListingStat } from '$lib/api/plots';
+	import { getPlot, getPlotGeometry, getPlotListings, getPlotBuildings, getPlotTransactions, type ListingsResponse } from '$lib/api/plots';
 	import type { PlotDetail, Listing, Transaction } from '$lib/types/plot';
 	import PlotMap from '$lib/components/PlotMap.svelte';
-	import PriceChart from '$lib/components/PriceChart.svelte';
 
 	let plot = $state<PlotDetail | null>(null);
 	let loading = $state(true);
@@ -16,8 +15,6 @@
 	let buildings = $state<GeoJSON.FeatureCollection | null>(null);
 	let transactions = $state<Transaction[]>([]);
 	let transactionsLoading = $state(true);
-	let transactionStats = $state<TransactionStat[]>([]);
-	let listingStats = $state<ListingStat[]>([]);
 
 	$effect(() => {
 		const id = $page.params.id ?? '';
@@ -80,22 +77,6 @@
 			.finally(() => {
 				transactionsLoading = false;
 			});
-
-		getPlotTransactionStats(id)
-			.then((data) => {
-				transactionStats = data;
-			})
-			.catch(() => {
-				transactionStats = [];
-			});
-
-		getPlotListingStats(id)
-			.then((data) => {
-				listingStats = data;
-			})
-			.catch(() => {
-				listingStats = [];
-			});
 	});
 
 	function formatArea(area: number | null): string {
@@ -129,54 +110,6 @@
 	const RODZAJ_RYNKU: Record<number, string> = { 1: 'Pierwotny', 2: 'Wtórny' };
 	const RODZAJ_TRANSAKCJI: Record<number, string> = { 1: 'Sprzedaż', 2: 'Zamiana', 3: 'Inne' };
 
-	// Transaction chart datasets — from full area stats (not just listed table)
-	const txPriceVsDistance = $derived(
-		transactionStats
-			.filter((t) => t.distance_m != null)
-			.map((t) => ({
-				x: t.distance_m!,
-				y: t.price_per_m2,
-				label: t.date ?? ''
-			}))
-	);
-
-	const txPriceVsTime = $derived(
-		transactionStats
-			.filter((t) => t.date)
-			.map((t) => ({
-				x: new Date(t.date!).getTime(),
-				y: t.price_per_m2,
-				label: t.date ?? ''
-			}))
-			.sort((a, b) => a.x - b.x)
-	);
-
-	const txPriceDistribution = $derived(
-		transactionStats.map((t) => ({ x: 0, y: t.price_per_m2 }))
-	);
-
-	// Listings chart datasets — active vs inactive split
-	const listingPriceVsTimeActive = $derived(
-		listingStats
-			.filter((l) => l.date && l.active)
-			.map((l) => ({ x: new Date(l.date!).getTime(), y: l.price_per_m2, label: l.date ?? '' }))
-			.sort((a, b) => a.x - b.x)
-	);
-	const listingPriceVsTimeInactive = $derived(
-		listingStats
-			.filter((l) => l.date && !l.active)
-			.map((l) => ({ x: new Date(l.date!).getTime(), y: l.price_per_m2, label: l.date ?? '' }))
-			.sort((a, b) => a.x - b.x)
-	);
-
-	const listingPriceDistribution = $derived(
-		listingStats.map((l) => ({ x: 0, y: l.price_per_m2 }))
-	);
-
-	function formatTimeAxis(ts: number): string {
-		const d = new Date(ts);
-		return d.toLocaleDateString('pl-PL', { year: 'numeric', month: 'short' });
-	}
 </script>
 
 <svelte:head>
@@ -321,39 +254,6 @@
 				{:else if transactions.length === 0}
 					<p class="text-sm text-[var(--color-text-muted)]">Brak transakcji w okolicy</p>
 				{:else}
-					{#if transactionStats.length > 0}
-						<div class="mb-6 grid gap-5 md:grid-cols-2">
-							<div class="rounded-lg border border-[var(--color-border)] p-4">
-								<PriceChart
-									type="scatter"
-									datasets={[{ label: 'Transakcje', color: '#2563eb', points: txPriceVsDistance }]}
-									xLabel="Odległość (m)"
-									yLabel="Cena za m² (zł)"
-									title="Cena/m² vs odległość ({transactionStats.length})"
-								/>
-							</div>
-							<div class="rounded-lg border border-[var(--color-border)] p-4">
-								<PriceChart
-									type="scatter"
-									datasets={[{ label: 'Transakcje', color: '#2563eb', points: txPriceVsTime }]}
-									xLabel="Data"
-									yLabel="Cena za m² (zł)"
-									title="Cena/m² vs czas"
-									xAsTime
-								/>
-							</div>
-							<div class="rounded-lg border border-[var(--color-border)] p-4 md:col-span-2">
-								<PriceChart
-									type="histogram"
-									datasets={[{ label: 'Transakcje', color: '#2563eb', points: txPriceDistribution }]}
-									xLabel="Cena za m² (zł)"
-									yLabel="Liczba"
-									title="Rozkład cen/m²"
-								/>
-							</div>
-						</div>
-					{/if}
-
 					<div class="overflow-x-auto rounded-lg border border-[var(--color-border)]">
 						<table class="w-full text-sm">
 							<thead class="bg-[var(--color-surface)] text-left text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
@@ -410,33 +310,6 @@
 				{:else if activeListings.length === 0 && inactiveListings.length === 0}
 					<p class="text-sm text-[var(--color-text-muted)]">Brak ogłoszeń w okolicy</p>
 				{:else}
-					{#if listingStats.length > 0}
-						<div class="mb-6 grid gap-5 md:grid-cols-2">
-							<div class="rounded-lg border border-[var(--color-border)] p-4">
-								<PriceChart
-									type="scatter"
-									datasets={[
-										{ label: 'Aktywne', color: '#16a34a', points: listingPriceVsTimeActive },
-										{ label: 'Nieaktywne', color: '#9ca3af', points: listingPriceVsTimeInactive }
-									]}
-									xLabel="Data"
-									yLabel="Cena za m² (zł)"
-									title="Cena/m² vs czas ({listingStats.length})"
-									xAsTime
-								/>
-							</div>
-							<div class="rounded-lg border border-[var(--color-border)] p-4">
-								<PriceChart
-									type="histogram"
-									datasets={[{ label: 'Ogłoszenia', color: '#16a34a', points: listingPriceDistribution }]}
-									xLabel="Cena za m² (zł)"
-									yLabel="Liczba"
-									title="Rozkład cen/m²"
-								/>
-							</div>
-						</div>
-					{/if}
-
 					{#snippet listingCard(listing: Listing, faded: boolean)}
 						<a
 							href={listing.url ?? '#'}
