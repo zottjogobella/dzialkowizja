@@ -3,12 +3,7 @@
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import { distance, midpoint, point, buffer } from '@turf/turf';
 	import type { Transaction, Listing, Investment } from '$lib/types/plot';
-	import {
-		getPlotPowerlines,
-		type PowerlineSource,
-		getGesutVector,
-		type GesutVectorResponse,
-	} from '$lib/api/plots';
+	import { getPlotPowerlines, type PowerlineSource } from '$lib/api/plots';
 
 	interface Props {
 		idDzialki: string;
@@ -51,11 +46,6 @@
 	// several seconds each at 2048 px).
 	let gesutLoadingTiles = $state(false);
 	let gesutUrzadzeniaLoadingTiles = $state(false);
-
-	// POC: vector GESUT electric lines (server-side raster → vector pipeline)
-	let gesutVectorVisible = $state(false);
-	let gesutVectorLoading = $state(false);
-	let gesutVectorMeta = $state<GesutVectorResponse['meta']>(undefined);
 	let showDimensions = $state(true);
 	let buildings3d = $state(false);
 
@@ -198,76 +188,6 @@
 				'gesut-urzadzenia-layer',
 				'visibility',
 				gesutUrzadzeniaVisible ? 'visible' : 'none',
-			);
-		}
-	}
-
-	function plotBbox3857(bufferDeg = 0.0015): [number, number, number, number] | null {
-		// Derive a bbox around the plot in EPSG:3857 for the vectorize POC.
-		// bufferDeg ≈ 0.0015° is roughly 110 m at Poland's latitude — enough
-		// to catch lines adjacent to the plot without blowing the WMS scale.
-		if (!geometry) return null;
-		const coords = extractCoords((geometry as any).geometry ?? geometry);
-		if (coords.length === 0) return null;
-		let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
-		for (const [lng, lat] of coords) {
-			if (lng < minLng) minLng = lng;
-			if (lat < minLat) minLat = lat;
-			if (lng > maxLng) maxLng = lng;
-			if (lat > maxLat) maxLat = lat;
-		}
-		minLng -= bufferDeg; maxLng += bufferDeg;
-		minLat -= bufferDeg; maxLat += bufferDeg;
-		const R = 20037508.34;
-		const toMerc = (lng: number, lat: number): [number, number] => [
-			(lng * R) / 180,
-			(Math.log(Math.tan(((90 + lat) * Math.PI) / 360)) * R) / Math.PI,
-		];
-		const [minX, minY] = toMerc(minLng, minLat);
-		const [maxX, maxY] = toMerc(maxLng, maxLat);
-		return [minX, minY, maxX, maxY];
-	}
-
-	async function toggleGesutVector() {
-		gesutVectorVisible = !gesutVectorVisible;
-		if (!map || !mapReady) return;
-
-		if (gesutVectorVisible) {
-			const src = map.getSource('gesut-vector-src');
-			// Fetch only on the first enable for this plot; later toggles reuse
-			// whatever was last loaded into the source.
-			const fc = (src && 'serialize' in src) ? (src as any).serialize()?.data : null;
-			const hasData = fc && fc.features && fc.features.length > 0;
-			if (!hasData) {
-				const bbox = plotBbox3857();
-				if (!bbox) {
-					gesutVectorVisible = false;
-					return;
-				}
-				gesutVectorLoading = true;
-				try {
-					const resp = await getGesutVector(bbox);
-					gesutVectorMeta = resp.meta;
-					const newSrc = map.getSource('gesut-vector-src');
-					if (newSrc && 'setData' in newSrc) {
-						(newSrc as any).setData({
-							type: 'FeatureCollection',
-							features: resp.features ?? [],
-						});
-					}
-				} catch (e) {
-					console.error('GESUT vectorize failed', e);
-				} finally {
-					gesutVectorLoading = false;
-				}
-			}
-		}
-
-		if (map.getLayer('gesut-vector-line')) {
-			map.setLayoutProperty(
-				'gesut-vector-line',
-				'visibility',
-				gesutVectorVisible ? 'visible' : 'none',
 			);
 		}
 	}
@@ -681,15 +601,6 @@
 						paint: { 'line-color': '#c05621', 'line-width': 2.5, 'line-dasharray': [2, 1] },
 					});
 
-					// GESUT vector POC — separate source so we can style it differently
-					// and compare visually with the WMS raster.
-					map.addSource('gesut-vector-src', { type: 'geojson', data: empty });
-					map.addLayer({
-						id: 'gesut-vector-line', type: 'line', source: 'gesut-vector-src',
-						layout: { visibility: 'none', 'line-cap': 'round', 'line-join': 'round' },
-						paint: { 'line-color': '#ec4899', 'line-width': 2, 'line-opacity': 0.9 },
-					});
-
 					// BDOT point devices (mix of Point + Polygon)
 					map.addSource('pl-bdot_devices', { type: 'geojson', data: empty });
 					map.addLayer({
@@ -1023,7 +934,7 @@
 						{/if}
 
 						<!-- 4. Sieci uzbrojenia (GESUT WMS) -->
-						<section class="min-w-[240px] flex-1">
+						<section class="min-w-[220px] flex-1">
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Sieci uzbrojenia (GESUT)</h4>
 							<label class="flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={gesutVisible} onchange={toggleGesut} class="accent-blue-600" />
@@ -1041,19 +952,6 @@
 									<span class="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" title="Ładowanie kafli z GUGiK…"></span>
 								{/if}
 							</label>
-							<label class="flex cursor-pointer items-center gap-2 py-1" title="POC: wektoryzacja rastra GESUT przez OpenCV">
-								<input type="checkbox" checked={gesutVectorVisible} onchange={toggleGesutVector} class="accent-pink-600" />
-								<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#ec4899"></span>
-								<span class="flex-1">Linie elektro <em class="text-[9px] not-italic text-gray-400">(wektor POC)</em></span>
-								{#if gesutVectorLoading}
-									<span class="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" title="Wektoryzacja…"></span>
-								{/if}
-							</label>
-							{#if gesutVectorMeta && !gesutVectorLoading}
-								<div class="ml-6 text-[10px] text-gray-400">
-									{gesutVectorMeta.kept_line_count ?? 0} linii ({gesutVectorMeta.non_zero_pixels ?? 0} px)
-								</div>
-							{/if}
 						</section>
 
 						<!-- 5. Linie energetyczne (wektorowe + bufor) -->

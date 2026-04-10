@@ -92,20 +92,3 @@ export async function getPlotPowerlines(
 	);
 }
 
-export interface GesutVectorResponse extends GeoJSON.FeatureCollection {
-	meta?: {
-		raw_contour_count?: number;
-		kept_line_count?: number;
-		non_zero_pixels?: number;
-		error?: string;
-	};
-}
-
-/** POC: vectorize GESUT electric lines inside a 3857 bbox. */
-export async function getGesutVector(
-	bbox3857: [number, number, number, number],
-): Promise<GesutVectorResponse> {
-	const qs = new URLSearchParams({ bbox: bbox3857.join(',') });
-	return apiGet<GesutVectorResponse>(`/api/gesut/vector?${qs.toString()}`);
-}
-
