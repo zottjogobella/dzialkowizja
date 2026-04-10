@@ -219,10 +219,15 @@
 						},
 						ortho: {
 							type: 'raster',
+							// WMTS (tile cache, CDN-backed) — the WMS GetMap endpoint
+							// periodically goes dead and hangs MapLibre's initial
+							// render because ortho-layer is visible at opacity 0.5
+							// and map.on('load') waits for visible tiles.
 							tiles: [
-								'https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=Raster&STYLES=&SRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=256&HEIGHT=256&FORMAT=image/jpeg'
+								'https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMTS/StandardResolution?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTOFOTOMAPA&TILEMATRIXSET=EPSG:3857&TILEMATRIX=EPSG:3857:{z}&TILEROW={y}&TILECOL={x}&FORMAT=image/jpeg'
 							],
 							tileSize: 256,
+							maxzoom: 19,
 							attribution: '&copy; <a href="https://geoportal.gov.pl/">Geoportal</a>'
 						},
 						gesut: {
