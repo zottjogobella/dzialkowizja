@@ -264,6 +264,101 @@ def _fetch_nearest_transactions(cx: float, cy: float, limit: int = 10) -> list[d
         conn.close()
 
 
+def _fetch_transaction_stats(cx: float, cy: float, limit: int = 300) -> list[dict]:
+    """Lightweight query for charts: just distance, date, price/m². No heavy text fields."""
+    conn = psycopg2.connect(
+        host=settings.transakcje_db_host,
+        port=settings.transakcje_db_port,
+        dbname=settings.transakcje_db_name,
+        user=settings.transakcje_db_user,
+        password=settings.transakcje_db_password,
+        connect_timeout=10,
+    )
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    data_transakcji,
+                    cena_za_m2,
+                    ST_Distance(
+                        ST_SetSRID(ST_MakePoint(cx_2180, cy_2180), 2180),
+                        ST_SetSRID(ST_MakePoint(%s, %s), 2180)
+                    ) AS distance_m
+                FROM transakcje_gruntowe
+                WHERE cx_2180 IS NOT NULL
+                    AND cena_za_m2 IS NOT NULL
+                    AND cena_za_m2 > 0
+                ORDER BY ST_SetSRID(ST_MakePoint(cx_2180, cy_2180), 2180)
+                     <-> ST_SetSRID(ST_MakePoint(%s, %s), 2180)
+                LIMIT %s
+                """,
+                (cx, cy, cx, cy, limit),
+            )
+            results = []
+            for row in cur.fetchall():
+                date = row[0]
+                if date is not None and not isinstance(date, str):
+                    date = str(date)
+                results.append({
+                    "date": date,
+                    "price_per_m2": float(row[1]),
+                    "distance_m": round(row[2], 1) if row[2] is not None else None,
+                })
+            return results
+    finally:
+        conn.close()
+
+
+def _fetch_listing_stats(lng: float, lat: float, limit: int = 300) -> list[dict]:
+    """Lightweight query for charts: just publish_date and price/m² for all listings in area."""
+    conn = psycopg2.connect(
+        host=settings.przetargi_db_host,
+        port=settings.przetargi_db_port,
+        dbname=settings.przetargi_db_name,
+        user=settings.przetargi_db_user,
+        password=settings.przetargi_db_password,
+        connect_timeout=10,
+    )
+    radius_m = settings.listings_radius_m
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT publish_date, price_per_meter, valid_until
+                FROM nieruchomosci_ogloszenia.ogloszenia_formatted
+                WHERE geom_2180 IS NOT NULL
+                    AND price_per_meter IS NOT NULL
+                    AND price_per_meter > 0
+                    AND ST_DWithin(
+                        geom_2180,
+                        ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 2180),
+                        %s
+                    )
+                ORDER BY publish_date DESC NULLS LAST
+                LIMIT %s
+                """,
+                (lng, lat, radius_m, limit),
+            )
+            results = []
+            for row in cur.fetchall():
+                pub = row[0]
+                if pub is not None and not isinstance(pub, str):
+                    pub = pub.isoformat() if hasattr(pub, "isoformat") else str(pub)
+                valid = row[2]
+                is_active = valid is None or (
+                    hasattr(valid, "__gt__") and valid > datetime.datetime.now(datetime.timezone.utc)
+                )
+                results.append({
+                    "date": pub,
+                    "price_per_m2": float(row[1]),
+                    "active": bool(is_active),
+                })
+            return results
+    finally:
+        conn.close()
+
+
 def _fetch_buildings(id_dzialki: str, limit: int = 1000) -> dict:
     """Get building footprints near a plot from egib_budynki + buildings_bdot + osm_buildings."""
     buffer_m = settings.buildings_buffer_m
@@ -332,6 +427,39 @@ def _fetch_buildings(id_dzialki: str, limit: int = 1000) -> dict:
         return {"type": "FeatureCollection", "features": features}
     finally:
         conn.close()
+
+
+@router.get("/{id_dzialki:path}/transactions/stats")
+async def get_plot_transaction_stats(id_dzialki: str, _user=Depends(require_auth)):
+    """Lightweight stats for charts — 300 nearest transactions, minimal fields."""
+    centroid = await asyncio.to_thread(_fetch_plot_centroid_2180, id_dzialki)
+    if centroid is None:
+        raise HTTPException(status_code=404, detail="Działka nie znaleziona")
+
+    cx, cy = centroid
+    try:
+        return await asyncio.to_thread(_fetch_transaction_stats, cx, cy, 300)
+    except Exception:
+        logger.exception("Failed to fetch transaction stats")
+        return []
+
+
+@router.get("/{id_dzialki:path}/listings/stats")
+async def get_plot_listing_stats(id_dzialki: str, _user=Depends(require_auth)):
+    """Lightweight stats for charts — all listings in configured radius."""
+    if not settings.przetargi_db_user:
+        return []
+
+    centroid = await asyncio.to_thread(_fetch_plot_centroid, id_dzialki)
+    if centroid is None:
+        raise HTTPException(status_code=404, detail="Działka nie znaleziona")
+
+    lng, lat = centroid
+    try:
+        return await asyncio.to_thread(_fetch_listing_stats, lng, lat, 300)
+    except Exception:
+        logger.exception("Failed to fetch listing stats")
+        return []
 
 
 @router.get("/{id_dzialki:path}/transactions")

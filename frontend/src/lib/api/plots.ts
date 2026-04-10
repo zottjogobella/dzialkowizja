@@ -34,3 +34,27 @@ export async function getPlotBuildings(
 	);
 }
 
+export interface TransactionStat {
+	date: string | null;
+	price_per_m2: number;
+	distance_m: number | null;
+}
+
+export interface ListingStat {
+	date: string | null;
+	price_per_m2: number;
+	active: boolean;
+}
+
+export async function getPlotTransactionStats(idDzialki: string): Promise<TransactionStat[]> {
+	return apiGet<TransactionStat[]>(
+		`/api/plots/${encodeURIComponent(idDzialki)}/transactions/stats`
+	);
+}
+
+export async function getPlotListingStats(idDzialki: string): Promise<ListingStat[]> {
+	return apiGet<ListingStat[]>(
+		`/api/plots/${encodeURIComponent(idDzialki)}/listings/stats`
+	);
+}
+
