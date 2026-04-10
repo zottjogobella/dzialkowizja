@@ -42,6 +42,11 @@
 	let layerVisible = $state<Record<string, boolean>>({ egib: false, bdot: false, osm: false });
 	let gesutVisible = $state(false);
 	let gesutUrzadzeniaVisible = $state(false);
+	// Actual tile loading state — reflects pending tile requests on the
+	// corresponding raster sources (GESUT WMS is slow: tiles can take
+	// several seconds each at 2048 px).
+	let gesutLoadingTiles = $state(false);
+	let gesutUrzadzeniaLoadingTiles = $state(false);
 	let showDimensions = $state(true);
 	let buildings3d = $state(true);
 
@@ -626,6 +631,33 @@
 					console.error('Failed to add powerline layers', e);
 				}
 
+				// GESUT tile loading tracker — GESUT WMS can take several seconds
+				// per tile, so we reflect the real pending-request state in the UI.
+				try {
+					map.on('dataloading', (ev: any) => {
+						if (!ev?.sourceId) return;
+						if (ev.sourceId === 'gesut') gesutLoadingTiles = true;
+						else if (ev.sourceId === 'gesut-urzadzenia') gesutUrzadzeniaLoadingTiles = true;
+					});
+					map.on('sourcedata', (ev: any) => {
+						if (!map || !ev?.sourceId) return;
+						if (ev.sourceId === 'gesut') {
+							gesutLoadingTiles = !map.isSourceLoaded('gesut');
+						} else if (ev.sourceId === 'gesut-urzadzenia') {
+							gesutUrzadzeniaLoadingTiles = !map.isSourceLoaded('gesut-urzadzenia');
+						}
+					});
+					// If the source never actually starts loading (e.g. because the
+					// layer was toggled off before tile requests began), make sure
+					// the spinner eventually clears when the map goes idle.
+					map.on('idle', () => {
+						gesutLoadingTiles = false;
+						gesutUrzadzeniaLoadingTiles = false;
+					});
+				} catch (e) {
+					console.error('Failed to wire GESUT loading tracker', e);
+				}
+
 				// Pinezki — transactions / listings / investments
 				try {
 					const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
@@ -918,12 +950,18 @@
 							<label class="flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={gesutVisible} onchange={toggleGesut} class="accent-blue-600" />
 								<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#e53e3e"></span>
-								Linie elektroenergetyczne
+								<span class="flex-1">Linie elektroenergetyczne</span>
+								{#if gesutVisible && gesutLoadingTiles}
+									<span class="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" title="Ładowanie kafli z GUGiK…"></span>
+								{/if}
 							</label>
 							<label class="flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={gesutUrzadzeniaVisible} onchange={toggleGesutUrzadzenia} class="accent-blue-600" />
 								<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#9f1239"></span>
-								Urządzenia uzbrojenia
+								<span class="flex-1">Urządzenia uzbrojenia</span>
+								{#if gesutUrzadzeniaVisible && gesutUrzadzeniaLoadingTiles}
+									<span class="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" title="Ładowanie kafli z GUGiK…"></span>
+								{/if}
 							</label>
 						</section>
 
