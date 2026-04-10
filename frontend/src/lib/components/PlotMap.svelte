@@ -254,55 +254,68 @@
 			map.on('load', () => {
 				if (cancelled || !map) return;
 
-				map.addSource('plot', { type: 'geojson', data: geometry as any });
-				map.addLayer({
-					id: 'plot-fill', type: 'fill', source: 'plot',
-					paint: { 'fill-color': plotFill, 'fill-opacity': plotFillOpacity / 100 }
-				});
-				map.addLayer({
-					id: 'plot-border', type: 'line', source: 'plot',
-					paint: {
-						'line-color': plotStroke,
-						'line-width': plotStrokeWidth,
-						'line-opacity': plotStrokeOpacity / 100
-					}
-				});
-
-				// Dimension labels
-				const labels = computeDimensionLabels(geometry);
-				map.addSource('dimension-labels-src', { type: 'geojson', data: labels });
-				map.addLayer({
-					id: 'dimension-labels',
-					type: 'symbol',
-					source: 'dimension-labels-src',
-					layout: {
-						'text-field': ['get', 'label'],
-						'text-size': 11,
-						'text-font': ['Open Sans Regular'],
-						'text-anchor': 'center',
-						'text-allow-overlap': false,
-						'text-rotate': ['get', 'bearing'],
-						'text-rotation-alignment': 'map',
-						'text-pitch-alignment': 'map',
-						visibility: showDimensions ? 'visible' : 'none'
-					},
-					paint: {
-						'text-color': '#1e3a5f',
-						'text-halo-color': '#ffffff',
-						'text-halo-width': 1.5
-					}
-				});
-
-				if (buildings && buildings.features.length > 0) {
-					addBuildingsLayers(map, buildings);
-				}
-
+				// Fit bounds FIRST, before any layer adds that could fail
 				if (bbox) {
 					map.fitBounds(bbox as [number, number, number, number], {
 						padding: 80,
-						maxZoom: 18,
+						maxZoom: 19,
 						duration: 0
 					});
+				}
+
+				try {
+					map.addSource('plot', { type: 'geojson', data: geometry as any });
+					map.addLayer({
+						id: 'plot-fill', type: 'fill', source: 'plot',
+						paint: { 'fill-color': plotFill, 'fill-opacity': plotFillOpacity / 100 }
+					});
+					map.addLayer({
+						id: 'plot-border', type: 'line', source: 'plot',
+						paint: {
+							'line-color': plotStroke,
+							'line-width': plotStrokeWidth,
+							'line-opacity': plotStrokeOpacity / 100
+						}
+					});
+				} catch (e) {
+					console.error('Failed to add plot layers', e);
+				}
+
+				// Dimension labels (can fail if glyphs/fonts unavailable)
+				try {
+					const labels = computeDimensionLabels(geometry);
+					map.addSource('dimension-labels-src', { type: 'geojson', data: labels });
+					map.addLayer({
+						id: 'dimension-labels',
+						type: 'symbol',
+						source: 'dimension-labels-src',
+						layout: {
+							'text-field': ['get', 'label'],
+							'text-size': 11,
+							'text-font': ['Noto Sans Regular'],
+							'text-anchor': 'center',
+							'text-allow-overlap': false,
+							'text-rotate': ['get', 'bearing'],
+							'text-rotation-alignment': 'map',
+							'text-pitch-alignment': 'map',
+							visibility: showDimensions ? 'visible' : 'none'
+						},
+						paint: {
+							'text-color': '#1e3a5f',
+							'text-halo-color': '#ffffff',
+							'text-halo-width': 1.5
+						}
+					});
+				} catch (e) {
+					console.error('Failed to add dimension labels', e);
+				}
+
+				try {
+					if (buildings && buildings.features.length > 0) {
+						addBuildingsLayers(map, buildings);
+					}
+				} catch (e) {
+					console.error('Failed to add buildings', e);
 				}
 
 				mapReady = true;
