@@ -391,7 +391,7 @@
 		<div bind:this={mapContainer} class="h-full w-full"></div>
 
 		<!-- Bottom-left: base map + building layers -->
-		<div class="absolute bottom-3 left-3 flex flex-col gap-2">
+		<div class="absolute bottom-3 left-3 flex flex-col items-start gap-2">
 			<div class="rounded-lg bg-white/90 px-3 py-2 shadow backdrop-blur-sm">
 				<label class="flex items-center gap-2 text-xs text-gray-600">
 					<span>Mapa</span>
