@@ -223,58 +223,20 @@
 			</div>
 		</section>
 
-		<div class="grid gap-6 md:grid-cols-2">
-			<!-- Basic info -->
-			<section class="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-				<h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Podstawowe</h2>
-				<dl class="grid grid-cols-2 gap-2 text-sm">
-					<dt class="text-[var(--color-text-muted)]">Powierzchnia</dt>
-					<dd>{formatArea(plot.area)}</dd>
-					<dt class="text-[var(--color-text-muted)]">Typ</dt>
-					<dd>{plot.lot_type ?? '—'}</dd>
-					<dt class="text-[var(--color-text-muted)]">Budowlana</dt>
-					<dd>{boolLabel(plot.is_buildable)}</dd>
-					<dt class="text-[var(--color-text-muted)]">Budynki (BDOT)</dt>
-					<dd>{plot.building_count_bdot ?? '—'}</dd>
-				</dl>
-			</section>
-
-			<!-- Utilities -->
-			<section class="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-				<h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Media</h2>
-				<dl class="grid grid-cols-2 gap-2 text-sm">
-					<dt class="text-[var(--color-text-muted)]">Woda</dt>
-					<dd>{boolLabel(plot.has_water)}</dd>
-					<dt class="text-[var(--color-text-muted)]">Kanalizacja</dt>
-					<dd>{boolLabel(plot.has_sewage)}</dd>
-					<dt class="text-[var(--color-text-muted)]">Gaz</dt>
-					<dd>{boolLabel(plot.has_gas)}</dd>
-					<dt class="text-[var(--color-text-muted)]">Prąd</dt>
-					<dd>{boolLabel(plot.has_electric)}</dd>
-					<dt class="text-[var(--color-text-muted)]">Ogrzewanie</dt>
-					<dd>{boolLabel(plot.has_heating)}</dd>
-					<dt class="text-[var(--color-text-muted)]">Telekom</dt>
-					<dd>{boolLabel(plot.has_telecom)}</dd>
-				</dl>
-			</section>
-
-			<!-- Distances -->
-			<section class="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-				<h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Odległości</h2>
-				<dl class="grid grid-cols-2 gap-2 text-sm">
-					<dt class="text-[var(--color-text-muted)]">Droga</dt>
-					<dd>{distLabel(plot.nearest_road_distance_m)} ({plot.nearest_road_name ?? '—'})</dd>
-					<dt class="text-[var(--color-text-muted)]">Szkoła</dt>
-					<dd>{distLabel(plot.nearest_education_m)}</dd>
-					<dt class="text-[var(--color-text-muted)]">Zdrowie</dt>
-					<dd>{distLabel(plot.nearest_healthcare_m)}</dd>
-					<dt class="text-[var(--color-text-muted)]">Sklep</dt>
-					<dd>{distLabel(plot.nearest_shopping_m)}</dd>
-					<dt class="text-[var(--color-text-muted)]">Transport</dt>
-					<dd>{distLabel(plot.nearest_transport_m)}</dd>
-				</dl>
-			</section>
-		</div>
+		<!-- Basic info -->
+		<section class="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+			<h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Podstawowe</h2>
+			<dl class="grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
+				<dt class="text-[var(--color-text-muted)]">Powierzchnia</dt>
+				<dd>{formatArea(plot.area)}</dd>
+				<dt class="text-[var(--color-text-muted)]">Typ</dt>
+				<dd>{plot.lot_type ?? '—'}</dd>
+				<dt class="text-[var(--color-text-muted)]">Budowlana</dt>
+				<dd>{boolLabel(plot.is_buildable)}</dd>
+				<dt class="text-[var(--color-text-muted)]">Budynki (BDOT)</dt>
+				<dd>{plot.building_count_bdot ?? '—'}</dd>
+			</dl>
+		</section>
 
 		{#if plot.zoning_symbol}
 			<section class="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">

@@ -31,7 +31,6 @@
 	let map: import('maplibre-gl').Map | undefined;
 	let orthoOpacity = $state(50);
 	let mapReady = $state(false);
-	let drawerOpen = $state(false);
 
 	const LAYERS = [
 		{ source: 'egib', label: 'EGiB', color: '#e8d5b7' },
@@ -740,22 +739,16 @@
 	{:else}
 		<div bind:this={mapContainer} class="h-full w-full"></div>
 
-		<!-- Right side: collapsible controls drawer -->
-		<div class="pointer-events-none absolute inset-y-3 right-3 flex items-start gap-2">
-			{#if drawerOpen}
-				<div
-					class="pointer-events-auto flex max-h-full w-72 flex-col overflow-hidden rounded-xl bg-white/95 shadow-lg backdrop-blur-sm"
-				>
-					<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
-						<span class="text-xs font-semibold uppercase tracking-wider text-gray-700">Warstwy mapy</span>
-						<button
-							onclick={() => (drawerOpen = false)}
-							class="text-lg leading-none text-gray-400 hover:text-gray-700"
-							title="Zamknij"
-						>&times;</button>
-					</div>
+		<!-- Left side: always-visible controls panel -->
+		<div class="pointer-events-none absolute inset-y-3 left-3 flex items-start">
+			<div
+				class="pointer-events-auto flex max-h-full w-72 flex-col overflow-hidden rounded-xl bg-white/95 shadow-lg backdrop-blur-sm"
+			>
+				<div class="border-b border-gray-100 px-4 py-2.5">
+					<span class="text-xs font-semibold uppercase tracking-wider text-gray-700">Warstwy mapy</span>
+				</div>
 
-					<div class="flex-1 space-y-4 overflow-y-auto px-4 py-3 text-xs text-gray-700">
+				<div class="flex-1 space-y-4 overflow-y-auto px-4 py-3 text-xs text-gray-700">
 						<!-- 1. Mapa bazowa -->
 						<section>
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Mapa bazowa</h4>
@@ -976,18 +969,6 @@
 						</section>
 					</div>
 				</div>
-			{/if}
-
-			<button
-				onclick={() => (drawerOpen = !drawerOpen)}
-				class="pointer-events-auto flex h-10 items-center gap-1.5 self-start rounded-lg bg-white/95 px-3 text-xs font-medium text-gray-700 shadow backdrop-blur-sm hover:bg-white"
-				title="Warstwy"
-			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-				</svg>
-				{drawerOpen ? '' : 'Warstwy'}
-			</button>
 		</div>
 	{/if}
 </div>
