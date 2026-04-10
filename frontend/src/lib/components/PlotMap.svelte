@@ -674,12 +674,12 @@
 					map.addLayer({
 						id: 'pl-osm-buffer-fill', type: 'fill', source: 'pl-osm-buffer',
 						layout: { visibility: 'none' },
-						paint: { 'fill-color': '#dd6b20', 'fill-opacity': 0.18 },
+						paint: { 'fill-color': '#06b6d4', 'fill-opacity': 0.22 },
 					});
 					map.addLayer({
 						id: 'pl-osm-line', type: 'line', source: 'pl-osm',
 						layout: { visibility: 'none', 'line-cap': 'round', 'line-join': 'round' },
-						paint: { 'line-color': '#c05621', 'line-width': 2.5, 'line-dasharray': [2, 1] },
+						paint: { 'line-color': '#0e7490', 'line-width': 2.5, 'line-dasharray': [2, 1] },
 					});
 
 					// BDOT point devices (mix of Point + Polygon)
@@ -1073,8 +1073,8 @@
 							{/if}
 
 							<label class="mt-1 flex cursor-pointer items-center gap-2 py-1">
-								<input type="checkbox" checked={osmLinesVisible} onchange={toggleOsmLines} class="accent-orange-600" />
-								<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#c05621"></span>
+								<input type="checkbox" checked={osmLinesVisible} onchange={toggleOsmLines} class="accent-cyan-600" />
+								<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#0e7490"></span>
 								<span class="flex-1">OSM</span>
 								{#if powerlineLoading.osm}
 									<span class="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600"></span>
@@ -1090,13 +1090,13 @@
 										type="range" min="0" max="35" step="1"
 										value={osmLinesBuffer}
 										oninput={(e) => onOsmBufferChange(parseInt((e.target as HTMLInputElement).value))}
-										class="h-1 w-full cursor-pointer accent-orange-600"
+										class="h-1 w-full cursor-pointer accent-cyan-600"
 									/>
 									<div class="mt-1 flex gap-1">
 										{#each OSM_BUFFER_PRESETS as p}
 											<button
 												onclick={() => onOsmBufferChange(p)}
-												class="rounded border px-1.5 py-0.5 text-[10px] {osmLinesBuffer === p ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}"
+												class="rounded border px-1.5 py-0.5 text-[10px] {osmLinesBuffer === p ? 'border-cyan-500 bg-cyan-50 text-cyan-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}"
 											>
 												{p} m
 											</button>
