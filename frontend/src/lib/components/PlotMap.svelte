@@ -462,18 +462,34 @@
 		if (!map || !mapReady) return;
 		let visible: boolean;
 		let layerId: string;
+		let srcId: string;
+		let fc: GeoJSON.FeatureCollection;
 		if (kind === 'tx') {
 			txPinsVisible = !txPinsVisible;
 			visible = txPinsVisible;
 			layerId = 'pins-tx';
+			srcId = 'pins-tx-src';
+			fc = toFeatureCollection(transactions, 'transaction');
 		} else if (kind === 'listing') {
 			listingPinsVisible = !listingPinsVisible;
 			visible = listingPinsVisible;
 			layerId = 'pins-listing';
+			srcId = 'pins-listing-src';
+			fc = toFeatureCollection(listings, 'listing');
 		} else {
 			invPinsVisible = !invPinsVisible;
 			visible = invPinsVisible;
 			layerId = 'pins-investment';
+			srcId = 'pins-investment-src';
+			fc = toFeatureCollection(investments, 'investment');
+		}
+		// Belt-and-suspenders: always push fresh data to the source when
+		// enabling a pin layer, even if the $effect above did its job. This
+		// makes the toggle-on flow deterministic regardless of any prop
+		// reactivity quirks.
+		if (visible) {
+			const src = map.getSource(srcId);
+			if (src && 'setData' in src) (src as any).setData(fc);
 		}
 		if (map.getLayer(layerId)) {
 			map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
@@ -871,21 +887,31 @@
 		}
 	});
 
-	// Keep pin sources in sync when transactions/listings/investments props change
+	// Keep pin sources in sync when transactions / listings / investments
+	// props change. Each effect computes the FeatureCollection BEFORE the
+	// early return so the props are always read (and therefore always
+	// tracked as reactive deps) — otherwise, if map/mapReady were still
+	// false on the first run, the prop reads never happened and later
+	// updates from the parent wouldn't retrigger the effect, leaving the
+	// source empty forever. This was the root cause of "ogłoszenia na
+	// mapie pinezki nie działają".
 	$effect(() => {
+		const fc = toFeatureCollection(transactions, 'transaction');
 		if (!map || !mapReady) return;
 		const src = map.getSource('pins-tx-src');
-		if (src && 'setData' in src) (src as any).setData(toFeatureCollection(transactions, 'transaction'));
+		if (src && 'setData' in src) (src as any).setData(fc);
 	});
 	$effect(() => {
+		const fc = toFeatureCollection(listings, 'listing');
 		if (!map || !mapReady) return;
 		const src = map.getSource('pins-listing-src');
-		if (src && 'setData' in src) (src as any).setData(toFeatureCollection(listings, 'listing'));
+		if (src && 'setData' in src) (src as any).setData(fc);
 	});
 	$effect(() => {
+		const fc = toFeatureCollection(investments, 'investment');
 		if (!map || !mapReady) return;
 		const src = map.getSource('pins-investment-src');
-		if (src && 'setData' in src) (src as any).setData(toFeatureCollection(investments, 'investment'));
+		if (src && 'setData' in src) (src as any).setData(fc);
 	});
 
 	// Autofill the plot valuation input from the roszczenia.csv sheet

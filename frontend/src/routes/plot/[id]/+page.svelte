@@ -86,6 +86,21 @@
 				buildings = null;
 			});
 
+		// Initial transactions fetch — reset to default filter on nav and
+		// kick off one request. Subsequent filter changes are handled by
+		// the dedicated effect below.
+		transactionsLoading = true;
+		getPlotTransactions(id, transactionsType)
+			.then((data) => {
+				transactions = data;
+			})
+			.catch(() => {
+				transactions = [];
+			})
+			.finally(() => {
+				transactionsLoading = false;
+			});
+
 		// Pre-computed claim value from roszczenia.csv (null if plot isn't in the sheet)
 		roszczenieRow = null;
 		getPlotRoszczenie(id)
@@ -114,10 +129,22 @@
 			});
 	});
 
-	// Refetch transactions when plot id OR type filter changes
+	// Refetch transactions when the type filter changes. The initial
+	// fetch happens inside the main $effect above; this one only fires
+	// on subsequent filter chip clicks, guarded so we don't double-fetch
+	// on first mount.
+	let lastTxFetchKey = '';
 	$effect(() => {
 		const id = $page.params.id ?? '';
 		if (!id) return;
+		const key = `${id}|${transactionsType}`;
+		if (key === lastTxFetchKey) return;
+		if (lastTxFetchKey === '') {
+			// First run — main $effect handles the initial fetch.
+			lastTxFetchKey = key;
+			return;
+		}
+		lastTxFetchKey = key;
 		transactionsLoading = true;
 		getPlotTransactions(id, transactionsType)
 			.then((data) => {
