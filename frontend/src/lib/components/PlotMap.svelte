@@ -78,11 +78,17 @@
 	// plot ∩ buffer intersection area reactively as the slider moves.
 	let bdotBufferedFC = $state<GeoJSON.FeatureCollection | null>(null);
 	let osmBufferedFC = $state<GeoJSON.FeatureCollection | null>(null);
-	// Placeholder zł rate for the claim calculator. Historically this was
-	// a zł/m² input the user typed manually; when the roszczenia.csv sheet
-	// has a row for the plot we auto-populate it with the sheet's total
-	// claim amount (see $effect below). The user can still overwrite it.
-	let valuationPerM2 = $state(0);
+	// Plot valuation (total zł) used by the claim calculator. When the
+	// roszczenia.csv sheet has a row for the plot we auto-populate this
+	// with the sheet's `wartosc_dzialki` field (see $effect below); the
+	// user can still overwrite it manually.
+	//
+	// Claim formula (consistent across sheet and manual modes):
+	//   claim = plotValuation × 0.5 × (intersection_m² / plot_area_m²)
+	// The 0.5 is the easement-reduction factor (strefa ochronna lowers
+	// usable value to half), and the coverage fraction makes the slider
+	// meaningful.
+	let plotValuationZl = $state(0);
 	// Cached raw features per source (fetched on first enable, reused for buffer changes)
 	let powerlineFeatures = $state<Record<PowerlineSource, GeoJSON.FeatureCollection | null>>({
 		bdot: null,
@@ -304,20 +310,12 @@
 	const osmCoveragePct = $derived(
 		plotAreaM2 > 0 ? (osmIntersectM2 / plotAreaM2) * 100 : 0,
 	);
-	// Claim interpretation depends on the mode:
-	// - Sheet mode (roszczenieRow is set → valuationPerM2 holds the total
-	//   claim in zł from the arkusz): proportional claim = coverage% × total
-	// - Manual mode (user typed a zł/m² rate):      claim = intersection × rate
-	const bdotClaimZl = $derived(
-		roszczenieRow
-			? (bdotCoveragePct / 100) * valuationPerM2
-			: bdotIntersectM2 * valuationPerM2,
-	);
-	const osmClaimZl = $derived(
-		roszczenieRow
-			? (osmCoveragePct / 100) * valuationPerM2
-			: osmIntersectM2 * valuationPerM2,
-	);
+	// Claim = plot valuation × 0.5 × coverage fraction. Same formula for
+	// sheet mode (autofill from arkusz) and manual mode (user types total
+	// plot valuation in zł) — the input is always "wartość działki", not
+	// a zł/m² rate, so the two modes stay consistent.
+	const bdotClaimZl = $derived((plotValuationZl * 0.5 * bdotCoveragePct) / 100);
+	const osmClaimZl = $derived((plotValuationZl * 0.5 * osmCoveragePct) / 100);
 
 	function computeBufferedFC(
 		fc: GeoJSON.FeatureCollection | null,
@@ -687,10 +685,20 @@
 					console.error('Failed to add dimension labels', e);
 				}
 
+				// Always seed the buildings source + layers, even if the prop
+				// hasn't arrived yet. If we skipped this and added buildings
+				// later via the $effect below, the new layers would end up
+				// stacked ABOVE the pin layers added further down and hide
+				// the transaction / listing / investment pins. Seeding an
+				// empty FeatureCollection now locks the z-order in place —
+				// the $effect later just does setData on the existing
+				// source via addBuildingsLayers' early-return branch.
 				try {
-					if (buildings && buildings.features.length > 0) {
-						addBuildingsLayers(map, buildings);
-					}
+					const initialBuildings: GeoJSON.FeatureCollection =
+						buildings && buildings.features.length > 0
+							? buildings
+							: { type: 'FeatureCollection', features: [] };
+					addBuildingsLayers(map, initialBuildings);
 				} catch (e) {
 					console.error('Failed to add buildings', e);
 				}
@@ -880,13 +888,13 @@
 		if (src && 'setData' in src) (src as any).setData(toFeatureCollection(investments, 'investment'));
 	});
 
-	// Autofill the "Wycena" input from the roszczenia.csv sheet when the
-	// plot has a matching row. Runs once per plot load — subsequent user
-	// edits stick because `valuationPerM2` only gets re-synced when the
-	// incoming `roszczenieRow` reference actually changes.
+	// Autofill the plot valuation input from the roszczenia.csv sheet
+	// when the plot has a matching row. Runs once per plot load — later
+	// user edits stick because we only re-sync when the incoming
+	// `roszczenieRow` reference actually changes.
 	$effect(() => {
 		if (roszczenieRow) {
-			valuationPerM2 = roszczenieRow.wartosc_roszczenia;
+			plotValuationZl = roszczenieRow.wartosc_dzialki;
 		}
 	});
 
@@ -1278,12 +1286,12 @@
 						</div>
 					</div>
 
-					<!-- Column 2: WYCENA ROSZCZENIA — the input, prefilled from the sheet -->
+					<!-- Column 2: WARTOŚĆ DZIAŁKI — the input, prefilled from the sheet -->
 					<div>
 						<label class="block">
 							<div class="mb-2 flex items-baseline justify-between">
 								<span class="text-[10px] font-semibold uppercase tracking-wider text-amber-700">
-									Wycena roszczenia
+									Wartość działki
 								</span>
 								{#if roszczenieRow}
 									<span class="text-[10px] italic text-amber-600">z arkusza</span>
@@ -1294,30 +1302,32 @@
 									type="number"
 									min="0"
 									step="0.01"
-									bind:value={valuationPerM2}
+									bind:value={plotValuationZl}
 									placeholder="—"
 									class="w-full rounded border border-gray-300 bg-white px-2.5 py-2 pr-10 text-right font-mono text-base font-semibold tabular-nums text-amber-900"
 								/>
 								<span class="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-xs font-semibold text-gray-400">
-									{roszczenieRow ? 'zł' : 'zł/m²'}
+									zł
 								</span>
+							</div>
+							<div class="mt-1 text-[10px] text-gray-400">
+								Roszczenie = wartość × 0,5 × (strefa / działka)
 							</div>
 						</label>
 					</div>
 
-					<!-- Column 3: ROSZCZENIE PROPORCJONALNE — coverage% × wycena (sheet
-						 mode) or intersection × rate (manual mode). -->
+					<!-- Column 3: ROSZCZENIE — wartość × 0.5 × coverage per source -->
 					<div>
 						<div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-amber-700">
-							Roszczenie proporcjonalne
+							Wysokość roszczenia
 						</div>
-						{#if valuationPerM2 > 0 && (bdotLinesVisible || osmLinesVisible)}
+						{#if plotValuationZl > 0 && (bdotLinesVisible || osmLinesVisible)}
 							<div class="space-y-2 text-sm">
 								{#if bdotLinesVisible}
 									<div>
 										<div class="text-gray-600">
 											BDOT
-											{#if roszczenieRow}<span class="ml-1 text-xs text-gray-400">({bdotCoveragePct.toFixed(1)}% × wycena)</span>{/if}
+											<span class="ml-1 text-xs text-gray-400">({bdotCoveragePct.toFixed(1)}% × 0,5)</span>
 										</div>
 										<div class="mt-0.5 font-mono text-base font-semibold tabular-nums text-amber-800">
 											{Math.round(bdotClaimZl).toLocaleString('pl-PL')} zł
@@ -1328,7 +1338,7 @@
 									<div>
 										<div class="text-gray-600">
 											OSM
-											{#if roszczenieRow}<span class="ml-1 text-xs text-gray-400">({osmCoveragePct.toFixed(1)}% × wycena)</span>{/if}
+											<span class="ml-1 text-xs text-gray-400">({osmCoveragePct.toFixed(1)}% × 0,5)</span>
 										</div>
 										<div class="mt-0.5 font-mono text-base font-semibold tabular-nums text-amber-800">
 											{Math.round(osmClaimZl).toLocaleString('pl-PL')} zł
@@ -1336,9 +1346,9 @@
 									</div>
 								{/if}
 							</div>
-						{:else if !valuationPerM2}
+						{:else if !plotValuationZl}
 							<div class="text-xs italic text-gray-400">
-								Brak wyceny — wpisz wartość lub załaduj z arkusza
+								Brak wartości działki — wpisz ją lub załaduj z arkusza
 							</div>
 						{:else}
 							<div class="text-xs italic text-gray-400">

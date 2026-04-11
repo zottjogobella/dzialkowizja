@@ -28,11 +28,14 @@ async def get_roszczenie(
     db: AsyncSession = Depends(get_db),
     _user=Depends(require_auth),
 ):
-    """Return the pre-computed claim value for a plot, or 404 if not in the sheet.
+    """Return the plot valuation from the sheet, or 404 if not present.
 
     Response::
 
-        {"id_dzialki": "...", "wartosc_roszczenia": 14195929.0}
+        {"id_dzialki": "...", "wartosc_dzialki": 831744695.3}
+
+    The claim itself is computed client-side as
+    ``wartosc_dzialki × 0.5 × (intersection_area / plot_area)``.
     """
     stmt = select(Roszczenie).where(Roszczenie.id_dzialki == id_dzialki)
     result = await db.execute(stmt)
@@ -41,5 +44,5 @@ async def get_roszczenie(
         raise HTTPException(status_code=404, detail="brak w arkuszu")
     return {
         "id_dzialki": row.id_dzialki,
-        "wartosc_roszczenia": float(row.wartosc_roszczenia),
+        "wartosc_dzialki": float(row.wartosc_dzialki),
     }

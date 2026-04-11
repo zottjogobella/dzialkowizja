@@ -22,8 +22,16 @@ export async function getPlotListings(idDzialki: string): Promise<ListingsRespon
 	return apiGet<ListingsResponse>(`/api/plots/${encodeURIComponent(idDzialki)}/listings`);
 }
 
-export async function getPlotTransactions(idDzialki: string): Promise<Transaction[]> {
-	return apiGet<Transaction[]>(`/api/plots/${encodeURIComponent(idDzialki)}/transactions`);
+export type TransactionType = 'all' | 'gruntowe' | 'inne';
+
+export async function getPlotTransactions(
+	idDzialki: string,
+	type: TransactionType = 'all',
+): Promise<Transaction[]> {
+	const qs = new URLSearchParams({ type });
+	return apiGet<Transaction[]>(
+		`/api/plots/${encodeURIComponent(idDzialki)}/transactions?${qs.toString()}`,
+	);
 }
 
 export async function getPlotBuildings(
@@ -94,7 +102,8 @@ export async function getPlotPowerlines(
 
 export interface RoszczenieRow {
 	id_dzialki: string;
-	wartosc_roszczenia: number;
+	/** Total plot valuation from the sheet. Claim = this × 0.5 × coverage_fraction. */
+	wartosc_dzialki: number;
 }
 
 /** Return the pre-computed claim value for a plot, or null if not in the sheet. */

@@ -209,11 +209,20 @@ def _fetch_plot_centroid_2180(id_dzialki: str) -> tuple[float, float] | None:
         conn.close()
 
 
-def _fetch_nearest_transactions(cx: float, cy: float, limit: int = 10) -> list[dict]:
+def _fetch_nearest_transactions(
+    cx: float, cy: float, limit: int = 30, type_filter: str = "all"
+) -> list[dict]:
     """Find nearest land transactions by Euclidean distance in EPSG:2180.
 
     cx, cy are from gruntomat ST_X/ST_Y(ST_Centroid(geom)) in EPSG:2180.
     Transakcje table has pre-computed cx_2180, cy_2180 in the same CRS.
+
+    ``type_filter``:
+        - ``"all"``:      everything (default)
+        - ``"gruntowe"``: only land plots (rodzaj_nieruchomosci IN 1,2
+                          → niezabudowana / zabudowana)
+        - ``"inne"``:     everything that isn't a plain land plot
+                          (budynkowa, lokalowa, nieznane)
     """
     conn = psycopg2.connect(
         host=settings.transakcje_db_host,
@@ -223,10 +232,16 @@ def _fetch_nearest_transactions(cx: float, cy: float, limit: int = 10) -> list[d
         password=settings.transakcje_db_password,
         connect_timeout=10,
     )
+    if type_filter == "gruntowe":
+        type_sql = " AND rodzaj_nieruchomosci IN (1, 2)"
+    elif type_filter == "inne":
+        type_sql = " AND (rodzaj_nieruchomosci NOT IN (1, 2) OR rodzaj_nieruchomosci IS NULL)"
+    else:
+        type_sql = ""
     try:
         with conn.cursor() as cur:
             cur.execute(
-                """
+                f"""
                 SELECT id, teryt, wojewodztwo, id_dzialki,
                     data_transakcji, rok, oznaczenie_dokumentu, tworca_dokumentu,
                     cena_transakcji, cena_nieruchomosci, cena_dzialki, cena_do_analizy,
@@ -245,6 +260,7 @@ def _fetch_nearest_transactions(cx: float, cy: float, limit: int = 10) -> list[d
                     ) AS distance_m
                 FROM transakcje_gruntowe
                 WHERE cx_2180 IS NOT NULL AND cena_transakcji > 0
+                {type_sql}
                 ORDER BY ST_SetSRID(ST_MakePoint(cx_2180, cy_2180), 2180)
                      <-> ST_SetSRID(ST_MakePoint(%s, %s), 2180)
                 LIMIT %s
@@ -468,14 +484,28 @@ async def get_plot_listing_stats(id_dzialki: str, _user=Depends(require_auth)):
 
 
 @router.get("/{id_dzialki:path}/transactions")
-async def get_plot_transactions(id_dzialki: str, _user=Depends(require_auth)):
+async def get_plot_transactions(
+    id_dzialki: str,
+    type: str = "all",
+    _user=Depends(require_auth),
+):
+    """Return the N nearest transactions to the plot centroid.
+
+    Query params:
+        type — all | gruntowe | inne, default ``all``. ``gruntowe`` keeps
+               only rodzaj_nieruchomosci in {1,2} (plots of land);
+               ``inne`` returns everything else (budynkowa/lokalowa).
+    """
     centroid = await asyncio.to_thread(_fetch_plot_centroid_2180, id_dzialki)
     if centroid is None:
         raise HTTPException(status_code=404, detail="Działka nie znaleziona")
 
     cx, cy = centroid
+    type_filter = type if type in ("all", "gruntowe", "inne") else "all"
     try:
-        return await asyncio.to_thread(_fetch_nearest_transactions, cx, cy)
+        return await asyncio.to_thread(
+            _fetch_nearest_transactions, cx, cy, 30, type_filter
+        )
     except Exception:
         logger.exception("Failed to fetch transactions")
         return []

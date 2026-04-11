@@ -79,12 +79,19 @@ class PlotSnapshot(Base):
 
 
 class Roszczenie(Base):
-    """Pre-computed claim values loaded from the roszczenia.csv spreadsheet.
+    """Plot valuations loaded from the roszczenia.csv spreadsheet.
 
-    Minimal two-column mapping id_dzialki → wartosc_roszczenia. Only rows
-    owned by legal entities (``os prawna``/``panstwo``) are imported —
-    individuals are filtered out during ingest. Stored in the app DB so
-    the data stays local to this project and is not touched in gruntomat.
+    Minimal two-column mapping ``id_dzialki → wartosc_dzialki``. Despite
+    the file being named ``roszczenia.csv``, the stored value is the
+    total plot valuation (``cena_m2 × pow_dzialki``) — the actual claim
+    is derived live on the frontend as
+    ``wartosc_dzialki × 0.5 × (pow_buforu / pow_dzialki)`` so the slider
+    buffer rescales the result.
+
+    Only rows owned by legal entities (``os prawna``/``panstwo``) are
+    imported — individuals are filtered out during ingest. Stored in the
+    app DB so the data stays local to this project and is not touched in
+    gruntomat.
     """
 
     __tablename__ = "roszczenia"
@@ -92,4 +99,4 @@ class Roszczenie(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id_dzialki: Mapped[str] = mapped_column(String(255), nullable=False)
-    wartosc_roszczenia: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
+    wartosc_dzialki: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)

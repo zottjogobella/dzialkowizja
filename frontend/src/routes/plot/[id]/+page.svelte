@@ -10,6 +10,7 @@
 		getPlotRoszczenie,
 		type ListingsResponse,
 		type InvestmentType,
+		type TransactionType,
 		type RoszczenieRow,
 	} from '$lib/api/plots';
 	import type { PlotDetail, Listing, Transaction, Investment } from '$lib/types/plot';
@@ -26,6 +27,7 @@
 	let buildings = $state<GeoJSON.FeatureCollection | null>(null);
 	let transactions = $state<Transaction[]>([]);
 	let transactionsLoading = $state(true);
+	let transactionsType = $state<TransactionType>('all');
 	let investments = $state<Investment[]>([]);
 	let investmentsLoading = $state(true);
 	let investmentsType = $state<InvestmentType>('all');
@@ -84,18 +86,6 @@
 				buildings = null;
 			});
 
-		transactionsLoading = true;
-		getPlotTransactions(id)
-			.then((data) => {
-				transactions = data;
-			})
-			.catch(() => {
-				transactions = [];
-			})
-			.finally(() => {
-				transactionsLoading = false;
-			});
-
 		// Pre-computed claim value from roszczenia.csv (null if plot isn't in the sheet)
 		roszczenieRow = null;
 		getPlotRoszczenie(id)
@@ -121,6 +111,23 @@
 			})
 			.finally(() => {
 				investmentsLoading = false;
+			});
+	});
+
+	// Refetch transactions when plot id OR type filter changes
+	$effect(() => {
+		const id = $page.params.id ?? '';
+		if (!id) return;
+		transactionsLoading = true;
+		getPlotTransactions(id, transactionsType)
+			.then((data) => {
+				transactions = data;
+			})
+			.catch(() => {
+				transactions = [];
+			})
+			.finally(() => {
+				transactionsLoading = false;
 			});
 	});
 
@@ -287,7 +294,7 @@
 		<details class="group mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]" open>
 			<summary class="flex cursor-pointer items-center justify-between px-5 py-4">
 				<h2 class="text-lg font-semibold text-[var(--color-primary)]">
-					Transakcje gruntowe
+					Transakcje w okolicy
 					{#if !transactionsLoading}
 						<span class="ml-1 text-sm font-normal text-[var(--color-text-muted)]">({transactions.length})</span>
 					{/if}
@@ -295,6 +302,21 @@
 				<svg class="h-5 w-5 shrink-0 text-[var(--color-text-muted)] transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
 			</summary>
 			<div class="px-5 pb-5">
+				<div class="mb-3 flex flex-wrap items-center gap-2 text-xs">
+					<span class="text-[var(--color-text-muted)]">Typ:</span>
+					{#each [
+						{ v: 'all' as TransactionType, label: 'Wszystkie' },
+						{ v: 'gruntowe' as TransactionType, label: 'Gruntowe' },
+						{ v: 'inne' as TransactionType, label: 'Inne' },
+					] as opt}
+						<button
+							onclick={() => (transactionsType = opt.v)}
+							class="rounded-full border px-3 py-1 transition-colors {transactionsType === opt.v ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-gray-50'}"
+						>
+							{opt.label}
+						</button>
+					{/each}
+				</div>
 				{#if transactionsLoading}
 					<div class="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
 						<div class="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-primary)]"></div>

@@ -2,8 +2,14 @@
 """Load roszczenia.csv into the dzialkowizja app DB.
 
 CSV schema (columns kept):
-    lot_identifier        → roszczenia.id_dzialki
-    wartosc_roszczenia    → roszczenia.wartosc_roszczenia
+    lot_identifier  → roszczenia.id_dzialki
+    wycena          → roszczenia.wartosc_dzialki   (total plot value)
+
+Note: despite this file being named "roszczenia.csv", the stored value
+is the **plot valuation** (cena_m2 × pow_dzialki), NOT a pre-computed
+claim. The claim is derived live in the frontend as
+``wartosc_dzialki × 0.5 × (pow_buforu / pow_dzialki)`` so that moving
+the buffer slider rescales the claim to the current coverage.
 
 Rows are filtered to owner types we care about for the claim display
 (``os prawna`` and ``panstwo``). Individuals (``os fizyczna``) make up
@@ -60,14 +66,14 @@ def parse_database_url(url: str) -> dict:
 
 
 def read_rows(csv_path: Path) -> Iterator[tuple[str, float]]:
-    """Stream (id_dzialki, wartosc_roszczenia) from the CSV."""
+    """Stream (id_dzialki, wartosc_dzialki) from the CSV."""
     seen_per_plot: dict[str, float] = {}
     total = 0
     kept = 0
     bad = 0
     with csv_path.open(newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        required = {"lot_identifier", "owners_type", "wartosc_roszczenia"}
+        required = {"lot_identifier", "owners_type", "wycena"}
         missing = required - set(reader.fieldnames or [])
         if missing:
             raise SystemExit(
@@ -79,7 +85,7 @@ def read_rows(csv_path: Path) -> Iterator[tuple[str, float]]:
             if row.get("owners_type") not in KEPT_OWNER_TYPES:
                 continue
             lot = (row.get("lot_identifier") or "").strip()
-            raw_value = (row.get("wartosc_roszczenia") or "").strip()
+            raw_value = (row.get("wycena") or "").strip()
             if not lot or not raw_value:
                 bad += 1
                 continue
@@ -89,8 +95,8 @@ def read_rows(csv_path: Path) -> Iterator[tuple[str, float]]:
                 bad += 1
                 continue
             # A single plot can appear multiple times (multiple owners /
-            # multiple source files). Keep the largest claim so we expose
-            # the most conservative figure to the user.
+            # multiple source files). Keep the largest plot valuation so
+            # we expose the most conservative figure to the user.
             prev = seen_per_plot.get(lot)
             if prev is None or value > prev:
                 seen_per_plot[lot] = value
@@ -141,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
                 if len(batch) >= BATCH_SIZE:
                     psycopg2.extras.execute_values(
                         cur,
-                        "INSERT INTO roszczenia (id_dzialki, wartosc_roszczenia) VALUES %s",
+                        "INSERT INTO roszczenia (id_dzialki, wartosc_dzialki) VALUES %s",
                         batch,
                     )
                     written += len(batch)
@@ -151,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
             if batch:
                 psycopg2.extras.execute_values(
                     cur,
-                    "INSERT INTO roszczenia (id_dzialki, wartosc_roszczenia) VALUES %s",
+                    "INSERT INTO roszczenia (id_dzialki, wartosc_dzialki) VALUES %s",
                     batch,
                 )
                 written += len(batch)
