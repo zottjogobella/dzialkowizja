@@ -349,12 +349,11 @@ class UldkClient:
                 )
 
     def _fetch(self, parcel_id: str) -> tuple[float, float] | None:
-        # Rate-limit softly so we behave nicely with GUGiK.
-        elapsed = time.time() - self._last_call
-        if elapsed < ULDK_RATE_DELAY:
-            time.sleep(ULDK_RATE_DELAY - elapsed)
-        self._last_call = time.time()
-
+        # No per-call sleep: when running under a ThreadPoolExecutor the
+        # shared _last_call counter is racy anyway, and with 16+ workers
+        # the effective request rate is bounded by per-request latency,
+        # not by a software-side delay. Throttle by lowering
+        # --geocode-workers instead if GUGiK ever starts pushing back.
         params = {
             "request": "GetParcelById",
             "id": parcel_id,
@@ -422,6 +421,59 @@ class UldkClient:
         if xy is None:
             self._session_notfound += 1
         return xy
+
+    def resolve_many(
+        self, parcel_ids: list[str | None], workers: int = 16
+    ) -> list[tuple[float, float] | None]:
+        """Resolve a batch of parcel IDs in parallel.
+
+        DB access (cache reads/writes) stays on the calling thread —
+        psycopg2 connections are not thread-safe — so only the outbound
+        HTTP calls are parallelised. The caller gets results back in the
+        same order as the input list.
+        """
+        import concurrent.futures
+
+        results: list[tuple[float, float] | None] = [None] * len(parcel_ids)
+        to_fetch: list[tuple[int, str]] = []
+
+        # Pass 1: sequential cache lookup.
+        for idx, pid in enumerate(parcel_ids):
+            if pid is None:
+                results[idx] = None
+                continue
+            cached = self._cache_get(pid)
+            if cached is not None:
+                x, y, not_found = cached
+                if not_found:
+                    self._session_notfound += 1
+                    results[idx] = None
+                else:
+                    self._session_hits += 1
+                    results[idx] = (x, y)
+            else:
+                to_fetch.append((idx, pid))
+
+        if not to_fetch:
+            return results
+
+        # Pass 2: parallel HTTP fetches (no DB touch inside threads).
+        def _job(item: tuple[int, str]) -> tuple[int, str, tuple[float, float] | None]:
+            i, pid = item
+            return i, pid, self._fetch(pid)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
+            fetched = list(ex.map(_job, to_fetch))
+
+        # Pass 3: back on the main thread, persist to cache and fill results.
+        for idx, pid, xy in fetched:
+            self._cache_set(pid, xy)
+            self._session_misses += 1
+            if xy is None:
+                self._session_notfound += 1
+            results[idx] = xy
+
+        return results
 
     def stats(self) -> dict:
         return {
@@ -593,32 +645,36 @@ def run(args):
             mapper = _rwd_row_to_record if kind == "rwd" else _zgloszenie_row_to_record
             logger.info("Ingesting %s (%s)", label, kind)
 
-            batch: list[tuple[Record, tuple[float, float] | None]] = []
+            rec_buffer: list[Record] = []
             per_dataset_seen = 0
             limit = args.limit if not args.full else None
+
+            def flush_buffer():
+                nonlocal total_upserted, total_with_geom, total_missing_parcel, total_geocoded_now
+                if not rec_buffer:
+                    return
+                parcel_ids = [r.parcel_id for r in rec_buffer]
+                before_misses = uldk._session_misses
+                resolved = uldk.resolve_many(parcel_ids, workers=args.geocode_workers)
+                total_geocoded_now += uldk._session_misses - before_misses
+                rows: list[tuple[Record, tuple[float, float] | None]] = []
+                for rec, xy in zip(rec_buffer, resolved):
+                    if rec.parcel_id is None:
+                        total_missing_parcel += 1
+                    if xy is not None:
+                        total_with_geom += 1
+                    rows.append((rec, xy))
+                upsert_batch(conn, rows)
+                total_upserted += len(rows)
+                rec_buffer.clear()
 
             for rec in iter_csv_records(zip_path, label, mapper, date_from=date_from):
                 total_seen += 1
                 per_dataset_seen += 1
+                rec_buffer.append(rec)
 
-                if rec.parcel_id is None:
-                    total_missing_parcel += 1
-                    xy = None
-                else:
-                    before_misses = uldk._session_misses
-                    xy = uldk.resolve(rec.parcel_id)
-                    if uldk._session_misses > before_misses:
-                        total_geocoded_now += 1
-
-                if xy is not None:
-                    total_with_geom += 1
-
-                batch.append((rec, xy))
-
-                if len(batch) >= args.batch_size:
-                    upsert_batch(conn, batch)
-                    total_upserted += len(batch)
-                    batch.clear()
+                if len(rec_buffer) >= args.batch_size:
+                    flush_buffer()
                     if total_upserted % (args.batch_size * 5) == 0:
                         logger.info(
                             "  progress: seen=%d upserted=%d geom=%d uldk=%s",
@@ -628,10 +684,7 @@ def run(args):
                 if limit and per_dataset_seen >= limit:
                     break
 
-            if batch:
-                upsert_batch(conn, batch)
-                total_upserted += len(batch)
-                batch.clear()
+            flush_buffer()
 
             logger.info(
                 "Finished %s: seen=%d, upserted_total=%d, geom_total=%d",
@@ -662,6 +715,8 @@ def main():
     p.add_argument("--date-from", dest="date_from",
                    help="YYYY-MM-DD — skip rows strictly older than this.")
     p.add_argument("--batch-size", type=int, default=200)
+    p.add_argument("--geocode-workers", type=int, default=16,
+                   help="Parallel ULDK geocode workers per batch (default 16).")
 
     p.add_argument("--db-host", default=os.environ.get("GEO_DB_HOST", "145.239.2.73"))
     p.add_argument("--db-port", type=int, default=int(os.environ.get("GEO_DB_PORT", "5432")))
