@@ -37,17 +37,18 @@ def _fetch_investments(
     id_dzialki: str,
     months: int,
     type_filter: InvestmentType,
-    radius_m: int,
-    limit: int = 100,
+    max_distance_m: int,
+    limit: int = 30,
 ) -> list[dict] | None:
-    """Return investments within `radius_m` of the plot *geometry* (not centroid).
+    """Return the *nearest* N investments to the plot, capped by max distance.
 
     Returns None when the plot does not exist.
 
-    Distances and the ST_DWithin filter are computed against the full plot
-    polygon, matching the powerlines endpoint — a 500 m buffer around a
-    large plot can add hundreds of metres of reach compared to measuring
-    from the centroid.
+    Distances are against the full plot polygon (not the centroid), and the
+    nearest-neighbour ORDER BY uses the GiST index via the ``<->`` operator.
+    The max-distance cap stops us from listing records hundreds of km away
+    when the area has sparse coverage, while still returning SOMETHING if
+    there's anything within a sensible reach.
     """
     conn = psycopg2.connect(
         host=settings.geo_db_host,
@@ -68,27 +69,32 @@ def _fetch_investments(
                 return None
 
             # Time window uses COALESCE(data_decyzji, data_wniosku) so zgłoszenia
-            # (which have no decision date) are still filtered in.
+            # (no decision date) are still filtered in. Sort by the index-
+            # friendly KNN operator so we get the nearest N even when the
+            # table is sparse in this region.
             cur.execute(
                 f"""
-                SELECT
-                    i.id, i.typ, i.status, i.data_wniosku, i.data_decyzji,
-                    i.inwestor, i.organ, i.miejscowosc, i.adres, i.opis,
-                    i.kategoria, i.rodzaj_inwestycji, i.parcel_id,
-                    ST_X(ST_Transform(i.geom, 4326)) AS lng,
-                    ST_Y(ST_Transform(i.geom, 4326)) AS lat,
-                    ST_Distance(i.geom, lot.geom) AS distance_m
-                FROM gunb_investments i,
-                     (SELECT geom FROM lots_enriched WHERE id_dzialki = %s) lot
-                WHERE i.geom IS NOT NULL
-                  AND {type_sql}
-                  AND ST_DWithin(i.geom, lot.geom, %s)
-                  AND COALESCE(i.data_decyzji, i.data_wniosku)
-                      >= (NOW() - make_interval(months => %s))::date
-                ORDER BY distance_m ASC, COALESCE(i.data_decyzji, i.data_wniosku) DESC NULLS LAST
-                LIMIT %s
+                SELECT * FROM (
+                    SELECT
+                        i.id, i.typ, i.status, i.data_wniosku, i.data_decyzji,
+                        i.inwestor, i.organ, i.miejscowosc, i.adres, i.opis,
+                        i.kategoria, i.rodzaj_inwestycji, i.parcel_id,
+                        ST_X(ST_Transform(i.geom, 4326)) AS lng,
+                        ST_Y(ST_Transform(i.geom, 4326)) AS lat,
+                        ST_Distance(i.geom, lot.geom) AS distance_m
+                    FROM gunb_investments i,
+                         (SELECT geom FROM lots_enriched WHERE id_dzialki = %s) lot
+                    WHERE i.geom IS NOT NULL
+                      AND {type_sql}
+                      AND COALESCE(i.data_decyzji, i.data_wniosku)
+                          >= (NOW() - make_interval(months => %s))::date
+                    ORDER BY i.geom <-> lot.geom
+                    LIMIT %s
+                ) nearest
+                WHERE distance_m <= %s
+                ORDER BY distance_m ASC, COALESCE(data_decyzji, data_wniosku) DESC NULLS LAST
                 """,
-                (id_dzialki, radius_m, months, limit),
+                (id_dzialki, months, limit, max_distance_m),
             )
             columns = [d[0] for d in cur.description]
             results = []
@@ -114,21 +120,28 @@ async def get_investments(
     id_dzialki: str,
     months: int = Query(24, ge=1, le=120),
     type: InvestmentType = Query("all"),
-    radius_m: int = Query(1000, ge=50, le=5000),
+    max_distance_m: int = Query(10000, ge=100, le=50000),
     _user=Depends(require_auth),
 ):
-    """Return GUNB RWDZ investments within `radius_m` of the plot geometry.
+    """Return the nearest GUNB RWDZ investments to the plot.
 
     Query params:
-        months   — time window in months from data_decyzji (or data_wniosku), default 24, max 120
-        type     — all | pozwolenie | zgloszenie | warunki, default all
-        radius_m — search radius in metres from the plot edge, default 1000, max 5000
+        months          — time window in months from data_decyzji (or
+                          data_wniosku), default 24, max 120
+        type            — all | pozwolenie | zgloszenie | warunki,
+                          default all
+        max_distance_m  — ignore investments farther than this from the
+                          plot edge (default 10 km, max 50 km). Needed
+                          because the table is currently sparse (only a
+                          test slice of RWDZ is loaded); otherwise KNN
+                          would return results from another voivodeship.
 
-    Results sorted by distance asc then decision date desc, capped at 100.
+    Results are the 30 nearest items, then re-sorted by distance asc and
+    decision date desc.
     """
     try:
         result = await asyncio.to_thread(
-            _fetch_investments, id_dzialki, months, type, radius_m, 100,
+            _fetch_investments, id_dzialki, months, type, max_distance_m, 30,
         )
     except Exception:
         logger.exception("Failed to fetch investments id=%s", id_dzialki)

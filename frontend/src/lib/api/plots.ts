@@ -72,12 +72,12 @@ export async function getPlotInvestments(
 	idDzialki: string,
 	months: number = 24,
 	type: InvestmentType = 'all',
-	radiusM: number = 1000,
+	maxDistanceM: number = 10000,
 ): Promise<Investment[]> {
 	const qs = new URLSearchParams({
 		months: String(months),
 		type,
-		radius_m: String(radiusM),
+		max_distance_m: String(maxDistanceM),
 	});
 	return apiGet<Investment[]>(
 		`/api/investments/${encodeURIComponent(idDzialki)}?${qs.toString()}`,

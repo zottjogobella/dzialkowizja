@@ -86,21 +86,6 @@
 				buildings = null;
 			});
 
-		// Initial transactions fetch — reset to default filter on nav and
-		// kick off one request. Subsequent filter changes are handled by
-		// the dedicated effect below.
-		transactionsLoading = true;
-		getPlotTransactions(id, transactionsType)
-			.then((data) => {
-				transactions = data;
-			})
-			.catch(() => {
-				transactions = [];
-			})
-			.finally(() => {
-				transactionsLoading = false;
-			});
-
 		// Pre-computed claim value from roszczenia.csv (null if plot isn't in the sheet)
 		roszczenieRow = null;
 		getPlotRoszczenie(id)
@@ -112,12 +97,15 @@
 			});
 	});
 
-	// Refetch investments when plot id OR filters change
+	// Investments — single keyed effect, same pattern as transactions above.
+	let lastInvFetchKey = '';
 	$effect(() => {
 		const id = $page.params.id ?? '';
-		if (!id) return;
+		const key = `${id}|${investmentsType}|${investmentsMonths}`;
+		if (!id || key === lastInvFetchKey) return;
+		lastInvFetchKey = key;
 		investmentsLoading = true;
-		getPlotInvestments(id, investmentsMonths, investmentsType, 1000)
+		getPlotInvestments(id, investmentsMonths, investmentsType)
 			.then((data) => {
 				investments = data;
 			})
@@ -129,21 +117,18 @@
 			});
 	});
 
-	// Refetch transactions when the type filter changes. The initial
-	// fetch happens inside the main $effect above; this one only fires
-	// on subsequent filter chip clicks, guarded so we don't double-fetch
-	// on first mount.
+	// Transactions — single effect keyed on (id | filter) so:
+	//  - first mount fetches once
+	//  - filter chip click fetches once
+	//  - plot navigation fetches once
+	//  - nothing else in the page (geometry, listings, roszczenie, …)
+	//    triggers a transactions refetch, which was the bug behind
+	//    "klik na filter odświeża całą stronę"
 	let lastTxFetchKey = '';
 	$effect(() => {
 		const id = $page.params.id ?? '';
-		if (!id) return;
 		const key = `${id}|${transactionsType}`;
-		if (key === lastTxFetchKey) return;
-		if (lastTxFetchKey === '') {
-			// First run — main $effect handles the initial fetch.
-			lastTxFetchKey = key;
-			return;
-		}
+		if (!id || key === lastTxFetchKey) return;
 		lastTxFetchKey = key;
 		transactionsLoading = true;
 		getPlotTransactions(id, transactionsType)
