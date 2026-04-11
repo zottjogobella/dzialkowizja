@@ -52,6 +52,11 @@ from __future__ import annotations
 
 import argparse
 import csv
+
+# RWDZ CSVs occasionally contain fields (typically the free-text opis) that
+# exceed Python's default 128 KB limit. Bump to platform max so the parser
+# doesn't choke partway through a voivodeship.
+csv.field_size_limit(2**31 - 1)
 import hashlib
 import io
 import json
