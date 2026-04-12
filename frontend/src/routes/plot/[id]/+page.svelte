@@ -25,13 +25,30 @@
 	let inactiveListings = $state<Listing[]>([]);
 	let listingsLoading = $state(true);
 	let buildings = $state<GeoJSON.FeatureCollection | null>(null);
-	let transactions = $state<Transaction[]>([]);
+	// Full datasets fetched once per plot, filtered client-side by chip toggle.
+	let allTransactions = $state<Transaction[]>([]);
 	let transactionsLoading = $state(true);
 	let transactionsType = $state<TransactionType>('all');
-	let investments = $state<Investment[]>([]);
+	let allInvestments = $state<Investment[]>([]);
 	let investmentsLoading = $state(true);
 	let investmentsType = $state<InvestmentType>('all');
 	let investmentsMonths = $state(24);
+
+	// Client-side filtering — chip changes are instant, no refetch.
+	const transactions = $derived(
+		transactionsType === 'all'
+			? allTransactions
+			: transactionsType === 'gruntowe'
+				? allTransactions.filter(t => t.rodzaj_nieruchomosci === 1 || t.rodzaj_nieruchomosci === 2)
+				: allTransactions.filter(t => t.rodzaj_nieruchomosci !== 1 && t.rodzaj_nieruchomosci !== 2),
+	);
+	const investments = $derived(
+		investmentsType === 'all'
+			? allInvestments
+			: investmentsType === 'pozwolenie'
+				? allInvestments.filter(i => i.typ === 'pozwolenie_budowa')
+				: allInvestments.filter(i => i.typ === 'zgloszenie'),
+	);
 	let roszczenieRow = $state<RoszczenieRow | null>(null);
 
 	const allListings = $derived([...activeListings, ...inactiveListings]);
@@ -97,46 +114,41 @@
 			});
 	});
 
-	// Investments — single keyed effect, same pattern as transactions above.
+	// Investments — fetch ALL types once per (id, months). Type filtering
+	// is client-side via the $derived above so chip clicks are instant.
 	let lastInvFetchKey = '';
 	$effect(() => {
 		const id = $page.params.id ?? '';
-		const key = `${id}|${investmentsType}|${investmentsMonths}`;
+		const key = `${id}|${investmentsMonths}`;
 		if (!id || key === lastInvFetchKey) return;
 		lastInvFetchKey = key;
 		investmentsLoading = true;
-		getPlotInvestments(id, investmentsMonths, investmentsType)
+		getPlotInvestments(id, investmentsMonths, 'all')
 			.then((data) => {
-				investments = data;
+				allInvestments = data;
 			})
 			.catch(() => {
-				investments = [];
+				allInvestments = [];
 			})
 			.finally(() => {
 				investmentsLoading = false;
 			});
 	});
 
-	// Transactions — single effect keyed on (id | filter) so:
-	//  - first mount fetches once
-	//  - filter chip click fetches once
-	//  - plot navigation fetches once
-	//  - nothing else in the page (geometry, listings, roszczenie, …)
-	//    triggers a transactions refetch, which was the bug behind
-	//    "klik na filter odświeża całą stronę"
+	// Transactions — fetch ALL types once per plot. Type filtering is
+	// client-side via the $derived above so chip clicks are instant.
 	let lastTxFetchKey = '';
 	$effect(() => {
 		const id = $page.params.id ?? '';
-		const key = `${id}|${transactionsType}`;
-		if (!id || key === lastTxFetchKey) return;
-		lastTxFetchKey = key;
+		if (!id || id === lastTxFetchKey) return;
+		lastTxFetchKey = id;
 		transactionsLoading = true;
-		getPlotTransactions(id, transactionsType)
+		getPlotTransactions(id, 'all')
 			.then((data) => {
-				transactions = data;
+				allTransactions = data;
 			})
 			.catch(() => {
-				transactions = [];
+				allTransactions = [];
 			})
 			.finally(() => {
 				transactionsLoading = false;
