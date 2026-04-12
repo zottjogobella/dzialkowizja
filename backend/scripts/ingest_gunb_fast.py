@@ -112,7 +112,8 @@ def make_source_id(dataset: str, row: dict) -> str:
 
 
 def make_parcel_id(row: dict) -> str | None:
-    j = (row.get("jednosta_numer_ew") or "").strip()
+    # Pozwolenia use "jednosta_numer_ew", zgłoszenia use "jednostki_numer".
+    j = (row.get("jednosta_numer_ew") or row.get("jednostki_numer") or "").strip()
     o = (row.get("obreb_numer") or "").strip()
     n = (row.get("numer_dzialki") or "").strip()
     if not j or not o or not n:
