@@ -111,9 +111,9 @@ async def _bbox_3857_to_2180(bbox: str) -> str | None:
 
 
 async def _fetch_tile(
-    layer: str, bbox_2180: str, width: int, height: int
+    layer: str, bbox: str, width: int, height: int, srs: str = "EPSG:3857",
 ) -> bytes | None:
-    path = _cache_path(layer, bbox_2180, width, height)
+    path = _cache_path(layer, bbox, width, height)
     cached = await asyncio.to_thread(_read_cache, path)
     if cached is not None:
         return cached
@@ -123,8 +123,8 @@ async def _fetch_tile(
         "VERSION": "1.1.1",
         "REQUEST": "GetMap",
         "LAYERS": layer,
-        "SRS": "EPSG:2180",
-        "BBOX": bbox_2180,
+        "SRS": srs,
+        "BBOX": bbox,
         "WIDTH": str(width),
         "HEIGHT": str(height),
         "FORMAT": "image/png",
@@ -153,12 +153,12 @@ async def mpzp_tile(
     height: int = Query(512, ge=1, le=2048),
     _user=Depends(require_auth),
 ):
-    """Proxy KI MPZP WMS tile (plan polygons) with a 24 h disk cache."""
-    bbox_2180 = await _bbox_3857_to_2180(bbox)
-    if bbox_2180 is None:
-        return Response(content=TRANSPARENT_PNG, media_type="image/png")
+    """Proxy KI MPZP WMS tile (plan polygons) with a 24 h disk cache.
 
-    content = await _fetch_tile(MPZP_TILE_LAYERS, bbox_2180, width, height)
+    Passes the EPSG:3857 bbox straight to the WMS (which supports it)
+    to avoid reprojection-induced tile seams.
+    """
+    content = await _fetch_tile(MPZP_TILE_LAYERS, bbox, width, height)
     if content is None:
         return Response(content=TRANSPARENT_PNG, media_type="image/png")
 
