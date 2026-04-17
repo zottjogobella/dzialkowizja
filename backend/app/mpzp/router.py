@@ -34,8 +34,14 @@ MPZP_WMS_URL = (
     "KrajowaIntegracjaMiejscowychPlanowZagospodarowaniaPrzestrzennego"
 )
 
-# Layer that returns filled polygons coloured by przeznaczenie.
-MPZP_LAYER = "plany"
+# GetMap: request both raster scans and vector polygons so tiles render
+# regardless of whether a municipality provides raster or vector data.
+# The parent "plany" group layer does NOT composite sub-layers for GetMap.
+MPZP_TILE_LAYERS = "raster,wektor-pow"
+
+# GetFeatureInfo: the "plany" group layer returns attribute data (plan name,
+# przeznaczenie, etc.) even though it doesn't render visible tiles.
+MPZP_QUERY_LAYER = "plany"
 
 # Transparent 1x1 PNG fallback (matches GESUT — on upstream errors we return
 # an empty tile rather than 500 so the basemap keeps rendering).
@@ -123,7 +129,7 @@ async def _fetch_tile(
         "WIDTH": str(width),
         "HEIGHT": str(height),
         "FORMAT": "image/png",
-        "STYLES": "",
+        "STYLES": ",".join("" for _ in layer.split(",")),
         "TRANSPARENT": "TRUE",
     }
 
@@ -153,7 +159,7 @@ async def mpzp_tile(
     if bbox_2180 is None:
         return Response(content=TRANSPARENT_PNG, media_type="image/png")
 
-    content = await _fetch_tile(MPZP_LAYER, bbox_2180, width, height)
+    content = await _fetch_tile(MPZP_TILE_LAYERS, bbox_2180, width, height)
     if content is None:
         return Response(content=TRANSPARENT_PNG, media_type="image/png")
 
@@ -282,8 +288,8 @@ async def _get_feature_info(cx: float, cy: float) -> list[dict] | None:
         "SERVICE": "WMS",
         "VERSION": "1.1.1",
         "REQUEST": "GetFeatureInfo",
-        "LAYERS": MPZP_LAYER,
-        "QUERY_LAYERS": MPZP_LAYER,
+        "LAYERS": MPZP_QUERY_LAYER,
+        "QUERY_LAYERS": MPZP_QUERY_LAYER,
         "SRS": "EPSG:2180",
         "BBOX": bbox,
         "WIDTH": "1",
