@@ -104,9 +104,15 @@ export interface MpzpFeature {
 	tytul_planu: string | null;
 	uchwala: string | null;
 	data_uchwalenia: string | null;
+	obowiazuje_do: string | null;
+	status: string | null;
+	typ_planu: string | null;
 	przeznaczenie: string | null;
 	opis: string | null;
 	link_do_uchwaly: string | null;
+	rysunek_url: string | null;
+	dokument_przystepujacy: string | null;
+	mapa_podkladowa: string | null;
 	raw: Record<string, unknown>;
 }
 

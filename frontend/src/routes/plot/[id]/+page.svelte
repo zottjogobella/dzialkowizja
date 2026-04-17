@@ -351,26 +351,43 @@
 				<div class="space-y-3">
 					{#each mpzpFeatures as feat, i (i)}
 						<div class="rounded-lg border border-[var(--color-border)] p-3 text-sm">
-							{#if feat.przeznaczenie}
-								<div class="mb-1 text-[var(--color-primary)]"><span class="font-medium">Przeznaczenie:</span> {feat.przeznaczenie}</div>
-							{/if}
 							{#if feat.tytul_planu}
-								<div class="text-[var(--color-primary)]">{feat.tytul_planu}</div>
+								<div class="font-medium text-[var(--color-primary)]">{feat.tytul_planu}</div>
 							{/if}
-							<div class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--color-text-muted)]">
-								{#if feat.uchwala}
-									<span>Uchwała: {feat.uchwala}</span>
+							{#if feat.przeznaczenie}
+								<div class="mt-1 text-[var(--color-primary)]"><span class="text-[var(--color-text-muted)]">Przeznaczenie:</span> {feat.przeznaczenie}</div>
+							{/if}
+							{#if feat.uchwala}
+								<div class="mt-1.5 text-[12px] text-[var(--color-primary)]">{feat.uchwala}</div>
+							{/if}
+							<div class="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-[var(--color-text-muted)]">
+								{#if feat.status}
+									<span>Status: <span class="text-[var(--color-primary)]">{feat.status}</span></span>
 								{/if}
 								{#if feat.data_uchwalenia}
-									<span>Data: {feat.data_uchwalenia}</span>
+									<span>Obowiązuje od: <span class="text-[var(--color-primary)]">{feat.data_uchwalenia}</span></span>
 								{/if}
-								{#if feat.link_do_uchwaly}
-									<a href={feat.link_do_uchwaly} target="_blank" rel="noopener" class="text-blue-600 hover:underline">Dokument uchwały</a>
+								{#if feat.obowiazuje_do}
+									<span>do: <span class="text-[var(--color-primary)]">{feat.obowiazuje_do}</span></span>
+								{/if}
+								{#if feat.typ_planu}
+									<span>Typ: <span class="text-[var(--color-primary)]">{feat.typ_planu}</span></span>
 								{/if}
 							</div>
 							{#if feat.opis}
 								<p class="mt-2 whitespace-pre-wrap text-[var(--color-primary)]">{feat.opis}</p>
 							{/if}
+							{#if feat.dokument_przystepujacy}
+								<div class="mt-1.5 text-[11px] text-[var(--color-text-muted)]">{feat.dokument_przystepujacy}</div>
+							{/if}
+							<div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+								{#if feat.link_do_uchwaly}
+									<a href={feat.link_do_uchwaly} target="_blank" rel="noopener" class="text-blue-600 hover:underline">Dokument uchwały</a>
+								{/if}
+								{#if feat.rysunek_url}
+									<a href={feat.rysunek_url} target="_blank" rel="noopener" class="text-blue-600 hover:underline">Rysunek planu</a>
+								{/if}
+							</div>
 						</div>
 					{/each}
 				</div>

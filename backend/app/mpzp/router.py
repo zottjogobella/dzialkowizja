@@ -320,13 +320,27 @@ async def _get_feature_info(cx: float, cy: float) -> list[dict] | None:
         results: list[dict] = []
         for f in features:
             props = f.get("properties") or {}
+            # obowiazujeod comes as "2013-05-15Z" — strip trailing Z
+            obowiazuje_od = _clean(props.get("obowiazujeod"))
+            if obowiazuje_od and obowiazuje_od.endswith("Z"):
+                obowiazuje_od = obowiazuje_od[:-1]
+            obowiazuje_do = _clean(props.get("obowiazujedo"))
+            if obowiazuje_do and obowiazuje_do.endswith("Z"):
+                obowiazuje_do = obowiazuje_do[:-1]
+
             results.append({
-                "tytul_planu": props.get("tytul_planu") or props.get("tytul"),
-                "uchwala": props.get("uchwala") or props.get("uchwala_nr"),
-                "data_uchwalenia": props.get("data_uchwalenia") or props.get("data"),
+                "tytul_planu": props.get("tytul") or props.get("tytul_planu") or props.get("name"),
+                "uchwala": props.get("dokumentuchwalajacy") or props.get("uchwala") or props.get("uchwala_nr"),
+                "data_uchwalenia": obowiazuje_od or props.get("data_uchwalenia") or props.get("data"),
+                "obowiazuje_do": obowiazuje_do,
+                "status": _clean(props.get("status")) or _clean(props.get("state")),
+                "typ_planu": _clean(props.get("typplanu")) or _clean(props.get("type")),
                 "przeznaczenie": props.get("przeznaczenie"),
                 "opis": props.get("opis") or props.get("tresc"),
-                "link_do_uchwaly": props.get("link_do_uchwaly") or props.get("url"),
+                "link_do_uchwaly": props.get("xlinkhref") or props.get("link_do_uchwaly") or props.get("url"),
+                "rysunek_url": _clean(props.get("rysunek_lacze")),
+                "dokument_przystepujacy": _clean(props.get("dokumentprzystepujacy")),
+                "mapa_podkladowa": _clean(props.get("mapapodkladowa")),
                 "raw": props,
             })
         return results
