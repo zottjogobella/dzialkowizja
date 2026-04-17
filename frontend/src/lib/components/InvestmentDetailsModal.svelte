@@ -189,8 +189,8 @@
 				</div>
 			{/if}
 
+			{#if rawEntries(investment.raw_data).length > 0}
 			{@const raw = rawEntries(investment.raw_data)}
-			{#if raw.length > 0}
 				<div class="border-t border-[var(--color-border)] pt-3">
 					<button
 						class="flex w-full items-center justify-between text-left text-[11px] uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
