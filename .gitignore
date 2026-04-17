@@ -37,3 +37,6 @@ Thumbs.db
 # Local data & test artefacts (not for VCS)
 data/
 test-results/
+
+# Ingest source files — contain owner/KW data that is not for VCS.
+backend/roszczenia*.csv

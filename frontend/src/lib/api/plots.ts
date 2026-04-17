@@ -100,10 +100,42 @@ export async function getPlotPowerlines(
 	);
 }
 
+export interface MpzpFeature {
+	tytul_planu: string | null;
+	uchwala: string | null;
+	data_uchwalenia: string | null;
+	przeznaczenie: string | null;
+	opis: string | null;
+	link_do_uchwaly: string | null;
+	raw: Record<string, unknown>;
+}
+
+export interface MpzpResponse {
+	features: MpzpFeature[];
+	upstream_error?: boolean;
+}
+
+/** GetFeatureInfo against KI MPZP at the plot centroid. */
+export async function getPlotMpzp(idDzialki: string): Promise<MpzpResponse | null> {
+	try {
+		return await apiGet<MpzpResponse>(
+			`/api/mpzp/${encodeURIComponent(idDzialki)}`,
+		);
+	} catch (e: any) {
+		const msg = String(e?.message ?? e);
+		if (e?.status === 404 || msg.includes('404')) return null;
+		throw e;
+	}
+}
+
 export interface RoszczenieRow {
 	id_dzialki: string;
 	/** Total plot valuation from the sheet. Claim = this × 0.5 × coverage_fraction. */
 	wartosc_dzialki: number;
+	/** Land registry number (księga wieczysta). Null if not in the CSV. */
+	kw: string | null;
+	/** Owner names + type, semicolon-separated as in the source CSV. */
+	entities: string | null;
 }
 
 /** Return the pre-computed claim value for a plot, or null if not in the sheet. */

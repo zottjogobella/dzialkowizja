@@ -8,13 +8,17 @@
 		getPlotTransactions,
 		getPlotInvestments,
 		getPlotRoszczenie,
+		getPlotMpzp,
 		type ListingsResponse,
 		type InvestmentType,
 		type TransactionType,
 		type RoszczenieRow,
+		type MpzpFeature,
+		type MpzpResponse,
 	} from '$lib/api/plots';
 	import type { PlotDetail, Listing, Transaction, Investment } from '$lib/types/plot';
 	import PlotMap from '$lib/components/PlotMap.svelte';
+	import InvestmentDetailsModal from '$lib/components/InvestmentDetailsModal.svelte';
 
 	let plot = $state<PlotDetail | null>(null);
 	let loading = $state(true);
@@ -50,6 +54,10 @@
 				: allInvestments.filter(i => i.typ === 'zgloszenie'),
 	);
 	let roszczenieRow = $state<RoszczenieRow | null>(null);
+	let selectedInvestment = $state<Investment | null>(null);
+	let mpzpFeatures = $state<MpzpFeature[]>([]);
+	let mpzpLoading = $state(true);
+	let mpzpUpstreamError = $state(false);
 
 	const allListings = $derived([...activeListings, ...inactiveListings]);
 
@@ -111,6 +119,23 @@
 			})
 			.catch(() => {
 				roszczenieRow = null;
+			});
+
+		// MPZP designation via KI WMS GetFeatureInfo at the plot centroid.
+		mpzpFeatures = [];
+		mpzpUpstreamError = false;
+		mpzpLoading = true;
+		getPlotMpzp(id)
+			.then((r: MpzpResponse | null) => {
+				mpzpFeatures = r?.features ?? [];
+				mpzpUpstreamError = !!r?.upstream_error;
+			})
+			.catch(() => {
+				mpzpFeatures = [];
+				mpzpUpstreamError = true;
+			})
+			.finally(() => {
+				mpzpLoading = false;
 			});
 	});
 
@@ -199,6 +224,31 @@
 		return val.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) + ' zł';
 	}
 
+	function ekwSearchUrl(kw: string): string {
+		const dept = kw.split('/')[0] ?? '';
+		return `https://przegladarka-ekw.ms.gov.pl/eukw_prz/KsiegiWieczyste/wyszukiwanieKW?komunikaty=true&kod=${encodeURIComponent(dept)}&isEnglish=false`;
+	}
+
+	// Owner strings in the CSV are "name;;type" pairs, sometimes chained for
+	// multi-owner plots ("name1;;type1;;name2;;type2"). Pair them up so the UI
+	// can render each owner as a single line with a muted type suffix.
+	const OWNER_TYPE_TOKENS = new Set(['os prawna', 'os fizyczna', 'panstwo']);
+	function parseOwners(raw: string): { name: string; type: string | null }[] {
+		const parts = raw.split(';;').map(p => p.trim()).filter(Boolean);
+		const out: { name: string; type: string | null }[] = [];
+		for (let i = 0; i < parts.length; i++) {
+			const name = parts[i];
+			const next = parts[i + 1];
+			if (next && OWNER_TYPE_TOKENS.has(next)) {
+				out.push({ name, type: next });
+				i += 1;
+			} else {
+				out.push({ name, type: null });
+			}
+		}
+		return out;
+	}
+
 	const RODZAJ_NIERUCHOMOSCI: Record<number, string> = {
 		1: 'Niezabudowana',
 		2: 'Zabudowana',
@@ -242,6 +292,90 @@
 				onPinClick={handlePinClick}
 			/>
 		</div>
+
+		{#if roszczenieRow && (roszczenieRow.kw || roszczenieRow.entities)}
+			<!-- Księga wieczysta + właściciel (tylko dla działek z arkusza) -->
+			<section class="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+				<h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Księga wieczysta i właściciel</h2>
+				<dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+					{#if roszczenieRow.kw}
+						<div>
+							<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Numer KW</dt>
+							<dd class="text-[var(--color-primary)]">
+								<a
+									href={ekwSearchUrl(roszczenieRow.kw)}
+									target="_blank"
+									rel="noopener"
+									class="font-mono hover:underline"
+								>{roszczenieRow.kw}</a>
+							</dd>
+						</div>
+					{/if}
+					{#if roszczenieRow.entities}
+						<div class="sm:col-span-2">
+							<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Właściciel</dt>
+							<dd class="text-[var(--color-primary)]">
+								{#each parseOwners(roszczenieRow.entities) as owner}
+									<div>
+										<span>{owner.name}</span>
+										{#if owner.type}
+											<span class="ml-1 text-[11px] text-[var(--color-text-muted)]">({owner.type})</span>
+										{/if}
+									</div>
+								{/each}
+							</dd>
+						</div>
+					{/if}
+				</dl>
+			</section>
+		{/if}
+
+		<!-- MPZP - przeznaczenie z planu zagospodarowania -->
+		<section class="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+			<div class="mb-3 flex items-center justify-between">
+				<h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Plan zagospodarowania</h2>
+				<span class="text-[11px] text-[var(--color-text-muted)]">
+					źródło: <a href="https://integracja.gugik.gov.pl/" target="_blank" rel="noopener" class="hover:underline">GUGiK KI MPZP</a>
+				</span>
+			</div>
+			{#if mpzpLoading}
+				<div class="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
+					<div class="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-primary)]"></div>
+					Pobieram informacje o planie...
+				</div>
+			{:else if mpzpUpstreamError && mpzpFeatures.length === 0}
+				<p class="text-sm text-[var(--color-text-muted)]">Nie udało się pobrać informacji z GUGiK. Spróbuj ponownie później.</p>
+			{:else if mpzpFeatures.length === 0}
+				<p class="text-sm text-[var(--color-text-muted)]">Działka nie jest objęta żadnym planem zarejestrowanym w krajowej integracji.</p>
+			{:else}
+				<div class="space-y-3">
+					{#each mpzpFeatures as feat, i (i)}
+						<div class="rounded-lg border border-[var(--color-border)] p-3 text-sm">
+							{#if feat.przeznaczenie}
+								<div class="mb-1 text-[var(--color-primary)]"><span class="font-medium">Przeznaczenie:</span> {feat.przeznaczenie}</div>
+							{/if}
+							{#if feat.tytul_planu}
+								<div class="text-[var(--color-primary)]">{feat.tytul_planu}</div>
+							{/if}
+							<div class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--color-text-muted)]">
+								{#if feat.uchwala}
+									<span>Uchwała: {feat.uchwala}</span>
+								{/if}
+								{#if feat.data_uchwalenia}
+									<span>Data: {feat.data_uchwalenia}</span>
+								{/if}
+								{#if feat.link_do_uchwaly}
+									<a href={feat.link_do_uchwaly} target="_blank" rel="noopener" class="text-blue-600 hover:underline">Dokument uchwały</a>
+								{/if}
+							</div>
+							{#if feat.opis}
+								<p class="mt-2 whitespace-pre-wrap text-[var(--color-primary)]">{feat.opis}</p>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</section>
 
 		<!-- Zrzuty mapy -->
 		<section class="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
@@ -502,7 +636,12 @@
 					<div class="grid gap-2 md:grid-cols-2">
 						{#each investments as inv (inv.id)}
 							{@const badge = inv.typ ? INVESTMENT_TYPE_BADGES[inv.typ] : null}
-							<div id="investment-{inv.id}" class="rounded-lg border border-[var(--color-border)] p-4 transition-shadow">
+							<button
+								type="button"
+								id="investment-{inv.id}"
+								onclick={() => (selectedInvestment = inv)}
+								class="w-full rounded-lg border border-[var(--color-border)] p-4 text-left transition-colors hover:border-[var(--color-primary)] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+							>
 								<div class="mb-1.5 flex flex-wrap items-center gap-1.5">
 									{#if badge}
 										<span class="rounded-full px-2 py-0.5 text-[10px] font-medium {badge.cls}">{badge.label}</span>
@@ -530,12 +669,17 @@
 										<span class="truncate">{inv.organ}</span>
 									{/if}
 								</div>
-							</div>
+								<div class="mt-2 text-[11px] font-medium text-[var(--color-primary)]">Więcej informacji →</div>
+							</button>
 						{/each}
 					</div>
 				{/if}
 			</div>
 		</details>
 
+		<InvestmentDetailsModal
+			investment={selectedInvestment}
+			onClose={() => (selectedInvestment = null)}
+		/>
 	{/if}
 </div>

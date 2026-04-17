@@ -100,3 +100,8 @@ class Roszczenie(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id_dzialki: Mapped[str] = mapped_column(String(255), nullable=False)
     wartosc_dzialki: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
+    # Land registry number + owners, read straight from the CSV for the plots
+    # covered by the sheet. Nullable so rows loaded before the columns existed
+    # stay queryable.
+    kw: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    entities: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -60,6 +60,8 @@
 	let layerVisible = $state<Record<string, boolean>>({ egib: false, bdot: false, osm: false });
 	let gesutVisible = $state(false);
 	let gesutUrzadzeniaVisible = $state(false);
+	let mpzpVisible = $state(true);
+	let mpzpLoadingTiles = $state(false);
 	// Actual tile loading state — reflects pending tile requests on the
 	// corresponding raster sources (GESUT WMS is slow: tiles can take
 	// several seconds each at 2048 px).
@@ -222,6 +224,18 @@
 				'gesut-urzadzenia-layer',
 				'visibility',
 				gesutUrzadzeniaVisible ? 'visible' : 'none',
+			);
+		}
+	}
+
+	function toggleMpzp() {
+		mpzpVisible = !mpzpVisible;
+		if (!map || !mapReady) return;
+		if (map.getLayer('mpzp-layer')) {
+			map.setLayoutProperty(
+				'mpzp-layer',
+				'visibility',
+				mpzpVisible ? 'visible' : 'none',
 			);
 		}
 	}
@@ -619,11 +633,25 @@
 							minzoom: 15,
 							maxzoom: 20,
 							attribution: '&copy; <a href="https://integracja.gugik.gov.pl/">GUGiK GESUT</a>'
+						},
+						mpzp: {
+							type: 'raster',
+							tiles: [
+								'/api/mpzp/tile?bbox={bbox-epsg-3857}&width=2048&height=2048'
+							],
+							tileSize: 512,
+							// Plan polygons are large so a wider zoom range is fine.
+							minzoom: 10,
+							maxzoom: 20,
+							attribution: '&copy; <a href="https://integracja.gugik.gov.pl/">GUGiK KI MPZP</a>'
 						}
 					},
 					layers: [
 						{ id: 'carto-layer', type: 'raster', source: 'carto' },
 						{ id: 'ortho-layer', type: 'raster', source: 'ortho', paint: { 'raster-opacity': 0.5 } },
+						// MPZP sits above ortho but below vector overlays added later so
+						// plot borders, buildings and pins remain readable.
+						{ id: 'mpzp-layer', type: 'raster', source: 'mpzp', paint: { 'raster-opacity': 0.55 } },
 						{ id: 'gesut-layer', type: 'raster', source: 'gesut', layout: { visibility: 'none' }, paint: { 'raster-opacity': 0.9 } },
 						{ id: 'gesut-urzadzenia-layer', type: 'raster', source: 'gesut-urzadzenia', layout: { visibility: 'none' }, paint: { 'raster-opacity': 0.9 } }
 					]
@@ -787,6 +815,7 @@
 						if (!ev?.sourceId) return;
 						if (ev.sourceId === 'gesut') gesutLoadingTiles = true;
 						else if (ev.sourceId === 'gesut-urzadzenia') gesutUrzadzeniaLoadingTiles = true;
+						else if (ev.sourceId === 'mpzp') mpzpLoadingTiles = true;
 					});
 					map.on('sourcedata', (ev: any) => {
 						if (!map || !ev?.sourceId) return;
@@ -794,6 +823,8 @@
 							gesutLoadingTiles = !map.isSourceLoaded('gesut');
 						} else if (ev.sourceId === 'gesut-urzadzenia') {
 							gesutUrzadzeniaLoadingTiles = !map.isSourceLoaded('gesut-urzadzenia');
+						} else if (ev.sourceId === 'mpzp') {
+							mpzpLoadingTiles = !map.isSourceLoaded('mpzp');
 						}
 					});
 					// If the source never actually starts loading (e.g. because the
@@ -802,6 +833,7 @@
 					map.on('idle', () => {
 						gesutLoadingTiles = false;
 						gesutUrzadzeniaLoadingTiles = false;
+						mpzpLoadingTiles = false;
 					});
 				} catch (e) {
 					console.error('Failed to wire GESUT loading tracker', e);
@@ -1143,7 +1175,20 @@
 							</section>
 						{/if}
 
-						<!-- 4. Sieci uzbrojenia (GESUT WMS) -->
+						<!-- 4. Plan zagospodarowania (KI MPZP) -->
+						<section class="min-w-[200px] flex-1">
+							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Plan zagospodarowania</h4>
+							<label class="flex cursor-pointer items-center gap-2 py-1">
+								<input type="checkbox" checked={mpzpVisible} onchange={toggleMpzp} class="accent-blue-600" />
+								<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#b45309"></span>
+								<span class="flex-1">MPZP (krajowa integracja)</span>
+								{#if mpzpVisible && mpzpLoadingTiles}
+									<span class="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" title="Ładowanie kafli z GUGiK…"></span>
+								{/if}
+							</label>
+						</section>
+
+						<!-- 5. Sieci uzbrojenia (GESUT WMS) -->
 						<section class="min-w-[220px] flex-1">
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Sieci uzbrojenia (GESUT)</h4>
 							<label class="flex cursor-pointer items-center gap-2 py-1">

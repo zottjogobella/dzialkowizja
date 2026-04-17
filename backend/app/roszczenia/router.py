@@ -32,10 +32,16 @@ async def get_roszczenie(
 
     Response::
 
-        {"id_dzialki": "...", "wartosc_dzialki": 831744695.3}
+        {
+          "id_dzialki": "...",
+          "wartosc_dzialki": 831744695.3,
+          "kw": "BB1B/00053878/8",
+          "entities": "NAME;;os prawna"
+        }
 
-    The claim itself is computed client-side as
-    ``wartosc_dzialki × 0.5 × (intersection_area / plot_area)``.
+    ``kw`` and ``entities`` are nullable — older rows loaded before those
+    columns existed will return null. The claim itself is computed
+    client-side as ``wartosc_dzialki × 0.5 × (intersection_area / plot_area)``.
     """
     stmt = select(Roszczenie).where(Roszczenie.id_dzialki == id_dzialki)
     result = await db.execute(stmt)
@@ -45,4 +51,6 @@ async def get_roszczenie(
     return {
         "id_dzialki": row.id_dzialki,
         "wartosc_dzialki": float(row.wartosc_dzialki),
+        "kw": row.kw,
+        "entities": row.entities,
     }

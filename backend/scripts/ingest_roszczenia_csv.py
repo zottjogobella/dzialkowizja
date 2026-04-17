@@ -4,6 +4,8 @@
 CSV schema (columns kept):
     lot_identifier  → roszczenia.id_dzialki
     wycena          → roszczenia.wartosc_dzialki   (total plot value)
+    kw              → roszczenia.kw                (land registry number, optional)
+    entities        → roszczenia.entities          (owner names + type, optional)
 
 Note: despite this file being named "roszczenia.csv", the stored value
 is the **plot valuation** (cena_m2 × pow_dzialki), NOT a pre-computed
@@ -11,9 +13,8 @@ claim. The claim is derived live in the frontend as
 ``wartosc_dzialki × 0.5 × (pow_buforu / pow_dzialki)`` so that moving
 the buffer slider rescales the claim to the current coverage.
 
-Rows are filtered to owner types we care about for the claim display
-(``os prawna`` and ``panstwo``). Individuals (``os fizyczna``) make up
-~94% of the file but are privacy-sensitive and not part of this feature.
+All rows with a usable valuation are loaded regardless of owner type —
+if the CSV has KW + entities for a plot we want to show them.
 
 Usage::
 
@@ -43,7 +44,6 @@ import psycopg2.extras
 
 logger = logging.getLogger("ingest_roszczenia_csv")
 
-KEPT_OWNER_TYPES = {"os prawna", "panstwo"}
 BATCH_SIZE = 5000
 
 
@@ -65,25 +65,30 @@ def parse_database_url(url: str) -> dict:
     }
 
 
-def read_rows(csv_path: Path) -> Iterator[tuple[str, float]]:
-    """Stream (id_dzialki, wartosc_dzialki) from the CSV."""
-    seen_per_plot: dict[str, float] = {}
+def read_rows(csv_path: Path) -> Iterator[tuple[str, float, str | None, str | None]]:
+    """Stream (id_dzialki, wartosc_dzialki, kw, entities) from the CSV.
+
+    `kw` and `entities` are informational and copied through as-is; we keep
+    whichever row wins the wartosc_dzialki tiebreak so displayed KW/entity
+    matches the valuation.
+    """
+    seen_per_plot: dict[str, tuple[float, str | None, str | None]] = {}
     total = 0
     kept = 0
     bad = 0
     with csv_path.open(newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        required = {"lot_identifier", "owners_type", "wycena"}
+        required = {"lot_identifier", "wycena"}
         missing = required - set(reader.fieldnames or [])
         if missing:
             raise SystemExit(
                 f"CSV is missing required columns: {sorted(missing)}. "
                 f"Found: {reader.fieldnames}"
             )
+        has_kw = "kw" in (reader.fieldnames or [])
+        has_entities = "entities" in (reader.fieldnames or [])
         for row in reader:
             total += 1
-            if row.get("owners_type") not in KEPT_OWNER_TYPES:
-                continue
             lot = (row.get("lot_identifier") or "").strip()
             raw_value = (row.get("wycena") or "").strip()
             if not lot or not raw_value:
@@ -94,12 +99,17 @@ def read_rows(csv_path: Path) -> Iterator[tuple[str, float]]:
             except ValueError:
                 bad += 1
                 continue
+            kw = (row.get("kw") or "").strip() if has_kw else ""
+            entities = (row.get("entities") or "").strip() if has_entities else ""
+            kw_val: str | None = kw or None
+            entities_val: str | None = entities or None
             # A single plot can appear multiple times (multiple owners /
             # multiple source files). Keep the largest plot valuation so
-            # we expose the most conservative figure to the user.
+            # we expose the most conservative figure to the user, and
+            # stick the KW/entities from the winning row.
             prev = seen_per_plot.get(lot)
-            if prev is None or value > prev:
-                seen_per_plot[lot] = value
+            if prev is None or value > prev[0]:
+                seen_per_plot[lot] = (value, kw_val, entities_val)
                 if prev is None:
                     kept += 1
             if total % 100_000 == 0:
@@ -111,8 +121,8 @@ def read_rows(csv_path: Path) -> Iterator[tuple[str, float]]:
         kept,
         bad,
     )
-    for lot, value in seen_per_plot.items():
-        yield lot, value
+    for lot, (value, kw_val, entities_val) in seen_per_plot.items():
+        yield lot, value, kw_val, entities_val
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -140,26 +150,22 @@ def main(argv: list[str] | None = None) -> int:
     try:
         with conn.cursor() as cur:
             cur.execute("TRUNCATE TABLE roszczenia RESTART IDENTITY")
-            batch: list[tuple[str, float]] = []
+            insert_sql = (
+                "INSERT INTO roszczenia (id_dzialki, wartosc_dzialki, kw, entities)"
+                " VALUES %s"
+            )
+            batch: list[tuple[str, float, str | None, str | None]] = []
             written = 0
-            for lot, value in read_rows(args.csv_path):
-                batch.append((lot, value))
+            for lot, value, kw, entities in read_rows(args.csv_path):
+                batch.append((lot, value, kw, entities))
                 if len(batch) >= BATCH_SIZE:
-                    psycopg2.extras.execute_values(
-                        cur,
-                        "INSERT INTO roszczenia (id_dzialki, wartosc_dzialki) VALUES %s",
-                        batch,
-                    )
+                    psycopg2.extras.execute_values(cur, insert_sql, batch)
                     written += len(batch)
                     if written % 20_000 == 0:
                         logger.info("inserted %d rows", written)
                     batch.clear()
             if batch:
-                psycopg2.extras.execute_values(
-                    cur,
-                    "INSERT INTO roszczenia (id_dzialki, wartosc_dzialki) VALUES %s",
-                    batch,
-                )
+                psycopg2.extras.execute_values(cur, insert_sql, batch)
                 written += len(batch)
 
         conn.commit()
