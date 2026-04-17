@@ -641,9 +641,10 @@
 								'/api/mpzp/tile?bbox={bbox-epsg-3857}&width=2048&height=2048'
 							],
 							tileSize: 512,
-							// Plan polygons are large so a wider zoom range is fine.
-							minzoom: 10,
-							maxzoom: 20,
+							// GUGiK WMS MaxScaleDenominator=10000 → data only at ~zoom 15+.
+							// With tileSize 512 MapLibre fetches source_zoom = display_zoom-1,
+							// so minzoom 14 here means display zoom 15 is the effective floor.
+							minzoom: 14,
 							attribution: '&copy; <a href="https://integracja.gugik.gov.pl/">GUGiK KI MPZP</a>'
 						}
 					},
