@@ -60,7 +60,7 @@
 	let layerVisible = $state<Record<string, boolean>>({ egib: false, bdot: false, osm: false });
 	let gesutVisible = $state(false);
 	let gesutUrzadzeniaVisible = $state(false);
-	let mpzpVisible = $state(true);
+	let mpzpVisible = $state(false);
 	let mpzpLoadingTiles = $state(false);
 	// Actual tile loading state — reflects pending tile requests on the
 	// corresponding raster sources (GESUT WMS is slow: tiles can take
@@ -651,7 +651,7 @@
 						{ id: 'ortho-layer', type: 'raster', source: 'ortho', paint: { 'raster-opacity': 0.5 } },
 						// MPZP sits above ortho but below vector overlays added later so
 						// plot borders, buildings and pins remain readable.
-						{ id: 'mpzp-layer', type: 'raster', source: 'mpzp', paint: { 'raster-opacity': 0.55 } },
+						{ id: 'mpzp-layer', type: 'raster', source: 'mpzp', layout: { visibility: 'none' }, paint: { 'raster-opacity': 0.55 } },
 						{ id: 'gesut-layer', type: 'raster', source: 'gesut', layout: { visibility: 'none' }, paint: { 'raster-opacity': 0.9 } },
 						{ id: 'gesut-urzadzenia-layer', type: 'raster', source: 'gesut-urzadzenia', layout: { visibility: 'none' }, paint: { 'raster-opacity': 0.9 } }
 					]
