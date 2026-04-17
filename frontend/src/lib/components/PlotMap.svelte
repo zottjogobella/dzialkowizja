@@ -1198,15 +1198,15 @@
 								{/if}
 							</label>
 							{#if mpzpVisible}
-								<label class="flex items-center gap-2 pl-6 text-[11px] text-gray-500">
-									<span>Przezroczystość</span>
+								<label class="flex min-w-0 items-center gap-2 pl-6 text-[11px] text-gray-500">
+									<span class="shrink-0">Przezroczystość</span>
 									<input
 										type="range" min="0" max="100"
 										value={mpzpOpacity}
 										oninput={handleMpzpOpacity}
-										class="h-1.5 flex-1 cursor-pointer accent-blue-600"
+										class="h-1.5 min-w-0 flex-1 cursor-pointer accent-blue-600"
 									/>
-									<span class="w-7 text-right">{mpzpOpacity}%</span>
+									<span class="w-7 shrink-0 text-right">{mpzpOpacity}%</span>
 								</label>
 							{/if}
 						</section>
