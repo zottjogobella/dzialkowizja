@@ -30,12 +30,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 MPZP_WMS_URL = (
-    "https://integracja.gugik.gov.pl/cgi-bin/"
+    "https://mapy.geoportal.gov.pl/wss/ext/"
     "KrajowaIntegracjaMiejscowychPlanowZagospodarowaniaPrzestrzennego"
 )
 
 # Layer that returns filled polygons coloured by przeznaczenie.
-MPZP_LAYER = "plan"
+MPZP_LAYER = "plany"
 
 # Transparent 1x1 PNG fallback (matches GESUT — on upstream errors we return
 # an empty tile rather than 500 so the basemap keeps rendering).
