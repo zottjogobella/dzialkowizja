@@ -34,10 +34,9 @@ MPZP_WMS_URL = (
     "KrajowaIntegracjaMiejscowychPlanowZagospodarowaniaPrzestrzennego"
 )
 
-# GetMap: request both raster scans and vector polygons so tiles render
-# regardless of whether a municipality provides raster or vector data.
+# GetMap: use raster scans layer for tile rendering.
 # The parent "plany" group layer does NOT composite sub-layers for GetMap.
-MPZP_TILE_LAYERS = "raster,wektor-pow"
+MPZP_TILE_LAYERS = "raster"
 
 # GetFeatureInfo: the "plany" group layer returns attribute data (plan name,
 # przeznaczenie, etc.) even though it doesn't render visible tiles.

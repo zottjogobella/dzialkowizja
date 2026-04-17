@@ -61,6 +61,7 @@
 	let gesutVisible = $state(false);
 	let gesutUrzadzeniaVisible = $state(false);
 	let mpzpVisible = $state(false);
+	let mpzpOpacity = $state(55);
 	let mpzpLoadingTiles = $state(false);
 	// Actual tile loading state — reflects pending tile requests on the
 	// corresponding raster sources (GESUT WMS is slow: tiles can take
@@ -980,6 +981,14 @@
 		}
 	}
 
+	function handleMpzpOpacity(e: Event) {
+		const value = parseInt((e.target as HTMLInputElement).value);
+		mpzpOpacity = value;
+		if (map && mapReady && map.getLayer('mpzp-layer')) {
+			map.setPaintProperty('mpzp-layer', 'raster-opacity', value / 100);
+		}
+	}
+
 	function toggleLayer(src: string) {
 		layerVisible[src] = !layerVisible[src];
 		applyBuildingVisibility();
@@ -1186,6 +1195,18 @@
 									<span class="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" title="Ładowanie kafli z GUGiK…"></span>
 								{/if}
 							</label>
+							{#if mpzpVisible}
+								<label class="flex items-center gap-2 pl-6 text-[11px] text-gray-500">
+									<span>Przezroczystość</span>
+									<input
+										type="range" min="0" max="100"
+										value={mpzpOpacity}
+										oninput={handleMpzpOpacity}
+										class="h-1.5 flex-1 cursor-pointer accent-blue-600"
+									/>
+									<span class="w-7 text-right">{mpzpOpacity}%</span>
+								</label>
+							{/if}
 						</section>
 
 						<!-- 5. Sieci uzbrojenia (GESUT WMS) -->
