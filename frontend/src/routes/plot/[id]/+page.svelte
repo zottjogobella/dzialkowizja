@@ -8,11 +8,13 @@
 		getPlotTransactions,
 		getPlotInvestments,
 		getPlotRoszczenie,
+		getPlotArgumentacja,
 		getPlotMpzp,
 		type ListingsResponse,
 		type InvestmentType,
 		type TransactionType,
 		type RoszczenieRow,
+		type ArgumentacjaRow,
 		type MpzpFeature,
 		type MpzpResponse,
 	} from '$lib/api/plots';
@@ -54,6 +56,7 @@
 				: allInvestments.filter(i => i.typ === 'zgloszenie'),
 	);
 	let roszczenieRow = $state<RoszczenieRow | null>(null);
+	let argumentacjaRow = $state<ArgumentacjaRow | null>(null);
 	let selectedInvestment = $state<Investment | null>(null);
 	let mpzpFeatures = $state<MpzpFeature[]>([]);
 	let mpzpLoading = $state(true);
@@ -113,12 +116,20 @@
 
 		// Pre-computed claim value from roszczenia.csv (null if plot isn't in the sheet)
 		roszczenieRow = null;
+		argumentacjaRow = null;
 		getPlotRoszczenie(id)
 			.then((row) => {
 				roszczenieRow = row;
 			})
 			.catch(() => {
 				roszczenieRow = null;
+			});
+		getPlotArgumentacja(id)
+			.then((row) => {
+				argumentacjaRow = row;
+			})
+			.catch(() => {
+				argumentacjaRow = null;
 			});
 
 		// MPZP designation via KI WMS GetFeatureInfo at the plot centroid.
@@ -327,6 +338,72 @@
 						</div>
 					{/if}
 				</dl>
+			</section>
+		{/if}
+
+		{#if argumentacjaRow}
+			<section class="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+				<div class="mb-3 flex items-center justify-between">
+					<h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Argumentacja wyceny</h2>
+					{#if argumentacjaRow.pewnosc_kategoria}
+						<span class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold
+							{argumentacjaRow.pewnosc_kategoria === 'WYSOKA' ? 'bg-green-100 text-green-800' :
+							 argumentacjaRow.pewnosc_kategoria === 'SREDNIA' ? 'bg-yellow-100 text-yellow-800' :
+							 'bg-red-100 text-red-800'}">
+							Pewność: {argumentacjaRow.pewnosc_0_100}/100 ({argumentacjaRow.pewnosc_kategoria})
+						</span>
+					{/if}
+				</div>
+
+				<dl class="mb-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm sm:grid-cols-4">
+					{#if argumentacjaRow.cena_ensemble != null}
+						<div>
+							<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Cena ensemble</dt>
+							<dd class="font-medium text-[var(--color-primary)]">{argumentacjaRow.cena_ensemble.toFixed(0)} zł/m²</dd>
+						</div>
+					{/if}
+					{#if argumentacjaRow.wartosc_total != null}
+						<div>
+							<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Wartość całkowita</dt>
+							<dd class="font-medium text-[var(--color-primary)]">{argumentacjaRow.wartosc_total.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł</dd>
+						</div>
+					{/if}
+					{#if argumentacjaRow.cena_m2_roszczenie_orig != null}
+						<div>
+							<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Cena roszczenia</dt>
+							<dd class="font-medium text-[var(--color-primary)]">{argumentacjaRow.cena_m2_roszczenie_orig.toFixed(0)} zł/m²</dd>
+						</div>
+					{/if}
+					{#if argumentacjaRow.wartosc_roszczenia_orig != null}
+						<div>
+							<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Wartość roszczenia</dt>
+							<dd class="font-medium text-[var(--color-primary)]">{argumentacjaRow.wartosc_roszczenia_orig.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł</dd>
+						</div>
+					{/if}
+					{#if argumentacjaRow.segment}
+						<div>
+							<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Segment</dt>
+							<dd class="text-[var(--color-primary)]">{argumentacjaRow.segment}</dd>
+						</div>
+					{/if}
+					{#if argumentacjaRow.procent_pow != null}
+						<div>
+							<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Pokrycie buforem</dt>
+							<dd class="text-[var(--color-primary)]">{argumentacjaRow.procent_pow.toFixed(1)}%</dd>
+						</div>
+					{/if}
+				</dl>
+
+				{#if argumentacjaRow.argumenty.length > 0}
+					<div class="space-y-2">
+						{#each argumentacjaRow.argumenty as arg}
+							<div class="flex gap-3 rounded-lg bg-[var(--color-background)] p-2.5 text-sm">
+								<span class="shrink-0 rounded bg-[var(--color-border)] px-1.5 py-0.5 text-[11px] font-mono font-semibold text-[var(--color-text-muted)]">{arg.waga}</span>
+								<span class="text-[var(--color-primary)]">{arg.text}</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
 			</section>
 		{/if}
 

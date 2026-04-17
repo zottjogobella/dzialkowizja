@@ -54,6 +54,7 @@ def create_app() -> FastAPI:
     from app.mpzp.router import router as mpzp_router
     from app.plots.router import router as plots_router
     from app.powerlines.router import router as powerlines_router
+    from app.argumentacja.router import router as argumentacja_router
     from app.roszczenia.router import router as roszczenia_router
     from app.search.router import router as search_router
 
@@ -66,6 +67,7 @@ def create_app() -> FastAPI:
     app.include_router(investments_router, prefix="/api/investments", tags=["investments"])
     app.include_router(mpzp_router, prefix="/api/mpzp", tags=["mpzp"])
     app.include_router(roszczenia_router, prefix="/api/roszczenia", tags=["roszczenia"])
+    app.include_router(argumentacja_router, prefix="/api/argumentacja", tags=["argumentacja"])
 
     @app.get("/health")
     async def health():

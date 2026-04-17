@@ -105,3 +105,59 @@ class Roszczenie(Base):
     # stay queryable.
     kw: Mapped[str | None] = mapped_column(String(64), nullable=True)
     entities: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class Argumentacja(Base):
+    """Valuation arguments loaded from roszczenia_argumentacja.csv.
+
+    1:1 with roszczenia by id_dzialki. Stores confidence score, model
+    price, and up to 15 weighted text arguments explaining the valuation.
+    """
+
+    __tablename__ = "argumentacja"
+    __table_args__ = (Index("ix_argumentacja_lot", "id_dzialki", unique=True),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id_dzialki: Mapped[str] = mapped_column(String(255), nullable=False)
+    segment: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    pow_m2: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    pow_buforu: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    procent_pow: Mapped[float | None] = mapped_column(Numeric(8, 4), nullable=True)
+    cena_ensemble: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    wartosc_total: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    cena_m2_roszczenie_orig: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    wartosc_roszczenia_orig: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    pewnosc_0_100: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pewnosc_kategoria: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    liczba_argumentow: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # 15 argument + weight pairs (sparse — most plots have < 15)
+    argument_1: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_1_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    argument_2: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_2_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    argument_3: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_3_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    argument_4: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_4_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    argument_5: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_5_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    argument_6: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_6_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    argument_7: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_7_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    argument_8: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_8_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    argument_9: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_9_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    argument_10: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_10_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    argument_11: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_11_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    argument_12: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_12_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    argument_13: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_13_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    argument_14: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_14_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    argument_15: Mapped[str | None] = mapped_column(Text, nullable=True)
+    argument_15_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)

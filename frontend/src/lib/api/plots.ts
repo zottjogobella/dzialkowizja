@@ -144,6 +144,38 @@ export interface RoszczenieRow {
 	entities: string | null;
 }
 
+export interface ArgumentacjaArgument {
+	text: string;
+	waga: number;
+}
+
+export interface ArgumentacjaRow {
+	id_dzialki: string;
+	segment: string | null;
+	pow_m2: number | null;
+	pow_buforu: number | null;
+	procent_pow: number | null;
+	cena_ensemble: number | null;
+	wartosc_total: number | null;
+	cena_m2_roszczenie_orig: number | null;
+	wartosc_roszczenia_orig: number | null;
+	pewnosc_0_100: number | null;
+	pewnosc_kategoria: string | null;
+	argumenty: ArgumentacjaArgument[];
+}
+
+export async function getPlotArgumentacja(idDzialki: string): Promise<ArgumentacjaRow | null> {
+	try {
+		return await apiGet<ArgumentacjaRow>(
+			`/api/argumentacja/${encodeURIComponent(idDzialki)}`,
+		);
+	} catch (e: any) {
+		const msg = String(e?.message ?? e);
+		if (e?.status === 404 || msg.includes('404')) return null;
+		throw e;
+	}
+}
+
 /** Return the pre-computed claim value for a plot, or null if not in the sheet. */
 export async function getPlotRoszczenie(idDzialki: string): Promise<RoszczenieRow | null> {
 	try {
