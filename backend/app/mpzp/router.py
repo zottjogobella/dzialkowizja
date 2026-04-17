@@ -16,6 +16,8 @@ import hashlib
 import logging
 import time
 from pathlib import Path
+from urllib.parse import urljoin
+from xml.etree import ElementTree as ET
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -187,6 +189,85 @@ async def _plot_centroid_2180(id_dzialki: str) -> tuple[float, float] | None:
     return float(row["x"]), float(row["y"])
 
 
+def _clean(val: str | None) -> str | None:
+    """Treat GUGiK sentinels (``null``, ``0``, blanks) as missing."""
+    if val is None:
+        return None
+    s = val.strip()
+    if not s or s.lower() == "null" or s == "0":
+        return None
+    return s
+
+
+def _parse_gugik_xml(body: str, final_url: str | None) -> list[dict]:
+    """Parse the ``<GetFeatureInfo_Result>`` XML GUGiK actually returns.
+
+    Upstream ignores ``INFO_FORMAT=application/json`` and always responds with
+    XML shaped like ``<GetFeatureInfo_Result><ROWSET><ROW>...``. Fields are
+    Polish plan attributes (``NAZWA_PLAN``, ``FUN_NAZWA``, ``FUN_SYMB``,
+    ``INTEN_ZAB``, ``MAX_WYS``, ``DZIELNICA``, ``WWW``). We fold each ROW
+    into the flat shape the frontend expects.
+    """
+    try:
+        root = ET.fromstring(body)
+    except ET.ParseError:
+        logger.debug("MPZP GetFeatureInfo: unparseable XML: %s", body[:200])
+        return []
+
+    seen: set[tuple[str | None, ...]] = set()
+    out: list[dict] = []
+    for row in root.iter("ROW"):
+        props = {child.tag: (child.text or "") for child in row}
+        nazwa_plan = _clean(props.get("NAZWA_PLAN"))
+        fun_nazwa = _clean(props.get("FUN_NAZWA"))
+        fun_symb = _clean(props.get("FUN_SYMB"))
+        inten_zab = _clean(props.get("INTEN_ZAB"))
+        max_wys = _clean(props.get("MAX_WYS"))
+        dzielnica = _clean(props.get("DZIELNICA"))
+
+        przeznaczenie = fun_nazwa
+        if fun_nazwa and fun_symb:
+            przeznaczenie = f"{fun_nazwa} ({fun_symb})"
+        elif fun_symb:
+            przeznaczenie = fun_symb
+
+        opis_parts: list[str] = []
+        if max_wys:
+            opis_parts.append(f"Maks. wysokość zabudowy: {max_wys} m")
+        if inten_zab:
+            opis_parts.append(f"Intensywność zabudowy: {inten_zab}")
+        if dzielnica:
+            opis_parts.append(f"Dzielnica: {dzielnica}")
+        opis = "\n".join(opis_parts) or None
+
+        # WWW values often come back as placeholders (``../dane/plany/ .html``
+        # with literal spaces). Only resolve when it looks like a real path,
+        # and turn relative refs into absolute URLs based on the redirected
+        # upstream host.
+        www = props.get("WWW", "").strip()
+        link: str | None = None
+        if www and " " not in www and www not in {"null", "0"}:
+            link = urljoin(final_url or MPZP_WMS_URL, www) if final_url else www
+
+        key = (nazwa_plan, przeznaczenie, opis, link)
+        if key in seen:
+            continue
+        seen.add(key)
+        if not any(key):
+            continue
+
+        out.append({
+            "tytul_planu": nazwa_plan,
+            "uchwala": None,
+            "data_uchwalenia": None,
+            "przeznaczenie": przeznaczenie,
+            "opis": opis,
+            "link_do_uchwaly": link,
+            "raw": props,
+        })
+    return out
+
+
 async def _get_feature_info(cx: float, cy: float) -> list[dict] | None:
     """Query MPZP GetFeatureInfo at a single point in EPSG:2180.
 
@@ -224,32 +305,30 @@ async def _get_feature_info(cx: float, cy: float) -> list[dict] | None:
         logger.warning("MPZP GetFeatureInfo HTTP %s", resp.status_code)
         return None
 
+    body = resp.text
+    # GUGiK ignores INFO_FORMAT=application/json and returns XML with a
+    # ``text/html`` content type. Try JSON first in case a future version
+    # honours the hint, then fall back to XML parsing.
     try:
         data = resp.json()
+        features = data.get("features") or []
+        results: list[dict] = []
+        for f in features:
+            props = f.get("properties") or {}
+            results.append({
+                "tytul_planu": props.get("tytul_planu") or props.get("tytul"),
+                "uchwala": props.get("uchwala") or props.get("uchwala_nr"),
+                "data_uchwalenia": props.get("data_uchwalenia") or props.get("data"),
+                "przeznaczenie": props.get("przeznaczenie"),
+                "opis": props.get("opis") or props.get("tresc"),
+                "link_do_uchwaly": props.get("link_do_uchwaly") or props.get("url"),
+                "raw": props,
+            })
+        return results
     except ValueError:
-        # Some deployments default to HTML/XML despite the INFO_FORMAT hint.
-        # Rather than parse unstructured HTML, surface "no data" — the raster
-        # tile still tells the user *something* about the plan.
-        logger.debug("MPZP GetFeatureInfo returned non-JSON: %s", resp.text[:200])
-        return None
+        pass
 
-    features = data.get("features") or []
-    results: list[dict] = []
-    for f in features:
-        props = f.get("properties") or {}
-        # Projection varies between service versions; keep the union of keys
-        # we've seen and fall back to a sensible subset so the frontend can
-        # render something even for unexpected schemas.
-        results.append({
-            "tytul_planu": props.get("tytul_planu") or props.get("tytul"),
-            "uchwala": props.get("uchwala") or props.get("uchwala_nr"),
-            "data_uchwalenia": props.get("data_uchwalenia") or props.get("data"),
-            "przeznaczenie": props.get("przeznaczenie"),
-            "opis": props.get("opis") or props.get("tresc"),
-            "link_do_uchwaly": props.get("link_do_uchwaly") or props.get("url"),
-            "raw": props,
-        })
-    return results
+    return _parse_gugik_xml(body, str(resp.url))
 
 
 @router.get("/{id_dzialki:path}")

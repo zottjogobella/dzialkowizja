@@ -26,6 +26,22 @@
 		return `${val} m`;
 	}
 
+	function kubaturaLabel(val: number | null): string {
+		if (val === null) return '—';
+		return `${val.toLocaleString('pl-PL', { maximumFractionDigits: 1 })} m³`;
+	}
+
+	/** Pretty, stable ordering of raw RWDZ keys so the dump is readable. */
+	function rawEntries(raw: Record<string, unknown> | null): [string, string][] {
+		if (!raw) return [];
+		return Object.entries(raw)
+			.filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== '')
+			.map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)] as [string, string])
+			.sort((a, b) => a[0].localeCompare(b[0]));
+	}
+
+	let rawOpen = $state(false);
+
 	function handleKey(e: KeyboardEvent) {
 		if (e.key === 'Escape') onClose();
 	}
@@ -107,6 +123,24 @@
 						<dd class="break-all text-[var(--color-primary)]">{investment.parcel_id}</dd>
 					</div>
 				{/if}
+				{#if investment.kubatura != null}
+					<div>
+						<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Kubatura</dt>
+						<dd class="text-[var(--color-primary)]">{kubaturaLabel(investment.kubatura)}</dd>
+					</div>
+				{/if}
+				{#if investment.teryt_gmi}
+					<div>
+						<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">TERYT gminy</dt>
+						<dd class="text-[var(--color-primary)]">{investment.teryt_gmi}</dd>
+					</div>
+				{/if}
+				{#if investment.source_id}
+					<div>
+						<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">ID rekordu</dt>
+						<dd class="break-all font-mono text-[11px] text-[var(--color-text-muted)]">{investment.source_id}</dd>
+					</div>
+				{/if}
 			</dl>
 
 			{#if investment.inwestor}
@@ -123,11 +157,11 @@
 				</div>
 			{/if}
 
-			{#if investment.adres || investment.miejscowosc}
+			{#if investment.adres || investment.miejscowosc || investment.gmina || investment.wojewodztwo}
 				<div>
 					<div class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Adres</div>
 					<div class="text-[var(--color-primary)]">
-						{[investment.adres, investment.miejscowosc].filter(Boolean).join(', ')}
+						{[investment.adres, investment.miejscowosc, investment.gmina, investment.wojewodztwo].filter(Boolean).join(', ')}
 					</div>
 				</div>
 			{/if}
@@ -152,6 +186,27 @@
 					<div class="text-[var(--color-primary)]">
 						{investment.lat.toFixed(6)}, {investment.lng.toFixed(6)}
 					</div>
+				</div>
+			{/if}
+
+			{@const raw = rawEntries(investment.raw_data)}
+			{#if raw.length > 0}
+				<div class="border-t border-[var(--color-border)] pt-3">
+					<button
+						class="flex w-full items-center justify-between text-left text-[11px] uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+						onclick={() => (rawOpen = !rawOpen)}
+					>
+						<span>Wszystkie pola z RWDZ ({raw.length})</span>
+						<span class="text-xs">{rawOpen ? '▲' : '▼'}</span>
+					</button>
+					{#if rawOpen}
+						<dl class="mt-2 grid grid-cols-1 gap-x-6 gap-y-1.5 text-[12px] sm:grid-cols-[auto_1fr]">
+							{#each raw as [k, v]}
+								<dt class="font-mono text-[var(--color-text-muted)]">{k}</dt>
+								<dd class="whitespace-pre-wrap break-words text-[var(--color-primary)]">{v}</dd>
+							{/each}
+						</dl>
+					{/if}
 				</div>
 			{/if}
 		</div>

@@ -77,8 +77,10 @@ def _fetch_investments(
                 SELECT * FROM (
                     SELECT
                         i.id, i.typ, i.status, i.data_wniosku, i.data_decyzji,
-                        i.inwestor, i.organ, i.miejscowosc, i.adres, i.opis,
-                        i.kategoria, i.rodzaj_inwestycji, i.parcel_id,
+                        i.inwestor, i.organ, i.wojewodztwo, i.gmina,
+                        i.miejscowosc, i.teryt_gmi, i.adres, i.opis,
+                        i.kategoria, i.rodzaj_inwestycji, i.kubatura,
+                        i.parcel_id, i.source_id, i.raw_data,
                         ST_X(ST_Transform(i.geom, 4326)) AS lng,
                         ST_Y(ST_Transform(i.geom, 4326)) AS lat,
                         ST_Distance(i.geom, lot.geom) AS distance_m
@@ -109,6 +111,18 @@ def _fetch_investments(
                     d["lng"] = float(d["lng"])
                 if d.get("lat") is not None:
                     d["lat"] = float(d["lat"])
+                if d.get("kubatura") is not None:
+                    d["kubatura"] = float(d["kubatura"])
+                # raw_data is JSONB — psycopg2 usually returns a dict but
+                # older drivers leave it as a string. Normalise either way so
+                # the API contract stays ``dict | null``.
+                raw = d.get("raw_data")
+                if isinstance(raw, str):
+                    try:
+                        import json as _json
+                        d["raw_data"] = _json.loads(raw)
+                    except ValueError:
+                        d["raw_data"] = None
                 results.append(d)
             return results
     finally:

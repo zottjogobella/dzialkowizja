@@ -99,12 +99,18 @@ export interface Investment {
 	data_decyzji: string | null;
 	inwestor: string | null;
 	organ: string | null;
+	wojewodztwo: string | null;
+	gmina: string | null;
 	miejscowosc: string | null;
+	teryt_gmi: string | null;
 	adres: string | null;
 	opis: string | null;
 	kategoria: string | null;
 	rodzaj_inwestycji: string | null;
+	kubatura: number | null;
 	parcel_id: string | null;
+	source_id: string | null;
+	raw_data: Record<string, unknown> | null;
 	lng: number | null;
 	lat: number | null;
 	distance_m: number | null;
