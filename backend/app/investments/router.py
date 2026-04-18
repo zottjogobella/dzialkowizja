@@ -23,6 +23,7 @@ from app.config import settings
 from app.db.engine import get_db
 from app.db.models import User
 from app.middleware.rate_limit_dep import rate_limit_detail
+from app.permissions.fields import is_section_restricted
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +162,9 @@ async def get_investments(
     Results are the 30 nearest items, then re-sorted by distance asc and
     decision date desc.
     """
+    if await is_section_restricted(db, user, "section.investments"):
+        return []
+
     try:
         result = await asyncio.to_thread(
             _fetch_investments, id_dzialki, months, type, max_distance_m, 30,

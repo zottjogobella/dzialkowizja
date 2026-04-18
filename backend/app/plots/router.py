@@ -19,6 +19,7 @@ from app.config import settings
 from app.db.engine import get_db
 from app.db.models import PlotSnapshot, User
 from app.middleware.rate_limit_dep import rate_limit_detail
+from app.permissions.fields import is_section_restricted
 from app.plots.schemas import Listing
 
 logger = logging.getLogger(__name__)
@@ -491,7 +492,8 @@ async def get_plot_listing_stats(id_dzialki: str, _user=Depends(require_auth)):
 async def get_plot_transactions(
     id_dzialki: str,
     type: str = "all",
-    _user=Depends(require_auth),
+    user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
 ):
     """Return the N nearest transactions to the plot centroid.
 
@@ -500,6 +502,9 @@ async def get_plot_transactions(
                only rodzaj_nieruchomosci in {1,2} (plots of land);
                ``inne`` returns everything else (budynkowa/lokalowa).
     """
+    if await is_section_restricted(db, user, "section.transactions"):
+        return []
+
     centroid = await asyncio.to_thread(_fetch_plot_centroid_2180, id_dzialki)
     if centroid is None:
         raise HTTPException(status_code=404, detail="Działka nie znaleziona")
@@ -534,7 +539,14 @@ async def get_plot_geometry(id_dzialki: str, _user=Depends(require_auth)):
 
 
 @router.get("/{id_dzialki:path}/listings")
-async def get_plot_listings(id_dzialki: str, _user=Depends(require_auth)):
+async def get_plot_listings(
+    id_dzialki: str,
+    user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    if await is_section_restricted(db, user, "section.listings"):
+        return {"active": [], "inactive": []}
+
     if not settings.przetargi_db_user:
         return {"active": [], "inactive": []}
 
@@ -554,10 +566,13 @@ async def get_plot_listings(id_dzialki: str, _user=Depends(require_auth)):
 async def get_plot_snapshot(
     id_dzialki: str,
     snapshot_type: str,
-    _user=Depends(require_auth),
+    user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """Get or generate a plot snapshot (ortho or map). Lazy-loaded and cached in DB."""
+    if await is_section_restricted(db, user, "section.snapshots"):
+        raise HTTPException(status_code=404, detail="Sekcja ukryta")
+
     if snapshot_type not in ("ortho", "map"):
         raise HTTPException(status_code=400, detail="Typ: ortho lub map")
 

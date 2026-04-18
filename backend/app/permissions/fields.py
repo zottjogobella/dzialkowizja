@@ -27,6 +27,7 @@ class FieldSpec(TypedDict):
 
 # Ordered for stable rendering in the admin panel.
 RESTRICTABLE_FIELDS: dict[str, FieldSpec] = {
+    # ── Roszczenia (field-level) ──
     "roszczenia.kw": {
         "label": "Roszczenia: numer KW",
         "description": "Numer księgi wieczystej z arkusza roszczeń.",
@@ -34,6 +35,31 @@ RESTRICTABLE_FIELDS: dict[str, FieldSpec] = {
     "roszczenia.entities": {
         "label": "Roszczenia: właściciele",
         "description": "Lista podmiotów (nazwa + typ) z arkusza roszczeń.",
+    },
+    # ── Whole sections ──
+    "section.argumentacja": {
+        "label": "Argumentacja wyceny",
+        "description": "Sekcja z argumentami i pewnością wyceny działki.",
+    },
+    "section.mpzp": {
+        "label": "Plan zagospodarowania (MPZP)",
+        "description": "Informacje o planie zagospodarowania przestrzennego z GUGiK.",
+    },
+    "section.snapshots": {
+        "label": "Zrzuty mapy",
+        "description": "Ortofotomapa i mapa bazowa działki.",
+    },
+    "section.transactions": {
+        "label": "Transakcje w okolicy",
+        "description": "Tabela transakcji gruntowych w okolicy działki.",
+    },
+    "section.listings": {
+        "label": "Ogłoszenia w okolicy",
+        "description": "Ogłoszenia nieruchomości z portali w okolicy działki.",
+    },
+    "section.investments": {
+        "label": "Aktywność inwestycyjna",
+        "description": "Pozwolenia na budowę i zgłoszenia z GUNB RWDZ.",
     },
 }
 
@@ -53,6 +79,19 @@ async def get_restricted_keys(db: AsyncSession, organization_id: uuid.UUID | Non
         )
     )
     return {r[0] for r in rows}
+
+
+async def is_section_restricted(
+    db: AsyncSession, user, section_key: str,
+) -> bool:
+    """Check if a whole section is hidden for this user's org.
+
+    Returns False for admins/super_admins — only role=user is affected.
+    """
+    if user.role != "user":
+        return False
+    restricted = await get_restricted_keys(db, user.organization_id)
+    return section_key in restricted
 
 
 def redact(payload: dict, restricted: set[str], prefix: str) -> dict:

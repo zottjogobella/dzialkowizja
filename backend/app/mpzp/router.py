@@ -29,6 +29,7 @@ from app.db.engine import get_db
 from app.db.geo import get_geo_pool
 from app.db.models import User
 from app.middleware.rate_limit_dep import rate_limit_detail
+from app.permissions.fields import is_section_restricted
 
 logger = logging.getLogger(__name__)
 
@@ -369,6 +370,9 @@ async def mpzp_for_plot(
     any plan that GUGiK has ingested — absence of MPZP is itself useful info
     for the user and not an error.
     """
+    if await is_section_restricted(db, user, "section.mpzp"):
+        return {"features": []}
+
     centroid = await _plot_centroid_2180(id_dzialki)
     if centroid is None:
         raise HTTPException(status_code=404, detail="Działka nie znaleziona")

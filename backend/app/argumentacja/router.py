@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_auth
 from app.db.engine import get_db
-from app.db.models import Argumentacja
+from app.db.models import Argumentacja, User
+from app.permissions.fields import is_section_restricted
 
 router = APIRouter()
 
@@ -21,8 +22,11 @@ def _opt_float(v) -> float | None:
 async def get_argumentacja(
     id_dzialki: str,
     db: AsyncSession = Depends(get_db),
-    _user=Depends(require_auth),
+    user: User = Depends(require_auth),
 ):
+    if await is_section_restricted(db, user, "section.argumentacja"):
+        raise HTTPException(status_code=404, detail="brak argumentacji")
+
     stmt = select(Argumentacja).where(Argumentacja.id_dzialki == id_dzialki)
     result = await db.execute(stmt)
     row = result.scalar_one_or_none()

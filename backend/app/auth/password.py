@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import re
-
 import bcrypt
 
 # Timing-attack prevention: always compare against something
 _DUMMY_HASH = bcrypt.hashpw(b"timing-attack-prevention-dummy", bcrypt.gensalt()).decode()
 
 # Password policy
-MIN_LENGTH = 8
+MIN_LENGTH = 6
 MAX_LENGTH = 128
 
 
@@ -39,11 +37,5 @@ def validate_password(password: str) -> list[str]:
         errors.append(f"Hasło musi mieć minimum {MIN_LENGTH} znaków")
     if len(password) > MAX_LENGTH:
         errors.append(f"Hasło może mieć maksimum {MAX_LENGTH} znaków")
-    if not re.search(r"[a-z]", password):
-        errors.append("Hasło musi zawierać małą literę")
-    if not re.search(r"[A-Z]", password):
-        errors.append("Hasło musi zawierać wielką literę")
-    if not re.search(r"\d", password):
-        errors.append("Hasło musi zawierać cyfrę")
 
     return errors
