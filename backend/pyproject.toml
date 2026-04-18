@@ -17,6 +17,7 @@ dependencies = [
     "psycopg2-binary>=2.9.0",
     "Pillow>=11.0.0",
     "pyproj>=3.7.0",
+    "redis>=5.2.0",
 ]
 
 [tool.ruff]

@@ -14,10 +14,15 @@ import logging
 from typing import Literal
 
 import psycopg2
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit.recorder import record
 from app.auth.dependencies import require_auth
 from app.config import settings
+from app.db.engine import get_db
+from app.db.models import User
+from app.middleware.rate_limit_dep import rate_limit_detail
 
 logger = logging.getLogger(__name__)
 
@@ -132,10 +137,13 @@ def _fetch_investments(
 @router.get("/{id_dzialki:path}")
 async def get_investments(
     id_dzialki: str,
+    request: Request,
     months: int = Query(24, ge=1, le=120),
     type: InvestmentType = Query("all"),
     max_distance_m: int = Query(10000, ge=100, le=50000),
-    _user=Depends(require_auth),
+    user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+    _rl: None = Depends(rate_limit_detail),
 ):
     """Return the nearest GUNB RWDZ investments to the plot.
 
@@ -163,4 +171,5 @@ async def get_investments(
 
     if result is None:
         raise HTTPException(status_code=404, detail="Działka nie znaleziona")
+    await record(db, user, action_type="investment_fetch", request=request, target_id=id_dzialki)
     return result

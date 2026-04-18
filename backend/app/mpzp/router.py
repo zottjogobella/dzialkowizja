@@ -20,10 +20,15 @@ from urllib.parse import urljoin
 from xml.etree import ElementTree as ET
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit.recorder import record
 from app.auth.dependencies import require_auth
+from app.db.engine import get_db
 from app.db.geo import get_geo_pool
+from app.db.models import User
+from app.middleware.rate_limit_dep import rate_limit_detail
 
 logger = logging.getLogger(__name__)
 
@@ -353,7 +358,10 @@ async def _get_feature_info(cx: float, cy: float) -> list[dict] | None:
 @router.get("/{id_dzialki:path}")
 async def mpzp_for_plot(
     id_dzialki: str,
-    _user=Depends(require_auth),
+    request: Request,
+    user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+    _rl: None = Depends(rate_limit_detail),
 ):
     """GetFeatureInfo at a plot's centroid against KI MPZP.
 
@@ -366,6 +374,7 @@ async def mpzp_for_plot(
         raise HTTPException(status_code=404, detail="Działka nie znaleziona")
 
     features = await _get_feature_info(*centroid)
+    await record(db, user, action_type="mpzp_fetch", request=request, target_id=id_dzialki)
     if features is None:
         # Upstream glitch — don't surface it as 5xx, the map tile layer will
         # still show the plan visually.

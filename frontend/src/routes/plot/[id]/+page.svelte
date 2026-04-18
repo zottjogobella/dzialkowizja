@@ -304,28 +304,33 @@
 			/>
 		</div>
 
-		{#if roszczenieRow && (roszczenieRow.kw || roszczenieRow.entities)}
+		{#if roszczenieRow}
 			<!-- Księga wieczysta + właściciel (tylko dla działek z arkusza) -->
 			<section class="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
 				<h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Księga wieczysta i właściciel</h2>
 				<dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-					{#if roszczenieRow.kw}
-						<div>
-							<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Numer KW</dt>
-							<dd class="text-[var(--color-primary)]">
+					<div>
+						<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Numer KW</dt>
+						<dd class="text-[var(--color-primary)]">
+							{#if roszczenieRow.kw}
 								<a
 									href={ekwSearchUrl(roszczenieRow.kw)}
 									target="_blank"
 									rel="noopener"
 									class="font-mono hover:underline"
 								>{roszczenieRow.kw}</a>
-							</dd>
-						</div>
-					{/if}
-					{#if roszczenieRow.entities}
-						<div class="sm:col-span-2">
-							<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Właściciel</dt>
-							<dd class="text-[var(--color-primary)]">
+							{:else}
+								<span class="inline-flex items-center gap-1.5 text-[var(--color-text-muted)]">
+									<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+									Dane ukryte
+								</span>
+							{/if}
+						</dd>
+					</div>
+					<div class="sm:col-span-2">
+						<dt class="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Właściciel</dt>
+						<dd class="text-[var(--color-primary)]">
+							{#if roszczenieRow.entities}
 								{#each parseOwners(roszczenieRow.entities) as owner}
 									<div>
 										<span>{owner.name}</span>
@@ -334,9 +339,14 @@
 										{/if}
 									</div>
 								{/each}
-							</dd>
-						</div>
-					{/if}
+							{:else}
+								<span class="inline-flex items-center gap-1.5 text-[var(--color-text-muted)]">
+									<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+									Dane ukryte
+								</span>
+							{/if}
+						</dd>
+					</div>
 				</dl>
 			</section>
 		{/if}

@@ -9,13 +9,16 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit.recorder import record
 from app.auth.dependencies import require_auth
 from app.db.engine import get_db
-from app.db.models import Roszczenie
+from app.db.models import Roszczenie, User
+from app.middleware.rate_limit_dep import rate_limit_detail
+from app.permissions.fields import get_restricted_keys, redact
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +28,10 @@ router = APIRouter()
 @router.get("/{id_dzialki:path}")
 async def get_roszczenie(
     id_dzialki: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _user=Depends(require_auth),
+    user: User = Depends(require_auth),
+    _rl: None = Depends(rate_limit_detail),
 ):
     """Return the plot valuation from the sheet, or 404 if not present.
 
@@ -39,18 +44,25 @@ async def get_roszczenie(
           "entities": "NAME;;os prawna"
         }
 
-    ``kw`` and ``entities`` are nullable — older rows loaded before those
-    columns existed will return null. The claim itself is computed
-    client-side as ``wartosc_dzialki × 0.5 × (intersection_area / plot_area)``.
+    For role=user, ``kw`` and ``entities`` may be redacted to ``null`` based
+    on per-organization restrictions toggled by the admin.
     """
     stmt = select(Roszczenie).where(Roszczenie.id_dzialki == id_dzialki)
     result = await db.execute(stmt)
     row = result.scalar_one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail="brak w arkuszu")
-    return {
+
+    payload = {
         "id_dzialki": row.id_dzialki,
         "wartosc_dzialki": float(row.wartosc_dzialki),
         "kw": row.kw,
         "entities": row.entities,
     }
+
+    if user.role == "user":
+        restricted = await get_restricted_keys(db, user.organization_id)
+        redact(payload, restricted, prefix="roszczenia")
+
+    await record(db, user, action_type="roszczenie_fetch", request=request, target_id=id_dzialki)
+    return payload

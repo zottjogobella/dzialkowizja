@@ -42,11 +42,12 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "DELETE"],
+        allow_methods=["GET", "POST", "DELETE", "PUT"],
         allow_headers=["X-CSRF-Token", "Content-Type"],
     )
 
     # Routers
+    from app.admin.router import router as admin_router
     from app.auth.router import router as auth_router
     from app.gesut.router import router as gesut_router
     from app.history.router import router as history_router
@@ -57,6 +58,7 @@ def create_app() -> FastAPI:
     from app.argumentacja.router import router as argumentacja_router
     from app.roszczenia.router import router as roszczenia_router
     from app.search.router import router as search_router
+    from app.super_admin.router import router as super_admin_router
 
     app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     app.include_router(search_router, prefix="/api/search", tags=["search"])
@@ -68,6 +70,8 @@ def create_app() -> FastAPI:
     app.include_router(mpzp_router, prefix="/api/mpzp", tags=["mpzp"])
     app.include_router(roszczenia_router, prefix="/api/roszczenia", tags=["roszczenia"])
     app.include_router(argumentacja_router, prefix="/api/argumentacja", tags=["argumentacja"])
+    app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
+    app.include_router(super_admin_router, prefix="/api/super-admin", tags=["super-admin"])
 
     @app.get("/health")
     async def health():

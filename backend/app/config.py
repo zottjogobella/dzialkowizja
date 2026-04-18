@@ -53,9 +53,14 @@ class Settings(BaseSettings):
     snapshot_bbox_padding: float = 1.0
     snapshot_max_age_days: int = 30
 
-    # Rate Limiting
-    rate_limit_requests: int = 60
+    # Rate Limiting (per-user, only enforced for role=user)
+    rate_limit_requests: int = 60  # legacy global, unused since middleware was disabled
     rate_limit_window_seconds: int = 60
+    rate_limit_user_search_per_min: int = 30
+    rate_limit_user_detail_per_min: int = 60
+
+    # Redis (used by rate limiter when set; falls back to in-memory otherwise)
+    redis_url: str = ""
 
     # Session
     session_max_age_seconds: int = 86400 * 7  # 7 days

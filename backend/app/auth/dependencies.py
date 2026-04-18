@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Awaitable
+
 from fastapi import Cookie, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,3 +29,18 @@ async def require_auth(
     if user is None:
         raise HTTPException(status_code=401, detail="Nie jesteś zalogowany")
     return user
+
+
+def require_role(*allowed_roles: str) -> Callable[[User], Awaitable[User]]:
+    """Build a dependency that 403s when the user's role is not allowed."""
+
+    async def _dep(user: User = Depends(require_auth)) -> User:
+        if user.role not in allowed_roles:
+            raise HTTPException(status_code=403, detail="Brak uprawnień")
+        return user
+
+    return _dep
+
+
+require_admin = require_role("admin", "super_admin")
+require_super_admin = require_role("super_admin")

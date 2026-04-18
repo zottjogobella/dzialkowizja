@@ -39,6 +39,8 @@ class UserResponse(BaseModel):
     email: str
     display_name: str
     is_active: bool
+    role: str
+    organization_id: str | None = None
 
     class Config:
         from_attributes = True

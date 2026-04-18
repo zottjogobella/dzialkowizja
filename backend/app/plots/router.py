@@ -11,10 +11,14 @@ from fastapi.responses import Response as FastAPIResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi import Request
+
+from app.audit.recorder import record
 from app.auth.dependencies import require_auth
 from app.config import settings
 from app.db.engine import get_db
-from app.db.models import PlotSnapshot
+from app.db.models import PlotSnapshot, User
+from app.middleware.rate_limit_dep import rate_limit_detail
 from app.plots.schemas import Listing
 
 logger = logging.getLogger(__name__)
@@ -627,8 +631,15 @@ async def get_plot_snapshot(
 
 
 @router.get("/{id_dzialki:path}")
-async def get_plot(id_dzialki: str, _user=Depends(require_auth)):
+async def get_plot(
+    id_dzialki: str,
+    request: Request,
+    user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+    _rl: None = Depends(rate_limit_detail),
+):
     result = await asyncio.to_thread(_fetch_plot, id_dzialki)
     if result is None:
         raise HTTPException(status_code=404, detail="Działka nie znaleziona")
+    await record(db, user, action_type="plot_view", request=request, target_id=id_dzialki)
     return result

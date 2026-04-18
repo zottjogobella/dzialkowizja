@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, LargeBinary, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, LargeBinary, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import INET, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -12,14 +12,47 @@ class Base(DeclarativeBase):
     pass
 
 
+# Postgres enum is owned by the migration (CREATE TYPE there); we reference
+# the existing type by name and disable create/drop in the metadata.
+USER_ROLE = Enum("super_admin", "admin", "user", name="user_role", create_type=False)
+
+
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    members: Mapped[list[User]] = relationship(
+        back_populates="organization",
+        primaryjoin="Organization.id==User.organization_id",
+    )
+    restricted_fields: Mapped[list[RestrictedField]] = relationship(
+        back_populates="organization", cascade="all, delete-orphan"
+    )
+
+
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (Index("ix_users_organization", "organization_id"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    role: Mapped[str] = mapped_column(USER_ROLE, nullable=False, default="user")
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=True
+    )
+    invited_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -27,6 +60,10 @@ class User(Base):
 
     sessions: Mapped[list[Session]] = relationship(back_populates="user", cascade="all, delete-orphan")
     search_history: Mapped[list[SearchHistory]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    organization: Mapped[Organization | None] = relationship(
+        back_populates="members",
+        foreign_keys=[organization_id],
+    )
 
 
 class Session(Base):
@@ -61,6 +98,52 @@ class SearchHistory(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped[User] = relationship(back_populates="search_history")
+
+
+class RestrictedField(Base):
+    """A field hidden from role=user inside this organization.
+
+    Presence of a row means *hidden*. Absence means *visible*. Admin toggles
+    these from the admin panel; the registry of legal field_keys is in
+    ``app/permissions/fields.py``.
+    """
+
+    __tablename__ = "restricted_fields"
+
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), primary_key=True
+    )
+    field_key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    organization: Mapped[Organization] = relationship(back_populates="restricted_fields")
+
+
+class ActivityLog(Base):
+    """Auditable log of every data-access event (search, plot view, etc.).
+
+    Distinct from ``SearchHistory`` — that table powers the user-facing
+    sidebar of recent searches and is shaped around that UI. ActivityLog is
+    the operator-facing audit trail with IP and per-org filtering.
+    """
+
+    __tablename__ = "activity_log"
+    __table_args__ = (
+        Index("ix_activity_log_user_time", "user_id", "created_at"),
+        Index("ix_activity_log_org_time", "organization_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True
+    )
+    action_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    target_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    query_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(INET, nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class PlotSnapshot(Base):

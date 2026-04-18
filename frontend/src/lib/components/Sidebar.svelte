@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { historyItems, historyLoaded, loadHistory } from '$lib/stores/history';
 	import { searchQuery, hasSearched } from '$lib/stores/search';
+	import { user } from '$lib/stores/auth';
 	import { onMount } from 'svelte';
 
 	let open = $state(false);
@@ -64,6 +65,27 @@
 		</div>
 
 		<nav class="flex-1 overflow-y-auto p-2">
+			{#if $user && ($user.role === 'admin' || $user.role === 'super_admin')}
+				<div class="mb-2 border-b border-[var(--color-border)] pb-2">
+					<a
+						href="/admin/users"
+						class="block rounded-lg px-3 py-2 text-sm font-medium text-[var(--color-primary)] transition-colors hover:bg-gray-50"
+						onclick={() => (open = false)}
+					>
+						Panel admina
+					</a>
+					{#if $user.role === 'super_admin'}
+						<a
+							href="/super-admin/organizations"
+							class="block rounded-lg px-3 py-2 text-sm font-medium text-[var(--color-primary)] transition-colors hover:bg-gray-50"
+							onclick={() => (open = false)}
+						>
+							Panel super admina
+						</a>
+					{/if}
+				</div>
+			{/if}
+
 			{#if $historyItems.length === 0}
 				<p class="px-3 py-6 text-center text-sm text-[var(--color-text-muted)]">Brak historii</p>
 			{:else}

@@ -54,7 +54,14 @@ async def login(body: LoginRequest, request: Request, response: Response, db: As
     signed, csrf = await create_session(db, user.id, ip, request.headers.get("User-Agent"))
     _set_cookies(response, signed, csrf)
 
-    return UserResponse(id=str(user.id), email=user.email, display_name=user.display_name, is_active=user.is_active)
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        display_name=user.display_name,
+        is_active=user.is_active,
+        role=user.role,
+        organization_id=str(user.organization_id) if user.organization_id else None,
+    )
 
 
 @router.post("/logout")
@@ -75,4 +82,11 @@ async def logout(
 
 @router.get("/me", response_model=UserResponse)
 async def me(user: User = Depends(require_auth)):
-    return UserResponse(id=str(user.id), email=user.email, display_name=user.display_name, is_active=user.is_active)
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        display_name=user.display_name,
+        is_active=user.is_active,
+        role=user.role,
+        organization_id=str(user.organization_id) if user.organization_id else None,
+    )
