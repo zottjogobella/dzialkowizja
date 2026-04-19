@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { apiGet, apiPut } from '$lib/api/client';
+	import { apiGet, apiPut, ApiError } from '$lib/api/client';
 
 	type Field = {
 		key: string;
@@ -16,14 +16,20 @@
 	let saving = $state(false);
 	let error: string | null = $state(null);
 	let savedAt: number | null = $state(null);
+	let noOrg = $state(false);
 
 	async function load() {
 		loading = true;
+		noOrg = false;
 		try {
 			const res = await apiGet<Response>('/api/admin/restrictions');
 			fields = res.fields;
-		} catch {
-			error = 'Nie udało się pobrać listy pól';
+		} catch (e) {
+			if (e instanceof ApiError && e.status === 400) {
+				noOrg = true;
+			} else {
+				error = 'Nie udało się pobrać listy pól';
+			}
 		} finally {
 			loading = false;
 		}
@@ -58,6 +64,16 @@
 
 {#if loading}
 	<p class="text-sm text-[var(--color-text-muted)]">Ładowanie...</p>
+{:else if noOrg}
+	<div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+		<p class="text-sm text-[var(--color-text-muted)]">
+			Konto super admina nie jest przypisane do organizacji.
+		</p>
+		<p class="mt-2 text-sm text-[var(--color-text-muted)]">
+			Zarządzaj organizacjami przez
+			<a href="/super-admin/organizations" class="font-medium text-[var(--color-primary)] hover:underline">panel super admina</a>.
+		</p>
+	</div>
 {:else if error && fields.length === 0}
 	<p class="text-sm text-red-600">{error}</p>
 {:else}

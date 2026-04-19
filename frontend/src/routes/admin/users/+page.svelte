@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { apiGet, apiDelete, apiFetch } from '$lib/api/client';
+	import { apiGet, apiDelete, apiFetch, ApiError } from '$lib/api/client';
+	import { user as currentUser } from '$lib/stores/auth';
 
 	type AdminUser = {
 		id: string;
@@ -17,6 +18,7 @@
 	let users: AdminUser[] = $state([]);
 	let loading = $state(true);
 	let error: string | null = $state(null);
+	let noOrg = $state(false);
 
 	let showModal = $state(false);
 	let formEmail = $state('');
@@ -28,10 +30,15 @@
 	async function load() {
 		loading = true;
 		error = null;
+		noOrg = false;
 		try {
 			users = await apiGet<AdminUser[]>('/api/admin/users');
 		} catch (e) {
-			error = 'Nie udało się pobrać listy użytkowników';
+			if (e instanceof ApiError && e.status === 400) {
+				noOrg = true;
+			} else {
+				error = 'Nie udało się pobrać listy użytkowników';
+			}
 		} finally {
 			loading = false;
 		}
@@ -116,6 +123,16 @@
 
 {#if loading}
 	<p class="text-sm text-[var(--color-text-muted)]">Ładowanie...</p>
+{:else if noOrg}
+	<div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+		<p class="text-sm text-[var(--color-text-muted)]">
+			Konto super admina nie jest przypisane do organizacji.
+		</p>
+		<p class="mt-2 text-sm text-[var(--color-text-muted)]">
+			Zarządzaj użytkownikami i organizacjami przez
+			<a href="/super-admin/organizations" class="font-medium text-[var(--color-primary)] hover:underline">panel super admina</a>.
+		</p>
+	</div>
 {:else if error}
 	<p class="text-sm text-red-600">{error}</p>
 {:else if users.length === 0}
@@ -184,7 +201,7 @@
 				<div>
 					<label class="mb-1 block text-xs uppercase tracking-wider text-[var(--color-text-muted)]" for="password">Hasło</label>
 					<input id="password" type="text" bind:value={formPassword} required class="w-full rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm" />
-					<p class="mt-1 text-xs text-[var(--color-text-muted)]">Wymagania: minimum 12 znaków, mała + duża litera, cyfra i znak specjalny.</p>
+					<p class="mt-1 text-xs text-[var(--color-text-muted)]">Minimum 6 znaków.</p>
 				</div>
 				{#if formError}
 					<p class="text-sm text-red-600">{formError}</p>
