@@ -107,6 +107,30 @@ async def deactivate_user(
     return {"ok": True}
 
 
+@router.put("/users/{user_id}/password")
+async def set_user_password(
+    user_id: uuid.UUID,
+    body: dict,
+    actor: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    target = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Użytkownik nie znaleziony")
+    _ensure_same_org(actor, target)
+    if target.role != "user":
+        raise HTTPException(status_code=400, detail="Można zmienić hasło tylko zwykłym użytkownikom")
+    password = body.get("password", "")
+    from app.auth.password import validate_password
+
+    errors = validate_password(password)
+    if errors:
+        raise HTTPException(status_code=422, detail="; ".join(errors))
+    target.password_hash = hash_password(password)
+    await db.commit()
+    return {"ok": True}
+
+
 @router.get("/users", response_model=list[UserOut])
 async def list_users(
     actor: User = Depends(require_admin),

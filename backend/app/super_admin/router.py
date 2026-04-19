@@ -204,6 +204,29 @@ async def remove_admin(
     return {"ok": True}
 
 
+@router.put("/admins/{user_id}/password")
+async def set_admin_password(
+    user_id: uuid.UUID,
+    body: dict,
+    actor: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    target = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Użytkownik nie znaleziony")
+    if target.role != "admin":
+        raise HTTPException(status_code=400, detail="Cel nie jest adminem")
+    password = body.get("password", "")
+    from app.auth.password import validate_password
+
+    errors = validate_password(password)
+    if errors:
+        raise HTTPException(status_code=422, detail="; ".join(errors))
+    target.password_hash = hash_password(password)
+    await db.commit()
+    return {"ok": True}
+
+
 @router.get("/activity", response_model=GlobalActivityPage)
 async def global_activity(
     actor: User = Depends(require_super_admin),

@@ -27,6 +27,11 @@
 	let formError: string | null = $state(null);
 	let saving = $state(false);
 
+	let pwUser: AdminUser | null = $state(null);
+	let pwValue = $state('');
+	let pwError: string | null = $state(null);
+	let pwSaving = $state(false);
+
 	async function load() {
 		loading = true;
 		error = null;
@@ -103,6 +108,38 @@
 		}
 	}
 
+	async function changePassword(e: Event) {
+		e.preventDefault();
+		if (!pwUser) return;
+		pwSaving = true;
+		pwError = null;
+		try {
+			const res = await apiFetch(`/api/admin/users/${pwUser.id}/password`, {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-CSRF-Token': getCsrfToken()
+				},
+				body: JSON.stringify({ password: pwValue })
+			});
+			if (!res.ok) {
+				let detail = `Błąd (${res.status})`;
+				try {
+					const body = await res.json();
+					if (body?.detail) detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
+				} catch {}
+				pwError = detail;
+				return;
+			}
+			pwUser = null;
+			pwValue = '';
+		} catch {
+			pwError = 'Błąd sieci';
+		} finally {
+			pwSaving = false;
+		}
+	}
+
 	function formatDate(iso: string | null): string {
 		if (!iso) return '—';
 		return new Date(iso).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' });
@@ -166,7 +203,8 @@
 						</td>
 						<td class="px-4 py-2 text-right tabular-nums">{u.search_count_7d}</td>
 						<td class="px-4 py-2 text-[var(--color-text-muted)]">{formatDate(u.last_active_at)}</td>
-						<td class="px-4 py-2 text-right">
+						<td class="px-4 py-2 text-right space-x-2">
+							<button class="text-xs text-[var(--color-primary)] hover:underline" onclick={() => { pwUser = u; pwValue = ''; pwError = null; }}>Zmień hasło</button>
 							{#if u.is_active}
 								<button class="text-xs text-red-600 hover:underline" onclick={() => deactivate(u)}>Dezaktywuj</button>
 							{/if}
@@ -210,6 +248,41 @@
 					<button type="button" class="rounded px-4 py-2 text-sm text-[var(--color-text-muted)] hover:bg-gray-100" onclick={() => (showModal = false)}>Anuluj</button>
 					<button type="submit" disabled={saving} class="rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
 						{saving ? 'Zapisywanie...' : 'Zapisz'}
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
+
+{#if pwUser}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+		role="presentation"
+		onclick={() => (pwUser = null)}
+		onkeydown={(e) => e.key === 'Escape' && (pwUser = null)}
+	>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div role="dialog" aria-modal="true" tabindex="-1" class="w-full max-w-sm rounded-lg bg-[var(--color-surface)] p-6 shadow-xl" onclick={(e) => e.stopPropagation()}>
+			<h2 class="mb-1 text-lg font-semibold">Zmień hasło</h2>
+			<p class="mb-4 text-sm text-[var(--color-text-muted)]">{pwUser.display_name} ({pwUser.email})</p>
+			<form onsubmit={changePassword}>
+				<input
+					type="text"
+					bind:value={pwValue}
+					required
+					minlength="6"
+					placeholder="Nowe hasło"
+					class="w-full rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm"
+				/>
+				{#if pwError}
+					<p class="mt-2 text-sm text-red-600">{pwError}</p>
+				{/if}
+				<div class="mt-4 flex justify-end gap-2">
+					<button type="button" class="rounded px-4 py-2 text-sm text-[var(--color-text-muted)] hover:bg-gray-100" onclick={() => (pwUser = null)}>Anuluj</button>
+					<button type="submit" disabled={pwSaving} class="rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
+						{pwSaving ? 'Zapisywanie...' : 'Zapisz'}
 					</button>
 				</div>
 			</form>
