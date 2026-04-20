@@ -21,6 +21,7 @@
 	import type { PlotDetail, Listing, Transaction, Investment } from '$lib/types/plot';
 	import PlotMap from '$lib/components/PlotMap.svelte';
 	import InvestmentDetailsModal from '$lib/components/InvestmentDetailsModal.svelte';
+	import PdfReportModal from '$lib/components/PdfReportModal.svelte';
 
 	let plot = $state<PlotDetail | null>(null);
 	let loading = $state(true);
@@ -58,6 +59,7 @@
 	let roszczenieRow = $state<RoszczenieRow | null>(null);
 	let argumentacjaRow = $state<ArgumentacjaRow | null>(null);
 	let selectedInvestment = $state<Investment | null>(null);
+	let showPdfModal = $state(false);
 	let mpzpFeatures = $state<MpzpFeature[]>([]);
 	let mpzpLoading = $state(true);
 	let mpzpUpstreamError = $state(false);
@@ -303,7 +305,7 @@
 				</div>
 			</div>
 			<!-- Tabs -->
-			<div class="mt-4 flex flex-wrap gap-1 font-mono text-[10px] uppercase" style="letter-spacing: 1.2px;">
+			<div class="mt-4 flex flex-wrap items-center gap-1 font-mono text-[10px] uppercase" style="letter-spacing: 1.2px;">
 				{#each ['Mapa', 'Wycena', 'Ksiega wieczysta', 'Argumentacja', 'Transakcje', 'Aktywnosc'] as tab, i}
 					<a
 						href="#{tab.toLowerCase().replace(/ /g, '-')}"
@@ -311,6 +313,16 @@
 							{i === 0 ? 'bg-[var(--color-ink)] font-semibold text-white' : 'border border-[var(--color-glass-border)] text-[var(--color-mute)] hover:bg-[var(--color-glass)]'}"
 					>{tab}</a>
 				{/each}
+				<button
+					onclick={() => (showPdfModal = true)}
+					class="ml-auto flex cursor-pointer items-center gap-1.5 rounded-[20px] bg-[var(--color-accent)] px-4 py-1.5 font-mono text-[10px] font-semibold text-white transition-opacity hover:opacity-90"
+					style="letter-spacing: 1.2px;"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+					</svg>
+					RAPORT PDF
+				</button>
 			</div>
 		</div>
 
@@ -534,31 +546,6 @@
 			</div>
 		{/if}
 
-		<!-- Rzuty mapy -->
-		<div class="glass-card px-6 py-5">
-			<div class="eyebrow mb-3" style="letter-spacing: 1.5px;">&mdash; RZUTY MAPY</div>
-			<div class="grid grid-cols-2 gap-3">
-				{#each [
-					{ type: 'ortho', label: 'Ortofotomapa' },
-					{ type: 'map', label: 'Mapa hybrydowa' },
-				] as item}
-					{@const url = `/api/plots/${encodeURIComponent($page.params.id ?? '')}/snapshot/${item.type}`}
-					<div class="overflow-hidden rounded-xl border border-[var(--color-glass-border)]">
-						<img
-							src={url}
-							alt={item.label}
-							loading="lazy"
-							class="aspect-square w-full bg-[#e4e8d4] object-contain"
-						/>
-						<div class="flex items-center justify-between bg-[var(--color-glass)] px-3.5 py-2.5">
-							<span class="text-[11px] font-medium">{item.label}</span>
-							<a href={url} download="{$page.params.id}_{item.type}.jpg" class="font-mono text-[10px] text-[var(--color-accent)]">Pobierz &rarr;</a>
-						</div>
-					</div>
-				{/each}
-			</div>
-		</div>
-
 		<!-- Transakcje w okolicy -->
 		<div class="glass-card px-6 py-5">
 			<div class="mb-3 flex items-baseline justify-between">
@@ -761,6 +748,19 @@
 		<InvestmentDetailsModal
 			investment={selectedInvestment}
 			onClose={() => (selectedInvestment = null)}
+		/>
+
+		<PdfReportModal
+			open={showPdfModal}
+			{plot}
+			{roszczenieRow}
+			{argumentacjaRow}
+			{mpzpFeatures}
+			{transactions}
+			{activeListings}
+			{inactiveListings}
+			{investments}
+			onClose={() => (showPdfModal = false)}
 		/>
 	{/if}
 </div>
