@@ -64,7 +64,7 @@
 
 	<!-- Modal panel -->
 	<div
-		class="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[min(42rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl"
+		class="glass-card fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[min(42rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="investment-modal-title"

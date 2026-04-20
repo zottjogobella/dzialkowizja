@@ -65,7 +65,6 @@
 
 		const plotId = suggestion.type === 'lot' ? suggestion.label : suggestion.id_dzialki;
 
-		// Record search in history (fire-and-forget)
 		recordSearch({
 			query_text: suggestion.label,
 			query_type: suggestion.type,
@@ -89,7 +88,6 @@
 			case 'ArrowDown':
 				e.preventDefault();
 				if (!open && inputValue.trim().length >= 2) {
-					// reopen if we have suggestions
 					if (suggestions.length > 0) open = true;
 					return;
 				}
@@ -104,7 +102,6 @@
 				if (open && selectedIndex >= 0 && selectedIndex < suggestions.length) {
 					selectSuggestion(suggestions[selectedIndex]);
 				} else if (inputValue.trim().length >= 2) {
-					// If no item selected, trigger search anyway
 					fetchSuggestions(inputValue.trim());
 				}
 				break;
@@ -130,8 +127,12 @@
 
 <svelte:document onclick={handleClickOutside} />
 
-<div class="relative w-full max-w-2xl" bind:this={wrapperEl}>
-	<div class="relative">
+<div class="relative w-full" bind:this={wrapperEl}>
+	<!-- Search bar -->
+	<div class="glass-chip flex items-stretch overflow-hidden" style="border-radius: 14px;">
+		<div class="flex items-center border-r border-[var(--color-glass-border)] px-[18px] font-mono text-[10px] tracking-[1.5px] text-[var(--color-mute)]">
+			ZAPYTAJ
+		</div>
 		<input
 			bind:this={inputEl}
 			bind:value={inputValue}
@@ -139,8 +140,9 @@
 			onkeydown={handleKeydown}
 			onfocus={handleFocus}
 			type="text"
-			placeholder="Wpisz numer działki lub adres..."
-			class="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-4 text-lg shadow-sm outline-none transition-shadow focus:shadow-md focus:ring-2 focus:ring-[var(--color-primary)]/20"
+			placeholder="Wpisz numer dzialki lub adres..."
+			class="flex-1 border-none bg-transparent px-[18px] py-[18px] text-xl font-medium text-[var(--color-ink)] outline-none"
+			style="letter-spacing: -0.3px; font-family: var(--font-sans);"
 			autocomplete="off"
 			spellcheck="false"
 			role="combobox"
@@ -150,44 +152,48 @@
 			aria-activedescendant={selectedIndex >= 0 ? `search-option-${selectedIndex}` : undefined}
 		/>
 		{#if loading}
-			<div class="absolute right-4 top-1/2 -translate-y-1/2">
-				<div class="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-primary)]"></div>
+			<div class="flex items-center pr-4">
+				<div class="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-faint)] border-t-[var(--color-accent)]"></div>
 			</div>
 		{/if}
+		<button
+			class="m-1.5 cursor-pointer rounded-[var(--r-sm)] border-none px-7 text-[13px] font-semibold text-white"
+			style="background: var(--color-accent); letter-spacing: 0.5px;"
+			onclick={() => { if (inputValue.trim().length >= 2) fetchSuggestions(inputValue.trim()); }}
+		>
+			Szukaj &rarr;
+		</button>
 	</div>
 
+	<!-- Suggestions dropdown -->
 	{#if open && suggestions.length > 0}
-		<ul
-			id="search-listbox"
-			role="listbox"
-			class="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-[var(--color-border)] bg-white shadow-lg"
-		>
+		<div class="absolute z-50 mt-2 w-full" style="display: grid; gap: 6px;">
 			{#each suggestions as suggestion, i (suggestion.label + suggestion.secondary + i)}
-				<li
+				<button
 					id="search-option-{i}"
 					role="option"
 					aria-selected={i === selectedIndex}
-					class="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors {i === selectedIndex ? 'bg-gray-100' : 'hover:bg-gray-50'}"
+					class="glass-chip grid w-full cursor-pointer items-center text-left transition-[filter]"
+					style="grid-template-columns: 36px 80px 1fr 1fr 40px; padding: 11px 16px; border-color: {i === selectedIndex ? 'rgba(61,90,42,0.18)' : 'var(--color-glass-border)'}; background: {i === selectedIndex ? 'rgba(61,90,42,0.05)' : 'var(--color-glass)'};"
 					onmouseenter={() => (selectedIndex = i)}
 					onclick={() => selectSuggestion(suggestion)}
-					onkeydown={(e) => { if (e.key === 'Enter') selectSuggestion(suggestion); }}
 				>
-					{#if suggestion.type === 'lot'}
-						<span class="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Działka</span>
-					{:else}
-						<span class="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">Adres</span>
-					{/if}
-					<div class="min-w-0 flex-1">
-						<div class="truncate text-sm font-medium">{suggestion.label}</div>
-						<div class="truncate text-xs text-[var(--color-text-muted)]">{suggestion.secondary}</div>
+					<div class="font-mono text-[10px] text-[var(--color-mute)]">{String(i + 1).padStart(2, '0')}</div>
+					<div>
+						<span class="glass-pill" style="padding: 4px 9px; font-size: 9px;">
+							{suggestion.type === 'lot' ? 'DZIALKA' : 'ADRES'}
+						</span>
 					</div>
-				</li>
+					<div class="font-serif text-base font-medium">{suggestion.label}</div>
+					<div class="text-xs text-[var(--color-mute)]">{suggestion.secondary}</div>
+					<div class="text-right font-mono text-[10px] text-[var(--color-mute)]">{i === 0 ? '&crarr;' : '&rarr;'}</div>
+				</button>
 			{/each}
-		</ul>
+		</div>
 	{:else if open && loading}
-		<div class="absolute z-50 mt-2 w-full rounded-xl border border-[var(--color-border)] bg-white px-4 py-6 shadow-lg">
-			<div class="flex items-center justify-center gap-2 text-sm text-[var(--color-text-muted)]">
-				<div class="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-primary)]"></div>
+		<div class="glass-card absolute z-50 mt-2 w-full px-4 py-6">
+			<div class="flex items-center justify-center gap-2 text-sm text-[var(--color-mute)]">
+				<div class="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-faint)] border-t-[var(--color-accent)]"></div>
 				Szukam...
 			</div>
 		</div>
