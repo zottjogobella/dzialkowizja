@@ -67,12 +67,12 @@
 	<!-- Summary tiles -->
 	<div class="mb-6 grid grid-cols-3 gap-[14px]">
 		{#each [
-			{ label: 'DZIS', value: stats.total_searches_today },
-			{ label: 'TYDZIEN', value: stats.total_searches_week },
-			{ label: 'MIESIAC', value: stats.total_searches_month },
+			{ label: 'DZIŚ', value: stats.total_searches_today },
+			{ label: 'TYDZIEŃ', value: stats.total_searches_week },
+			{ label: 'MIESIĄC', value: stats.total_searches_month },
 		] as tile}
 			<div class="glass-card px-5 py-4">
-				<div class="eyebrow mb-1.5" style="font-size: 9.5px; letter-spacing: 1.3px;">WYSZUKIWAN {tile.label}</div>
+				<div class="eyebrow mb-1.5" style="font-size: 9.5px; letter-spacing: 1.3px;">WYSZUKIWAŃ {tile.label}</div>
 				<div class="font-serif leading-none" style="font-size: 36px; font-weight: 500; letter-spacing: -1.5px;">{tile.value}</div>
 			</div>
 		{/each}
@@ -86,16 +86,20 @@
 		{:else}
 			<div class="overflow-hidden rounded-xl border border-[var(--color-glass-border)]">
 				<div class="grid items-center bg-[var(--color-glass)] px-4 py-2.5 font-mono text-[9.5px] text-[var(--color-mute)]" style="grid-template-columns: 1.5fr 1.5fr 80px 80px 80px; letter-spacing: 1.2px;">
-					<div>NAZWA</div><div>EMAIL</div><div class="text-right">DZIS</div><div class="text-right">TYDZIEN</div><div class="text-right">MIESIAC</div>
+					<div>NAZWA</div><div>EMAIL</div><div class="text-right">DZIŚ</div><div class="text-right">TYDZIEŃ</div><div class="text-right">MIESIĄC</div>
 				</div>
 				{#each stats.users as u}
-					<div class="grid items-center border-t border-[var(--color-faint)] px-4 py-2.5 text-xs" style="grid-template-columns: 1.5fr 1.5fr 80px 80px 80px;">
-						<div class="font-medium">{u.display_name}</div>
+					<a
+						href="/admin/users/{u.user_id}"
+						class="grid items-center border-t border-[var(--color-faint)] px-4 py-2.5 text-xs transition-colors hover:bg-[var(--color-glass)]"
+						style="grid-template-columns: 1.5fr 1.5fr 80px 80px 80px;"
+					>
+						<div class="font-medium text-[var(--color-accent)]">{u.display_name}</div>
 						<div class="font-mono text-[11px] text-[var(--color-mute)]">{u.email}</div>
 						<div class="text-right font-mono">{u.searches_today}</div>
 						<div class="text-right font-mono">{u.searches_week}</div>
 						<div class="text-right font-mono font-medium">{u.searches_month}</div>
-					</div>
+					</a>
 				{/each}
 			</div>
 		{/if}
@@ -103,7 +107,7 @@
 
 	<!-- Top searched plots -->
 	<div class="glass-card px-6 py-5">
-		<div class="eyebrow mb-3" style="letter-spacing: 1.5px;">&mdash; NAJCZESCIEJ WYSZUKIWANE (30 DNI)</div>
+		<div class="eyebrow mb-3" style="letter-spacing: 1.5px;">&mdash; NAJCZĘŚCIEJ WYSZUKIWANE (30 DNI)</div>
 		{#if stats.top_plots.length === 0}
 			<p class="text-sm text-[var(--color-mute)]">Brak danych</p>
 		{:else}
