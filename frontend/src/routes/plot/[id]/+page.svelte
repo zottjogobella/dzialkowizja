@@ -593,14 +593,14 @@
 			{:else}
 				<div class="overflow-hidden rounded-xl border border-[var(--color-glass-border)]">
 					<!-- Header -->
-					<div class="grid items-center bg-[var(--color-glass)] px-4 py-2.5 font-mono text-[9.5px] text-[var(--color-mute)]" style="grid-template-columns: 60px 80px 1.2fr 1.5fr 60px 80px 70px 90px 60px; letter-spacing: 1.2px;">
+					<div class="grid items-center bg-[var(--color-glass)] px-4 py-2.5 font-mono text-[9.5px] text-[var(--color-mute)]" style="grid-template-columns: 55px 80px 1.2fr 1.5fr 65px 90px 85px 110px 70px; letter-spacing: 1.2px;">
 						<div>ODL.</div><div>DATA</div><div>DZIALKA</div><div>MIEJSCOWOSC</div><div class="text-right">POW.</div><div class="text-right">CENA</div><div class="text-right">ZL/M2</div><div>RODZAJ</div><div>RYNEK</div>
 					</div>
 					{#each transactions as t, i (t.id)}
 						<div
 							id="transaction-{t.id}"
 							class="grid items-center border-t border-[var(--color-faint)] px-4 py-2.5 font-mono text-[11.5px] transition-shadow"
-							style="grid-template-columns: 60px 80px 1.2fr 1.5fr 60px 80px 70px 90px 60px;"
+							style="grid-template-columns: 55px 80px 1.2fr 1.5fr 65px 90px 85px 110px 70px;"
 						>
 							<div class="text-[var(--color-mute)]">{distLabel(t.distance_m)}</div>
 							<div>{t.data_transakcji ?? '—'}</div>
