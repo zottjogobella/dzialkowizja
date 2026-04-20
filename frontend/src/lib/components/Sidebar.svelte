@@ -52,7 +52,7 @@
 
 	const ROLE_LABELS: Record<string, string> = {
 		super_admin: 'Super Admin',
-		admin: 'Admin',
+		admin: 'Org Admin',
 		user: 'Użytkownik',
 	};
 </script>
@@ -71,7 +71,7 @@
 				href="/admin/users"
 				class="flex items-center gap-2 rounded-[var(--r-sm)] px-3 py-2 font-mono text-[11px] transition-colors {$page.url.pathname.startsWith('/admin') ? 'bg-[rgba(61,90,42,0.08)] text-[var(--color-accent)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}"
 			>
-				Panel admina
+				Panel organizacji
 			</a>
 			{#if $user.role === 'super_admin'}
 				<a

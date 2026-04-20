@@ -9,6 +9,7 @@
 		created_at: string;
 		user_count: number;
 		activity_count_30d: number;
+		stats_enabled: boolean;
 	};
 
 	let orgs: Org[] = $state([]);
@@ -95,6 +96,25 @@
 		}
 	}
 
+	async function toggleStats(o: Org) {
+		try {
+			const res = await apiFetch(`/api/super-admin/organizations/${o.id}/stats`, {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-CSRF-Token': getCsrfToken()
+				},
+				body: JSON.stringify({ stats_enabled: !o.stats_enabled })
+			});
+			if (res.ok) {
+				o.stats_enabled = !o.stats_enabled;
+				orgs = [...orgs]; // trigger reactivity
+			}
+		} catch {
+			alert('Nie udalo sie zmienic ustawienia');
+		}
+	}
+
 	function formatDate(iso: string): string {
 		return new Date(iso).toLocaleDateString('pl-PL', { dateStyle: 'short' });
 	}
@@ -127,6 +147,7 @@
 					<th class="px-4 py-2 text-left">Slug</th>
 					<th class="px-4 py-2 text-right">Użytkowników</th>
 					<th class="px-4 py-2 text-right">Aktywność (30d)</th>
+					<th class="px-4 py-2 text-center">Statystyki</th>
 					<th class="px-4 py-2 text-left">Utworzono</th>
 					<th class="px-4 py-2"></th>
 				</tr>
@@ -138,6 +159,14 @@
 						<td class="px-4 py-2 font-mono text-xs text-[var(--color-text-muted)]">{o.slug}</td>
 						<td class="px-4 py-2 text-right tabular-nums">{o.user_count}</td>
 						<td class="px-4 py-2 text-right tabular-nums">{o.activity_count_30d}</td>
+						<td class="px-4 py-2 text-center">
+							<button
+								class="cursor-pointer rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors {o.stats_enabled ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}"
+								onclick={() => toggleStats(o)}
+							>
+								{o.stats_enabled ? 'ON' : 'OFF'}
+							</button>
+						</td>
 						<td class="px-4 py-2 text-[var(--color-text-muted)]">{formatDate(o.created_at)}</td>
 						<td class="px-4 py-2 text-right">
 							<button class="text-xs text-red-600 hover:underline" onclick={() => removeOrg(o)}>Usuń</button>

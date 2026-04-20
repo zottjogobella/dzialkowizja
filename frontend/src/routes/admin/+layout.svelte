@@ -14,13 +14,14 @@
 
 	const links = [
 		{ href: '/admin/users', label: 'Uzytkownicy' },
+		{ href: '/admin/stats', label: 'Statystyki' },
 		{ href: '/admin/restrictions', label: 'Ukryte pola' }
 	];
 </script>
 
 <div class="flex min-h-0 w-full flex-1">
 	<aside class="glass-card m-0 w-56 shrink-0 rounded-none p-4">
-		<h1 class="eyebrow mb-4">PANEL ADMINA</h1>
+		<h1 class="eyebrow mb-4">PANEL ORGANIZACJI</h1>
 		<nav class="space-y-1">
 			{#each links as link (link.href)}
 				<a

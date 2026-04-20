@@ -35,6 +35,7 @@ class OrganizationOut(BaseModel):
     created_at: str
     user_count: int
     activity_count_30d: int
+    stats_enabled: bool
 
 
 class CreateAdminIn(BaseModel):

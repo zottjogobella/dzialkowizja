@@ -73,3 +73,25 @@ class RestrictionsUpdateIn(BaseModel):
     """Map of field_key -> True (hide from user) / False (show)."""
 
     updates: dict[str, bool]
+
+
+class UserStatsOut(BaseModel):
+    user_id: str
+    display_name: str
+    email: str
+    searches_today: int
+    searches_week: int
+    searches_month: int
+
+
+class TopPlotOut(BaseModel):
+    query_text: str
+    count: int
+
+
+class OrgStatsOut(BaseModel):
+    total_searches_today: int
+    total_searches_week: int
+    total_searches_month: int
+    users: list[UserStatsOut]
+    top_plots: list[TopPlotOut]

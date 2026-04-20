@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import require_admin
 from app.auth.password import hash_password
 from app.db.engine import get_db
-from app.db.models import ActivityLog, RestrictedField, User
+from app.db.models import ActivityLog, Organization, RestrictedField, SearchHistory, User
 from app.permissions.fields import RESTRICTABLE_FIELDS
 
 from .schemas import (
@@ -25,9 +25,12 @@ from .schemas import (
     ActivityPage,
     CreateUserIn,
     FieldOut,
+    OrgStatsOut,
     RestrictionsResponse,
     RestrictionsUpdateIn,
+    TopPlotOut,
     UserOut,
+    UserStatsOut,
 )
 
 router = APIRouter()
@@ -290,3 +293,104 @@ async def update_restrictions(
 
     await db.commit()
     return await list_restrictions(actor=actor, db=db)
+
+
+@router.get("/stats", response_model=OrgStatsOut)
+async def org_stats(
+    actor: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> OrgStatsOut:
+    """Aggregate search statistics for the admin's organization."""
+    org_id = _target_org(actor)
+
+    # Check if stats are enabled for this org
+    org = (await db.execute(select(Organization).where(Organization.id == org_id))).scalar_one_or_none()
+    if org is None or not org.stats_enabled:
+        raise HTTPException(status_code=403, detail="Statystyki nie sa wlaczone dla tej organizacji")
+
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_ago = now - timedelta(days=7)
+    month_ago = now - timedelta(days=30)
+
+    # Get org user ids
+    user_rows = await db.execute(
+        select(User.id, User.display_name, User.email)
+        .where(User.organization_id == org_id)
+    )
+    org_users = {uid: (name, email) for uid, name, email in user_rows.all()}
+    if not org_users:
+        return OrgStatsOut(
+            total_searches_today=0,
+            total_searches_week=0,
+            total_searches_month=0,
+            users=[],
+            top_plots=[],
+        )
+
+    user_ids = list(org_users.keys())
+
+    # Total searches by period
+    counts = await db.execute(
+        select(
+            func.count().filter(SearchHistory.created_at >= today_start),
+            func.count().filter(SearchHistory.created_at >= week_ago),
+            func.count().filter(SearchHistory.created_at >= month_ago),
+        ).where(SearchHistory.user_id.in_(user_ids))
+    )
+    today_count, week_count, month_count = counts.one()
+
+    # Per-user breakdown
+    per_user = await db.execute(
+        select(
+            SearchHistory.user_id,
+            func.count().filter(SearchHistory.created_at >= today_start),
+            func.count().filter(SearchHistory.created_at >= week_ago),
+            func.count().filter(SearchHistory.created_at >= month_ago),
+        )
+        .where(SearchHistory.user_id.in_(user_ids))
+        .group_by(SearchHistory.user_id)
+    )
+    user_stats_map: dict[uuid.UUID, tuple[int, int, int]] = {}
+    for uid, d, w, m in per_user.all():
+        user_stats_map[uid] = (int(d), int(w), int(m))
+
+    user_stats = [
+        UserStatsOut(
+            user_id=str(uid),
+            display_name=org_users[uid][0],
+            email=org_users[uid][1],
+            searches_today=user_stats_map.get(uid, (0, 0, 0))[0],
+            searches_week=user_stats_map.get(uid, (0, 0, 0))[1],
+            searches_month=user_stats_map.get(uid, (0, 0, 0))[2],
+        )
+        for uid in org_users
+    ]
+    user_stats.sort(key=lambda u: u.searches_month, reverse=True)
+
+    # Top searched plots (last 30 days)
+    top_q = await db.execute(
+        select(
+            SearchHistory.query_text,
+            func.count().label("cnt"),
+        )
+        .where(
+            SearchHistory.user_id.in_(user_ids),
+            SearchHistory.created_at >= month_ago,
+        )
+        .group_by(SearchHistory.query_text)
+        .order_by(func.count().desc())
+        .limit(20)
+    )
+    top_plots = [
+        TopPlotOut(query_text=qt, count=int(cnt))
+        for qt, cnt in top_q.all()
+    ]
+
+    return OrgStatsOut(
+        total_searches_today=int(today_count),
+        total_searches_week=int(week_count),
+        total_searches_month=int(month_count),
+        users=user_stats,
+        top_plots=top_plots,
+    )

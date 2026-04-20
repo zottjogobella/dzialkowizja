@@ -69,6 +69,7 @@ async def list_organizations(
             created_at=o.created_at.isoformat(),
             user_count=user_counts.get(o.id, 0),
             activity_count_30d=activity_counts.get(o.id, 0),
+            stats_enabled=o.stats_enabled,
         )
         for o in orgs
     ]
@@ -94,6 +95,7 @@ async def create_organization(
         created_at=org.created_at.isoformat(),
         user_count=0,
         activity_count_30d=0,
+        stats_enabled=org.stats_enabled,
     )
 
 
@@ -276,3 +278,24 @@ async def global_activity(
     ]
 
     return GlobalActivityPage(items=items, total=int(total))
+
+
+@router.put("/organizations/{organization_id}/stats")
+async def toggle_org_stats(
+    organization_id: uuid.UUID,
+    body: dict,
+    actor: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Toggle stats_enabled for an organization."""
+    org = (
+        await db.execute(select(Organization).where(Organization.id == organization_id))
+    ).scalar_one_or_none()
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organizacja nie znaleziona")
+    enabled = body.get("stats_enabled")
+    if not isinstance(enabled, bool):
+        raise HTTPException(status_code=422, detail="stats_enabled musi byc bool")
+    org.stats_enabled = enabled
+    await db.commit()
+    return {"ok": True, "stats_enabled": org.stats_enabled}
