@@ -517,7 +517,16 @@
 		<!-- Zoning -->
 		{#if plot.zoning_symbol}
 			<div class="glass-card px-6 py-5">
-				<div class="eyebrow mb-3" style="letter-spacing: 1.5px;">&mdash; PLAN OGÓLNY GMINY</div>
+				<div class="mb-3 flex items-center justify-between">
+					<div class="eyebrow" style="letter-spacing: 1.5px;">&mdash; PLAN OGÓLNY GMINY</div>
+					{#if plot.pog_status}
+						<span class="rounded-[20px] px-3 py-1 font-mono text-[10px] font-semibold" style="letter-spacing: 0.8px;
+							{plot.pog_status.includes('obowiązujący')
+								? 'background: rgba(61,90,42,0.10); color: var(--color-accent); border: 1px solid rgba(61,90,42,0.25);'
+								: 'background: rgba(184,134,42,0.10); color: var(--color-amber); border: 1px solid rgba(184,134,42,0.25);'}"
+						>{plot.pog_status.toUpperCase()}</span>
+					{/if}
+				</div>
 				<div class="flex items-start gap-3">
 					<span class="glass-pill">{plot.zoning_symbol}</span>
 					{#if plot.zoning_name}

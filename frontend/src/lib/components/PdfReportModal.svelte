@@ -484,7 +484,16 @@
 		<!-- ZONING SECTION -->
 		{#if selected.zoning && plot?.zoning_symbol}
 			<div style="margin-bottom: 32px;">
-				<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #6b6e76; font-weight: 600; text-transform: uppercase; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5;">PLAN OGÓLNY GMINY</div>
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5;">
+					<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #6b6e76; font-weight: 600; text-transform: uppercase;">PLAN OGÓLNY GMINY</div>
+					{#if plot.pog_status}
+						<span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.8px; padding: 4px 10px; border-radius: 20px; text-transform: uppercase;
+							{plot.pog_status.includes('obowiązujący')
+								? 'background: rgba(61,90,42,0.10); color: #3d5a2a; border: 1px solid rgba(61,90,42,0.25);'
+								: 'background: rgba(184,134,42,0.10); color: #b8862a; border: 1px solid rgba(184,134,42,0.25);'}"
+						>{plot.pog_status}</span>
+					{/if}
+				</div>
 				<div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px;">
 					<span style="background: rgba(61,90,42,0.1); border: 1px solid rgba(61,90,42,0.25); color: #3d5a2a; padding: 5px 12px; border-radius: 20px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 1px;">{plot.zoning_symbol}</span>
 					{#if plot.zoning_name}

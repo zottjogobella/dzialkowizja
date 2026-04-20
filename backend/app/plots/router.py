@@ -59,7 +59,23 @@ def _fetch_plot(id_dzialki: str) -> dict | None:
             row = cur.fetchone()
             if row is None:
                 return None
-            return dict(zip(PLOT_COLUMN_NAMES, row))
+            result = dict(zip(PLOT_COLUMN_NAMES, row))
+
+            # Look up POG status via teryt
+            teryt7 = id_dzialki.split(".")[0].replace("_", "") if "." in id_dzialki else None
+            if teryt7 and result.get("zoning_symbol"):
+                cur.execute(
+                    "SELECT DISTINCT r.status_pog FROM pog_status_registry r"
+                    " INNER JOIN pog_strefy s ON s.plan_id = r.id"
+                    " WHERE s.teryt = %s LIMIT 1",
+                    (teryt7,),
+                )
+                pog_row = cur.fetchone()
+                result["pog_status"] = pog_row[0] if pog_row else None
+            else:
+                result["pog_status"] = None
+
+            return result
     finally:
         conn.close()
 

@@ -15,6 +15,7 @@ export interface PlotDetail extends PlotSummary {
 	zoning_max_height: number | null;
 	zoning_max_coverage: number | null;
 	zoning_min_green: number | null;
+	pog_status: string | null;
 	building_count_bdot: number | null;
 	building_count_egib: number | null;
 	building_count_osm: number | null;
