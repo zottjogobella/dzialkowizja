@@ -32,13 +32,13 @@
 
 	const SECTIONS: { id: SectionId; label: string }[] = [
 		{ id: 'map', label: 'Mapa (rzuty)' },
-		{ id: 'kw', label: 'Ksiega wieczysta i wlasciciel' },
+		{ id: 'kw', label: 'Księga wieczysta i właściciel' },
 		{ id: 'argumentacja', label: 'Argumentacja wyceny' },
 		{ id: 'mpzp', label: 'Plan zagospodarowania' },
-		{ id: 'zoning', label: 'Plan ogolny gminy' },
+		{ id: 'zoning', label: 'Plan ogólny gminy' },
 		{ id: 'transactions', label: 'Transakcje w okolicy' },
-		{ id: 'listings', label: 'Ogloszenia w okolicy' },
-		{ id: 'investments', label: 'Aktywnosc inwestycyjna' },
+		{ id: 'listings', label: 'Ogłoszenia w okolicy' },
+		{ id: 'investments', label: 'Aktywność inwestycyjna' },
 	];
 
 	let selected = $state<Record<SectionId, boolean>>({
@@ -76,7 +76,7 @@
 		3: 'Budynkowa',
 		4: 'Lokalowa',
 	};
-	const RODZAJ_RYNKU: Record<number, string> = { 1: 'Pierwotny', 2: 'Wtorny' };
+	const RODZAJ_RYNKU: Record<number, string> = { 1: 'Pierwotny', 2: 'Wtórny' };
 
 	const OWNER_TYPE_TOKENS = new Set(['os prawna', 'os fizyczna', 'panstwo']);
 	function parseOwners(raw: string): { name: string; type: string | null }[] {
@@ -103,7 +103,7 @@
 
 	function fmtPrice(val: number | null | undefined): string {
 		if (val == null || val === 0) return '\u2014';
-		return val.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) + ' zl';
+		return val.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) + ' zł';
 	}
 
 	function fmtDist(val: number | null): string {
@@ -204,7 +204,7 @@
 			onClose();
 		} catch (err) {
 			console.error('PDF generation failed:', err);
-			errorMsg = 'Nie udalo sie wygenerowac raportu. Sprobuj ponownie.';
+			errorMsg = 'Nie udało się wygenerować raportu. Spróbuj ponownie.';
 		} finally {
 			generating = false;
 		}
@@ -239,7 +239,7 @@
 		<div class="flex items-center justify-between border-b border-[var(--color-faint)] px-5 py-4">
 			<div>
 				<div class="text-base font-semibold">Pobierz raport PDF</div>
-				<div class="mt-0.5 text-xs text-[var(--color-mute)]">Wybierz sekcje do uwzglednienia w raporcie</div>
+				<div class="mt-0.5 text-xs text-[var(--color-mute)]">Wybierz sekcje do uwzględnienia w raporcie</div>
 			</div>
 			<button
 				class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--color-mute)] transition-colors hover:bg-[var(--color-glass)]"
@@ -315,7 +315,7 @@
 <div id="pdf-report-content" style="display: none; width: 794px; background: #ffffff; font-family: 'IBM Plex Sans', sans-serif; color: #0f1218; line-height: 1.5;">
 	<!-- Header -->
 	<div style="background: linear-gradient(135deg, #3d5a2a 0%, #4a6b33 100%); padding: 36px 44px 32px; color: white;">
-		<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; opacity: 0.6;">RAPORT DZIALKI</div>
+		<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; opacity: 0.6;">RAPORT DZIAŁKI</div>
 		<div style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; margin-top: 8px; letter-spacing: -0.5px;">{plot?.id_dzialki ?? ''}</div>
 		{#if location}
 			<div style="font-family: 'IBM Plex Serif', serif; font-size: 18px; font-style: italic; margin-top: 6px; opacity: 0.85;">{location}</div>
@@ -366,14 +366,14 @@
 		<!-- KW SECTION -->
 		{#if selected.kw && roszczenieRow}
 			<div style="margin-bottom: 32px;">
-				<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #6b6e76; font-weight: 600; text-transform: uppercase; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5;">KSIEGA WIECZYSTA I WLASCICIEL</div>
+				<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #6b6e76; font-weight: 600; text-transform: uppercase; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5;">KSIĘGA WIECZYSTA I WŁAŚCICIEL</div>
 				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
 					<div style="background: #f8f9fa; border-radius: 8px; padding: 16px 18px;">
 						<div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: #6b6e76; letter-spacing: 1px; text-transform: uppercase;">NUMER KW</div>
 						<div style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; margin-top: 6px;">{roszczenieRow.kw ?? 'Dane ukryte'}</div>
 					</div>
 					<div style="background: #f8f9fa; border-radius: 8px; padding: 16px 18px;">
-						<div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: #6b6e76; letter-spacing: 1px; text-transform: uppercase;">WLASCICIEL</div>
+						<div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: #6b6e76; letter-spacing: 1px; text-transform: uppercase;">WŁAŚCICIEL</div>
 						{#if roszczenieRow.entities}
 							{#each parseOwners(roszczenieRow.entities) as owner}
 								<div style="font-family: 'IBM Plex Serif', serif; font-size: 15px; font-weight: 500; margin-top: 6px;">
@@ -400,25 +400,25 @@
 					{#if argumentacjaRow.cena_ensemble != null}
 						<div style="background: #f8f9fa; border-radius: 8px; padding: 12px 14px;">
 							<div style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: #6b6e76; letter-spacing: 1px;">CENA ENSEMBLE</div>
-							<div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; margin-top: 4px;">{argumentacjaRow.cena_ensemble.toFixed(0)} zl/m2</div>
+							<div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; margin-top: 4px;">{argumentacjaRow.cena_ensemble.toFixed(0)} zł/m²</div>
 						</div>
 					{/if}
 					{#if argumentacjaRow.wartosc_total != null}
 						<div style="background: #f8f9fa; border-radius: 8px; padding: 12px 14px;">
-							<div style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: #6b6e76; letter-spacing: 1px;">WARTOSC CALKOWITA</div>
-							<div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; margin-top: 4px;">{argumentacjaRow.wartosc_total.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zl</div>
+							<div style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: #6b6e76; letter-spacing: 1px;">WARTOŚĆ CAŁKOWITA</div>
+							<div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; margin-top: 4px;">{argumentacjaRow.wartosc_total.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł</div>
 						</div>
 					{/if}
 					{#if argumentacjaRow.cena_m2_roszczenie_orig != null}
 						<div style="background: #f8f9fa; border-radius: 8px; padding: 12px 14px;">
 							<div style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: #6b6e76; letter-spacing: 1px;">CENA ROSZCZENIA</div>
-							<div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; margin-top: 4px;">{argumentacjaRow.cena_m2_roszczenie_orig.toFixed(0)} zl/m2</div>
+							<div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; margin-top: 4px;">{argumentacjaRow.cena_m2_roszczenie_orig.toFixed(0)} zł/m²</div>
 						</div>
 					{/if}
 					{#if argumentacjaRow.wartosc_roszczenia_orig != null}
 						<div style="background: #f8f9fa; border-radius: 8px; padding: 12px 14px;">
-							<div style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: #6b6e76; letter-spacing: 1px;">WARTOSC ROSZCZENIA</div>
-							<div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; margin-top: 4px;">{argumentacjaRow.wartosc_roszczenia_orig.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zl</div>
+							<div style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: #6b6e76; letter-spacing: 1px;">WARTOŚĆ ROSZCZENIA</div>
+							<div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; margin-top: 4px;">{argumentacjaRow.wartosc_roszczenia_orig.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł</div>
 						</div>
 					{/if}
 				</div>
@@ -431,7 +431,7 @@
 							<span>Pokrycie: <strong style="color: #0f1218;">{argumentacjaRow.procent_pow.toFixed(1)}%</strong></span>
 						{/if}
 						{#if argumentacjaRow.pewnosc_kategoria}
-							<span>Pewnosc: <strong style="color: #0f1218;">{argumentacjaRow.pewnosc_kategoria} ({argumentacjaRow.pewnosc_0_100}/100)</strong></span>
+							<span>Pewność: <strong style="color: #0f1218;">{argumentacjaRow.pewnosc_kategoria} ({argumentacjaRow.pewnosc_0_100}/100)</strong></span>
 						{/if}
 					</div>
 				{/if}
@@ -484,7 +484,7 @@
 		<!-- ZONING SECTION -->
 		{#if selected.zoning && plot?.zoning_symbol}
 			<div style="margin-bottom: 32px;">
-				<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #6b6e76; font-weight: 600; text-transform: uppercase; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5;">PLAN OGOLNY GMINY</div>
+				<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #6b6e76; font-weight: 600; text-transform: uppercase; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5;">PLAN OGÓLNY GMINY</div>
 				<div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px;">
 					<span style="background: rgba(61,90,42,0.1); border: 1px solid rgba(61,90,42,0.25); color: #3d5a2a; padding: 5px 12px; border-radius: 20px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 1px;">{plot.zoning_symbol}</span>
 					{#if plot.zoning_name}
@@ -493,10 +493,10 @@
 				</div>
 				<div style="font-size: 13px; color: #6b6e76; display: flex; flex-direction: column; gap: 6px;">
 					{#if plot.zoning_max_height != null && plot.zoning_max_height > 0}
-						<div>Maksymalna wysokosc zabudowy: <strong style="color: #0f1218;">{plot.zoning_max_height} m</strong></div>
+						<div>Maksymalna wysokość zabudowy: <strong style="color: #0f1218;">{plot.zoning_max_height} m</strong></div>
 					{/if}
 					{#if plot.zoning_max_coverage != null && plot.zoning_max_coverage > 0}
-						<div>Maks. udzial pow. zabudowy: <strong style="color: #0f1218;">{plot.zoning_max_coverage}%</strong></div>
+						<div>Maks. udział pow. zabudowy: <strong style="color: #0f1218;">{plot.zoning_max_coverage}%</strong></div>
 					{/if}
 					{#if plot.zoning_min_green != null && plot.zoning_min_green > 0}
 						<div>Min. pow. biologicznie czynna: <strong style="color: #0f1218;">{plot.zoning_min_green}%</strong></div>
@@ -515,7 +515,7 @@
 						<tr style="background: #f8f9fa;">
 							<th style="text-align: left; padding: 8px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1px; color: #6b6e76; font-weight: 600; border-bottom: 1px solid #e5e5e5;">ODL.</th>
 							<th style="text-align: left; padding: 8px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1px; color: #6b6e76; font-weight: 600; border-bottom: 1px solid #e5e5e5;">DATA</th>
-							<th style="text-align: left; padding: 8px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1px; color: #6b6e76; font-weight: 600; border-bottom: 1px solid #e5e5e5;">MIEJSCOWOSC</th>
+							<th style="text-align: left; padding: 8px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1px; color: #6b6e76; font-weight: 600; border-bottom: 1px solid #e5e5e5;">MIEJSCOWOŚĆ</th>
 							<th style="text-align: right; padding: 8px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1px; color: #6b6e76; font-weight: 600; border-bottom: 1px solid #e5e5e5;">POW.</th>
 							<th style="text-align: right; padding: 8px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1px; color: #6b6e76; font-weight: 600; border-bottom: 1px solid #e5e5e5;">CENA</th>
 							<th style="text-align: right; padding: 8px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1px; color: #6b6e76; font-weight: 600; border-bottom: 1px solid #e5e5e5;">ZL/M2</th>
@@ -546,13 +546,13 @@
 		{#if selected.listings && (activeListings.length > 0 || inactiveListings.length > 0)}
 			{@const allLst = [...activeListings, ...inactiveListings].slice(0, 20)}
 			<div style="margin-bottom: 32px;">
-				<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #6b6e76; font-weight: 600; text-transform: uppercase; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5;">OGLOSZENIA W OKOLICY ({activeListings.length + inactiveListings.length})</div>
+				<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #6b6e76; font-weight: 600; text-transform: uppercase; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5;">OGŁOSZENIA W OKOLICY ({activeListings.length + inactiveListings.length})</div>
 				<table style="width: 100%; border-collapse: collapse; font-size: 11px;">
 					<thead>
 						<tr style="background: #f8f9fa;">
 							<th style="text-align: left; padding: 8px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1px; color: #6b6e76; font-weight: 600; border-bottom: 1px solid #e5e5e5;">NAZWA</th>
 							<th style="text-align: left; padding: 8px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1px; color: #6b6e76; font-weight: 600; border-bottom: 1px solid #e5e5e5;">TYP</th>
-							<th style="text-align: left; padding: 8px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1px; color: #6b6e76; font-weight: 600; border-bottom: 1px solid #e5e5e5;">ZRODLO</th>
+							<th style="text-align: left; padding: 8px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1px; color: #6b6e76; font-weight: 600; border-bottom: 1px solid #e5e5e5;">ŹRÓDŁO</th>
 							<th style="text-align: right; padding: 8px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1px; color: #6b6e76; font-weight: 600; border-bottom: 1px solid #e5e5e5;">POW.</th>
 							<th style="text-align: right; padding: 8px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 1px; color: #6b6e76; font-weight: 600; border-bottom: 1px solid #e5e5e5;">CENA</th>
 						</tr>
@@ -560,17 +560,17 @@
 					<tbody>
 						{#each allLst as l}
 							<tr>
-								<td style="padding: 6px; border-bottom: 1px solid #f0f0f0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{l.name ?? 'Bez tytulu'}</td>
+								<td style="padding: 6px; border-bottom: 1px solid #f0f0f0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{l.name ?? 'Bez tytułu'}</td>
 								<td style="padding: 6px; border-bottom: 1px solid #f0f0f0; font-size: 10px; color: #6b6e76;">{[l.property_type, l.deal_type].filter(Boolean).join(' / ')}</td>
 								<td style="padding: 6px; border-bottom: 1px solid #f0f0f0; font-size: 10px; color: #6b6e76; font-family: 'IBM Plex Mono', monospace;">{l.site ?? '\u2014'}</td>
 								<td style="padding: 6px; border-bottom: 1px solid #f0f0f0; text-align: right; font-family: 'IBM Plex Mono', monospace;">{l.area ? l.area + ' m\u00B2' : '\u2014'}</td>
-								<td style="padding: 6px; border-bottom: 1px solid #f0f0f0; text-align: right; font-family: 'IBM Plex Mono', monospace; font-weight: 500;">{l.price ? Number(l.price).toLocaleString('pl-PL') + ' zl' : '\u2014'}</td>
+								<td style="padding: 6px; border-bottom: 1px solid #f0f0f0; text-align: right; font-family: 'IBM Plex Mono', monospace; font-weight: 500;">{l.price ? Number(l.price).toLocaleString('pl-PL') + ' zł' : '\u2014'}</td>
 							</tr>
 						{/each}
 					</tbody>
 				</table>
 				{#if activeListings.length + inactiveListings.length > 20}
-					<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #6b6e76; margin-top: 8px; text-align: center;">Pokazano 20 z {activeListings.length + inactiveListings.length} ogloszen</div>
+					<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #6b6e76; margin-top: 8px; text-align: center;">Pokazano 20 z {activeListings.length + inactiveListings.length} ogłoszeń</div>
 				{/if}
 			</div>
 		{/if}
@@ -579,12 +579,12 @@
 		{#if selected.investments && investments.length > 0}
 			{@const invSlice = investments.slice(0, 20)}
 			<div style="margin-bottom: 32px;">
-				<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #6b6e76; font-weight: 600; text-transform: uppercase; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5;">AKTYWNOSC INWESTYCYJNA ({investments.length})</div>
+				<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #6b6e76; font-weight: 600; text-transform: uppercase; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5;">AKTYWNOŚĆ INWESTYCYJNA ({investments.length})</div>
 				{#each invSlice as inv}
 					<div style="background: #f8f9fa; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; display: grid; grid-template-columns: 90px 1fr; gap: 12px; align-items: start;">
 						<div>
 							<span style="display: inline-block; background: {inv.typ === 'pozwolenie_budowa' ? '#3d5a2a' : '#b8862a'}; color: white; padding: 3px 8px; border-radius: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase;">
-								{inv.typ === 'pozwolenie_budowa' ? 'Pozwolenie' : inv.typ === 'zgloszenie' ? 'Zgloszenie' : inv.typ ?? ''}
+								{inv.typ === 'pozwolenie_budowa' ? 'Pozwolenie' : inv.typ === 'zgloszenie' ? 'Zgłoszenie' : inv.typ ?? ''}
 							</span>
 						</div>
 						<div>

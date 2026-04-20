@@ -15,7 +15,7 @@
 	const links = [
 		{ href: '/super-admin/organizations', label: 'Organizacje' },
 		{ href: '/super-admin/admins', label: 'Administratorzy' },
-		{ href: '/super-admin/activity', label: 'Aktywnosc globalna' }
+		{ href: '/super-admin/activity', label: 'Aktywność globalna' }
 	];
 </script>
 
@@ -31,7 +31,7 @@
 					{link.label}
 				</a>
 			{/each}
-			<a href="/" class="mt-4 block rounded-[var(--r-sm)] px-3 py-2 font-mono text-[11px] text-[var(--color-mute)] hover:text-[var(--color-ink)]">&larr; Wroc do mapy</a>
+			<a href="/" class="mt-4 block rounded-[var(--r-sm)] px-3 py-2 font-mono text-[11px] text-[var(--color-mute)] hover:text-[var(--color-ink)]">&larr; Wróć do mapy</a>
 		</nav>
 	</aside>
 	<main class="flex-1 overflow-y-auto p-6">

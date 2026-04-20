@@ -140,7 +140,7 @@
 			onkeydown={handleKeydown}
 			onfocus={handleFocus}
 			type="text"
-			placeholder="Wpisz numer dzialki lub adres..."
+			placeholder="Wpisz numer działki lub adres…"
 			class="flex-1 border-none bg-transparent px-[18px] py-[18px] text-xl font-medium text-[var(--color-ink)] outline-none"
 			style="letter-spacing: -0.3px; font-family: var(--font-sans);"
 			autocomplete="off"
@@ -181,7 +181,7 @@
 					<div class="font-mono text-[10px] text-[var(--color-mute)]">{String(i + 1).padStart(2, '0')}</div>
 					<div>
 						<span class="glass-pill" style="padding: 4px 9px; font-size: 9px;">
-							{suggestion.type === 'lot' ? 'DZIALKA' : 'ADRES'}
+							{suggestion.type === 'lot' ? 'DZIAŁKA' : 'ADRES'}
 						</span>
 					</div>
 					<div class="font-serif text-base font-medium">{suggestion.label}</div>
@@ -194,7 +194,7 @@
 		<div class="glass-card absolute z-50 mt-2 w-full px-4 py-6">
 			<div class="flex items-center justify-center gap-2 text-sm text-[var(--color-mute)]">
 				<div class="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-faint)] border-t-[var(--color-accent)]"></div>
-				Szukam...
+				Szukam…
 			</div>
 		</div>
 	{/if}

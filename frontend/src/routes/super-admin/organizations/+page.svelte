@@ -111,7 +111,7 @@
 				orgs = [...orgs]; // trigger reactivity
 			}
 		} catch {
-			alert('Nie udalo sie zmienic ustawienia');
+			alert('Nie udało się zmienić ustawienia');
 		}
 	}
 

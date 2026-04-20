@@ -20,9 +20,9 @@
 			goto('/');
 		} catch (e: any) {
 			if (e.status === 401) {
-				error = 'Nieprawidlowy email lub haslo';
+				error = 'Nieprawidłowy email lub hasło';
 			} else {
-				error = 'Wystapil blad. Sprobuj ponownie.';
+				error = 'Wystąpił błąd. Spróbuj ponownie.';
 			}
 		} finally {
 			loading = false;
@@ -31,7 +31,7 @@
 </script>
 
 <svelte:head>
-	<title>Zaloguj sie - Gruntify</title>
+	<title>Zaloguj się - Gruntify</title>
 </svelte:head>
 
 <div class="flex flex-1 flex-col items-center justify-center px-6" style="background: var(--color-bg);">
@@ -42,7 +42,7 @@
 		<div class="mb-6 text-center">
 			<div class="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-[10px] bg-[var(--color-ink)] font-mono text-lg font-semibold text-white">G</div>
 			<h1 class="font-serif text-2xl font-medium" style="letter-spacing: -0.5px;">Gruntify</h1>
-			<p class="mt-1 text-sm text-[var(--color-mute)]">Zaloguj sie aby kontynuowac</p>
+			<p class="mt-1 text-sm text-[var(--color-mute)]">Zaloguj się aby kontynuować</p>
 		</div>
 
 		<form onsubmit={handleLogin} class="space-y-4">
@@ -64,7 +64,7 @@
 			</div>
 
 			<div>
-				<label for="password" class="eyebrow mb-1.5 block">HASLO</label>
+				<label for="password" class="eyebrow mb-1.5 block">HASŁO</label>
 				<div class="relative">
 					<input
 						id="password"
@@ -96,11 +96,11 @@
 				class="w-full cursor-pointer rounded-[var(--r-sm)] border-none px-4 py-2.5 font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
 				style="background: var(--color-accent);"
 			>
-				{loading ? 'Logowanie...' : 'Zaloguj sie'}
+				{loading ? 'Logowanie...' : 'Zaloguj się'}
 			</button>
 
 			<p class="text-center font-mono text-[10px] text-[var(--color-mute)]">
-				Dostep tylko na zaproszenie
+				Dostęp tylko na zaproszenie
 			</p>
 		</form>
 	</div>

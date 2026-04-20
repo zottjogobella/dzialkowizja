@@ -39,7 +39,7 @@
 			if (e instanceof ApiError && e.status === 403) {
 				disabled = true;
 			} else {
-				error = 'Nie udalo sie pobrac statystyk';
+				error = 'Nie udało się pobrać statystyk';
 			}
 		} finally {
 			loading = false;
@@ -54,12 +54,12 @@
 {#if loading}
 	<div class="flex items-center gap-2 text-sm text-[var(--color-mute)]">
 		<div class="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-faint)] border-t-[var(--color-accent)]"></div>
-		Ladowanie...
+		Ładowanie…
 	</div>
 {:else if disabled}
 	<div class="glass-card px-6 py-8 text-center">
-		<p class="text-sm text-[var(--color-mute)]">Statystyki nie sa wlaczone dla Twojej organizacji.</p>
-		<p class="mt-2 text-sm text-[var(--color-mute)]">Skontaktuj sie z administratorem aplikacji aby je uruchomic.</p>
+		<p class="text-sm text-[var(--color-mute)]">Statystyki nie są włączone dla Twojej organizacji.</p>
+		<p class="mt-2 text-sm text-[var(--color-mute)]">Skontaktuj się z administratorem aplikacji aby je uruchomić.</p>
 	</div>
 {:else if error}
 	<p class="text-sm text-red-600">{error}</p>
@@ -80,9 +80,9 @@
 
 	<!-- Per-user breakdown -->
 	<div class="glass-card mb-6 px-6 py-5">
-		<div class="eyebrow mb-3" style="letter-spacing: 1.5px;">&mdash; WYSZUKIWANIA PER UZYTKOWNIK</div>
+		<div class="eyebrow mb-3" style="letter-spacing: 1.5px;">&mdash; WYSZUKIWANIA PER UŻYTKOWNIK</div>
 		{#if stats.users.length === 0}
-			<p class="text-sm text-[var(--color-mute)]">Brak uzytkownikow</p>
+			<p class="text-sm text-[var(--color-mute)]">Brak użytkowników</p>
 		{:else}
 			<div class="overflow-hidden rounded-xl border border-[var(--color-glass-border)]">
 				<div class="grid items-center bg-[var(--color-glass)] px-4 py-2.5 font-mono text-[9.5px] text-[var(--color-mute)]" style="grid-template-columns: 1.5fr 1.5fr 80px 80px 80px; letter-spacing: 1.2px;">
