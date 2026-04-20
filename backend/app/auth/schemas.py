@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, field_validator
 
 from .password import validate_password
 
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
     display_name: str
 

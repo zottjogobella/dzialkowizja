@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, field_validator
 
 from app.auth.password import validate_password
 
 
 class CreateUserIn(BaseModel):
-    email: EmailStr
+    email: str
     password: str
     display_name: str
 

@@ -229,8 +229,8 @@
 			<h2 class="mb-4 text-lg font-semibold">Nowy użytkownik</h2>
 			<form onsubmit={createUser} class="space-y-3">
 				<div>
-					<label class="mb-1 block text-xs uppercase tracking-wider text-[var(--color-text-muted)]" for="email">Email (login)</label>
-					<input id="email" type="email" bind:value={formEmail} required class="w-full rounded border border-[var(--color-border)] px-3 py-2 text-sm" />
+					<label class="mb-1 block text-xs uppercase tracking-wider text-[var(--color-text-muted)]" for="email">Login</label>
+					<input id="email" type="text" bind:value={formEmail} required class="w-full rounded border border-[var(--color-border)] px-3 py-2 text-sm" />
 				</div>
 				<div>
 					<label class="mb-1 block text-xs uppercase tracking-wider text-[var(--color-text-muted)]" for="name">Nazwa wyświetlana</label>

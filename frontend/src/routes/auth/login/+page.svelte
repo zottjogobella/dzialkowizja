@@ -20,7 +20,7 @@
 			goto('/');
 		} catch (e: any) {
 			if (e.status === 401) {
-				error = 'Nieprawidłowy email lub hasło';
+				error = 'Nieprawidłowy login lub hasło';
 			} else {
 				error = 'Wystąpił błąd. Spróbuj ponownie.';
 			}

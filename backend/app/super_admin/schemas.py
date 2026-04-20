@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, field_validator
 
 from app.auth.password import validate_password
 
@@ -39,7 +39,7 @@ class OrganizationOut(BaseModel):
 
 
 class CreateAdminIn(BaseModel):
-    email: EmailStr
+    email: str
     password: str
     display_name: str
     organization_id: str

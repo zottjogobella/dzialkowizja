@@ -227,8 +227,8 @@
 			<h2 class="mb-4 text-lg font-semibold">Nowy administrator</h2>
 			<form onsubmit={createAdmin} class="space-y-3">
 				<div>
-					<label class="mb-1 block text-xs uppercase tracking-wider text-[var(--color-text-muted)]" for="admin-email">Email (login)</label>
-					<input id="admin-email" type="email" bind:value={formEmail} required class="w-full rounded border border-[var(--color-border)] px-3 py-2 text-sm" />
+					<label class="mb-1 block text-xs uppercase tracking-wider text-[var(--color-text-muted)]" for="admin-email">Login</label>
+					<input id="admin-email" type="text" bind:value={formEmail} required class="w-full rounded border border-[var(--color-border)] px-3 py-2 text-sm" />
 				</div>
 				<div>
 					<label class="mb-1 block text-xs uppercase tracking-wider text-[var(--color-text-muted)]" for="admin-name">Nazwa wyświetlana</label>

@@ -45,7 +45,7 @@ async def login(body: LoginRequest, request: Request, response: Response, db: As
     # Timing-safe: always run bcrypt even if user not found
     password_hash = user.password_hash if user else None
     if not verify_password_timing_safe(body.password, password_hash):
-        raise HTTPException(status_code=401, detail="Nieprawidłowy email lub hasło")
+        raise HTTPException(status_code=401, detail="Nieprawidłowy login lub hasło")
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Konto jest nieaktywne")
