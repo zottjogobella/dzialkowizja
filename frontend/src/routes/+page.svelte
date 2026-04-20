@@ -38,21 +38,4 @@
 		<SearchInput />
 	</div>
 
-	<!-- Bottom stat grid -->
-	<div class="grid grid-cols-4 gap-[14px]">
-		{#each [
-			{ key: '14', label: 'Zapytan dzis', sub: '+3 vs. wczoraj' },
-			{ key: '42', unit: 'ms', label: 'Mediana czasu', sub: 'P95: 118ms' },
-			{ key: '9', label: 'Gminy dzisiaj', sub: 'z 2 477' },
-			{ key: '99.8', unit: '%', label: 'Dostepnosc', sub: 'SLA 30 dni' },
-		] as stat}
-			<div class="glass-card px-[22px] py-5">
-				<div class="eyebrow mb-2" style="font-size: 9.5px; letter-spacing: 1.3px;">{stat.label.toUpperCase()}</div>
-				<div class="font-serif leading-none" style="font-size: 42px; font-weight: 500; letter-spacing: -1.5px;">
-					{stat.key}{#if stat.unit}<span class="text-[18px] text-[var(--color-mute)]" style="margin-left: 4px;">{stat.unit}</span>{/if}
-				</div>
-				<div class="mt-2 font-mono text-[10.5px] text-[var(--color-mute)]">{stat.sub}</div>
-			</div>
-		{/each}
-	</div>
 </div>

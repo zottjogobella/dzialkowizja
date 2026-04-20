@@ -26,7 +26,7 @@
 		<Sidebar />
 	{/if}
 
-	<main class="relative z-[1] flex flex-1 flex-col overflow-y-auto {$authStatus === 'authenticated' ? 'pr-[14px] py-[14px]' : ''}">
+	<main class="relative z-[1] flex flex-1 flex-col overflow-y-auto {$authStatus === 'authenticated' ? 'px-[14px] py-[14px]' : ''}">
 		{@render children()}
 	</main>
 </div>
