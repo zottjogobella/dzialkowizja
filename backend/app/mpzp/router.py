@@ -138,14 +138,21 @@ async def _fetch_tile(
         "TRANSPARENT": "TRUE",
     }
 
-    try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
-            resp = await client.get(MPZP_WMS_URL, params=params)
-    except Exception:
-        logger.exception("MPZP WMS fetch failed layer=%s", layer)
-        return None
-
-    if resp.status_code != 200 or "image" not in resp.headers.get("content-type", ""):
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
+                resp = await client.get(MPZP_WMS_URL, params=params)
+            if resp.status_code == 200 and "image" in resp.headers.get("content-type", ""):
+                break
+            resp = None  # type: ignore[assignment]
+        except Exception:
+            if attempt == 0:
+                logger.debug("MPZP WMS fetch retry layer=%s", layer)
+                await asyncio.sleep(1)
+                continue
+            logger.exception("MPZP WMS fetch failed layer=%s", layer)
+            return None
+    else:
         return None
 
     await asyncio.to_thread(_write_cache, path, resp.content)
@@ -305,16 +312,25 @@ async def _get_feature_info(cx: float, cy: float) -> list[dict] | None:
         "FEATURE_COUNT": "10",
     }
 
-    try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=20) as client:
-            resp = await client.get(MPZP_WMS_URL, params=params)
-    except Exception:
-        logger.exception("MPZP GetFeatureInfo failed")
-        return None
-
-    if resp.status_code != 200:
-        logger.warning("MPZP GetFeatureInfo HTTP %s", resp.status_code)
-        return None
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=25) as client:
+                resp = await client.get(MPZP_WMS_URL, params=params)
+            if resp.status_code == 200:
+                break
+            if attempt == 0:
+                logger.debug("MPZP GetFeatureInfo HTTP %s, retrying", resp.status_code)
+                await asyncio.sleep(1)
+                continue
+            logger.warning("MPZP GetFeatureInfo HTTP %s", resp.status_code)
+            return None
+        except Exception:
+            if attempt == 0:
+                logger.debug("MPZP GetFeatureInfo retry after error")
+                await asyncio.sleep(1)
+                continue
+            logger.exception("MPZP GetFeatureInfo failed")
+            return None
 
     body = resp.text
     # GUGiK ignores INFO_FORMAT=application/json and returns XML with a
