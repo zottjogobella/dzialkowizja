@@ -50,6 +50,9 @@ async def login(body: LoginRequest, request: Request, response: Response, db: As
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Konto jest nieaktywne")
 
+    from app.policy.login_hours import enforce_login_hours
+    await enforce_login_hours(user, db)
+
     ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (request.client.host if request.client else None)
     signed, csrf = await create_session(db, user.id, ip, request.headers.get("User-Agent"))
     _set_cookies(response, signed, csrf)
