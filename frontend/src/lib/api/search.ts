@@ -15,6 +15,6 @@ export async function searchSuggestions(
 ): Promise<SearchSuggestion[]> {
 	const params = new URLSearchParams({ q: query, limit: '5' });
 	const res = await apiFetch(`/api/search?${params}`, { signal });
-	if (!res.ok) throw new ApiError(res);
+	if (!res.ok) throw new ApiError(res, null);
 	return res.json();
 }
