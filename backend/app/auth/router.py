@@ -8,7 +8,7 @@ from app.config import settings
 from app.db.engine import get_db
 from app.db.models import User
 
-from .dependencies import require_auth
+from .dependencies import get_current_user, require_auth
 from .password import verify_password_timing_safe
 from .schemas import LoginRequest, UserResponse
 from .session import create_session, destroy_session
@@ -72,8 +72,11 @@ async def logout(
     response: Response,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(require_auth),
+    user: User | None = Depends(get_current_user),
 ):
+    if user is None:
+        raise HTTPException(status_code=401, detail="Nie jesteś zalogowany")
+
     cookie = request.cookies.get(settings.session_cookie_name)
     if cookie:
         await destroy_session(db, cookie)
