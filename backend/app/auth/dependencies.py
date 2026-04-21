@@ -24,10 +24,14 @@ async def get_current_user(
 
 async def require_auth(
     user: User | None = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Raises 401 if not authenticated."""
+    """Raises 401 if not authenticated, 403 outside_hours if the org's
+    login-hours policy blocks this request."""
     if user is None:
         raise HTTPException(status_code=401, detail="Nie jesteś zalogowany")
+    from app.policy.login_hours import enforce_login_hours
+    await enforce_login_hours(user, db)
     return user
 
 
