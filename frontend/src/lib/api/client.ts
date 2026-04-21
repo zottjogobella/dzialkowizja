@@ -65,7 +65,9 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
 	});
 
 	if (res.status === 401) {
-		window.location.href = '/auth/login';
+		if (!path.startsWith('/api/auth/login')) {
+			window.location.href = '/auth/login';
+		}
 		throw new ApiError(res, await parseError(res));
 	}
 
