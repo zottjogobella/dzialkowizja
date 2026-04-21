@@ -15,7 +15,8 @@
 	const links = [
 		{ href: '/admin/users', label: 'Użytkownicy' },
 		{ href: '/admin/stats', label: 'Statystyki' },
-		{ href: '/admin/restrictions', label: 'Ukryte pola' }
+		{ href: '/admin/restrictions', label: 'Ukryte pola' },
+		{ href: '/admin/policy', label: 'Limity' }
 	];
 </script>
 
