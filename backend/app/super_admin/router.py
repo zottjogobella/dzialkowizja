@@ -84,8 +84,36 @@ async def create_organization(
     existing = await db.execute(select(Organization).where(Organization.slug == body.slug))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Slug jest już zajęty")
+    from datetime import time as _time
+
+    from app.db.models import OrganizationLoginHours
+
     org = Organization(name=body.name, slug=body.slug, created_by_user_id=actor.id)
     db.add(org)
+    await db.flush()  # need org.id for the child rows before commit
+
+    # Default schedule: Mon-Fri 09:00-18:00 open, Sat-Sun closed.
+    for dow in range(0, 5):
+        db.add(
+            OrganizationLoginHours(
+                organization_id=org.id,
+                day_of_week=dow,
+                closed=False,
+                start_time=_time(9, 0),
+                end_time=_time(18, 0),
+            )
+        )
+    for dow in range(5, 7):
+        db.add(
+            OrganizationLoginHours(
+                organization_id=org.id,
+                day_of_week=dow,
+                closed=True,
+                start_time=None,
+                end_time=None,
+            )
+        )
+
     await db.commit()
     await db.refresh(org)
     return OrganizationOut(
