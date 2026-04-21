@@ -1,4 +1,4 @@
-import { apiFetch, ApiError } from './client';
+import { apiFetch, throwForResponse } from './client';
 
 export interface SearchSuggestion {
 	type: 'lot' | 'address';
@@ -15,6 +15,6 @@ export async function searchSuggestions(
 ): Promise<SearchSuggestion[]> {
 	const params = new URLSearchParams({ q: query, limit: '5' });
 	const res = await apiFetch(`/api/search?${params}`, { signal });
-	if (!res.ok) throw new ApiError(res, null);
+	if (!res.ok) await throwForResponse(res);
 	return res.json();
 }

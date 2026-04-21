@@ -82,7 +82,7 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
 	return res;
 }
 
-async function throwForResponse(res: Response): Promise<never> {
+export async function throwForResponse(res: Response): Promise<never> {
 	throw new ApiError(res, await parseError(res));
 }
 
