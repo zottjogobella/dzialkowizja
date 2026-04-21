@@ -1,8 +1,8 @@
 """Daily per-user search-limit enforcement.
 
 FastAPI dependency layered on ``/api/search`` alongside the existing
-per-minute rate limiter. Counts rows in ``search_history`` written today
-in Europe/Warsaw. role=user only; admins and super_admins bypass.
+per-minute rate limiter. Counts rows in ``activity_log`` with action_type='search'
+written today in Europe/Warsaw. role=user only; admins and super_admins bypass.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_auth
 from app.db.engine import get_db
-from app.db.models import Organization, SearchHistory, User
+from app.db.models import ActivityLog, Organization, User
 from app.utils.time import now_warsaw, warsaw_midnight_utc
 
 
@@ -38,10 +38,11 @@ async def enforce_daily_search_limit(
     count = (
         await db.execute(
             select(func.count())
-            .select_from(SearchHistory)
+            .select_from(ActivityLog)
             .where(
-                SearchHistory.user_id == user.id,
-                SearchHistory.created_at >= today_utc,
+                ActivityLog.user_id == user.id,
+                ActivityLog.action_type == "search",
+                ActivityLog.created_at >= today_utc,
             )
         )
     ).scalar_one()
