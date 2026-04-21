@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, time
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, LargeBinary, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, LargeBinary, Numeric, SmallInteger, String, Text, Time, func
 from sqlalchemy.dialects.postgresql import INET, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -27,6 +27,9 @@ class Organization(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     stats_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    login_hours_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    daily_search_limit_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    daily_search_limit: Mapped[int] = mapped_column(Integer, default=40, server_default="40")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     members: Mapped[list[User]] = relationship(
@@ -34,6 +37,9 @@ class Organization(Base):
         primaryjoin="Organization.id==User.organization_id",
     )
     restricted_fields: Mapped[list[RestrictedField]] = relationship(
+        back_populates="organization", cascade="all, delete-orphan"
+    )
+    login_hours: Mapped[list[OrganizationLoginHours]] = relationship(
         back_populates="organization", cascade="all, delete-orphan"
     )
 
@@ -245,3 +251,26 @@ class Argumentacja(Base):
     argument_14_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
     argument_15: Mapped[str | None] = mapped_column(Text, nullable=True)
     argument_15_waga: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class OrganizationLoginHours(Base):
+    """Per-day login window for an organization.
+
+    Exactly 7 rows per org (day_of_week 0..6, Mon=0). ``closed=TRUE`` means
+    no access on that day; otherwise ``start_time`` and ``end_time`` define
+    an inclusive-start, exclusive-end window interpreted in Europe/Warsaw.
+    """
+
+    __tablename__ = "organization_login_hours"
+
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    day_of_week: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    closed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+
+    organization: Mapped[Organization] = relationship(back_populates="login_hours")
