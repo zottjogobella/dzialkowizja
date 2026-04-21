@@ -1,7 +1,8 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { user, authStatus } from '$lib/stores/auth';
-	import { apiPost } from '$lib/api/client';
+	import { apiPost, ApiError } from '$lib/api/client';
 	import type { User } from '$lib/types/auth';
 
 	let email = $state('');
@@ -9,6 +10,15 @@
 	let showPassword = $state(false);
 	let error = $state('');
 	let loading = $state(false);
+
+	onMount(() => {
+		if (typeof localStorage === 'undefined') return;
+		const flash = localStorage.getItem('dzialkowizja_login_flash');
+		if (flash) {
+			error = flash;
+			localStorage.removeItem('dzialkowizja_login_flash');
+		}
+	});
 
 	async function handleLogin() {
 		error = '';
@@ -18,9 +28,19 @@
 			user.set(res);
 			authStatus.set('authenticated');
 			goto('/');
-		} catch (e: any) {
-			if (e.status === 401) {
-				error = 'Nieprawidłowy login lub hasło';
+		} catch (e: unknown) {
+			if (e instanceof ApiError) {
+				if (e.code === 'outside_hours') {
+					const detail = typeof e.detail === 'object' && e.detail ? e.detail : null;
+					error =
+						(detail && typeof (detail as { message?: string }).message === 'string'
+							? (detail as { message: string }).message
+							: 'Logowanie poza godzinami pracy.');
+				} else if (e.status === 401) {
+					error = 'Nieprawidłowy login lub hasło';
+				} else {
+					error = 'Wystąpił błąd. Spróbuj ponownie.';
+				}
 			} else {
 				error = 'Wystąpił błąd. Spróbuj ponownie.';
 			}
