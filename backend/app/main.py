@@ -59,6 +59,7 @@ def create_app() -> FastAPI:
     from app.roszczenia.router import router as roszczenia_router
     from app.search.router import router as search_router
     from app.super_admin.router import router as super_admin_router
+    from app.policy.router import router as policy_router
 
     app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     app.include_router(search_router, prefix="/api/search", tags=["search"])
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(argumentacja_router, prefix="/api/argumentacja", tags=["argumentacja"])
     app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
     app.include_router(super_admin_router, prefix="/api/super-admin", tags=["super-admin"])
+    app.include_router(policy_router, prefix="/api/admin", tags=["admin"])
 
     @app.get("/health")
     async def health():
