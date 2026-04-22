@@ -365,7 +365,7 @@
 				<div class="font-serif text-[22px] font-medium italic text-[var(--color-mute)]">
 					{[plot.miejscowosc, plot.ulica, plot.gmina].filter(Boolean).join(', ') || ''}
 				</div>
-				<div class="ml-auto flex flex-wrap gap-1.5 font-mono text-[10px] text-[var(--color-mute)]" style="letter-spacing: 0.8px;">
+				<div class="ml-auto flex flex-wrap gap-1.5 font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 0.8px;">
 					{#if plot.id_dzialki}
 						{@const parts = plot.id_dzialki.split('.')}
 						{@const teryt = parts[0]?.split('_')[0] ?? ''}
@@ -377,7 +377,7 @@
 				</div>
 			</div>
 			<!-- Tabs -->
-			<div class="mt-4 flex flex-wrap items-center gap-1 font-mono text-[10px] uppercase" style="letter-spacing: 1.2px;">
+			<div class="mt-4 flex flex-wrap items-center gap-1 font-mono text-[11px] uppercase" style="letter-spacing: 1.2px;">
 				{#each ['Mapa', 'Wycena', 'Księga wieczysta', 'Argumentacja', 'Transakcje', 'Aktywność'] as tab, i}
 					<button
 						type="button"
@@ -388,7 +388,7 @@
 				{/each}
 				<button
 					onclick={() => (showPdfModal = true)}
-					class="ml-auto flex cursor-pointer items-center gap-1.5 rounded-[20px] bg-[var(--color-accent)] px-4 py-1.5 font-mono text-[10px] font-semibold text-white transition-opacity hover:opacity-90"
+					class="ml-auto flex cursor-pointer items-center gap-1.5 rounded-[20px] bg-[var(--color-accent)] px-4 py-1.5 font-mono text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
 					style="letter-spacing: 1.2px;"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -424,7 +424,7 @@
 						<div class="eyebrow mb-3.5" style="letter-spacing: 1.5px;">&mdash; KSIĘGA WIECZYSTA I WŁAŚCICIEL</div>
 						<!-- KW number -->
 						<div class="glass-chip mb-3 px-4 py-3.5">
-							<div class="font-mono text-[10px] text-[var(--color-mute)]">NUMER KW</div>
+							<div class="font-mono text-[11px] text-[var(--color-mute)]">NUMER KW</div>
 							{#if roszczenieRow.kw}
 								<a
 									href={ekwSearchUrl(roszczenieRow.kw)}
@@ -438,7 +438,7 @@
 						</div>
 						<!-- Owner -->
 						<div class="glass-chip mb-4 px-4 py-3.5">
-							<div class="font-mono text-[10px] text-[var(--color-mute)]">WŁAŚCICIEL</div>
+							<div class="font-mono text-[11px] text-[var(--color-mute)]">WŁAŚCICIEL</div>
 							{#if roszczenieRow.entities}
 								{#each parseOwners(roszczenieRow.entities) as owner}
 									<div class="mt-2 first:mt-1">
@@ -489,31 +489,31 @@
 						<div class="mb-3.5 grid grid-cols-2 gap-2 border-b border-[var(--color-faint)] pb-3.5 sm:grid-cols-4">
 							{#if argumentacjaRow.cena_ensemble != null}
 								<div class="glass-chip px-3.5 py-3">
-									<div class="font-mono text-[9.5px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">CENA ENSEMBLE</div>
+									<div class="font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">CENA ENSEMBLE</div>
 									<div class="mt-1.5 font-mono text-sm font-medium">{argumentacjaRow.cena_ensemble.toFixed(0)} zł/m²</div>
 								</div>
 							{/if}
 							{#if argumentacjaRow.wartosc_total != null}
 								<div class="glass-chip px-3.5 py-3">
-									<div class="font-mono text-[9.5px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">WARTOŚĆ CAŁKOWITA</div>
+									<div class="font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">WARTOŚĆ CAŁKOWITA</div>
 									<div class="mt-1.5 font-mono text-sm font-medium">{argumentacjaRow.wartosc_total.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł</div>
 								</div>
 							{/if}
 							{#if argumentacjaRow.cena_m2_roszczenie_orig != null}
 								<div class="glass-chip px-3.5 py-3">
-									<div class="font-mono text-[9.5px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">CENA ROSZCZENIA</div>
+									<div class="font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">CENA ROSZCZENIA</div>
 									<div class="mt-1.5 font-mono text-sm font-medium">{argumentacjaRow.cena_m2_roszczenie_orig.toFixed(0)} zł/m²</div>
 								</div>
 							{/if}
 							{#if argumentacjaRow.wartosc_roszczenia_orig != null}
 								<div class="glass-chip px-3.5 py-3">
-									<div class="font-mono text-[9.5px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">WARTOŚĆ ROSZCZENIA</div>
+									<div class="font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">WARTOŚĆ ROSZCZENIA</div>
 									<div class="mt-1.5 font-mono text-sm font-medium">{argumentacjaRow.wartosc_roszczenia_orig.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł</div>
 								</div>
 							{/if}
 						</div>
 						{#if argumentacjaRow.segment}
-							<div class="mb-2.5 flex justify-between font-mono text-[10px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">
+							<div class="mb-2.5 flex justify-between font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">
 								<span>SEGMENT &middot; {argumentacjaRow.segment}</span>
 								{#if argumentacjaRow.procent_pow != null}
 									<span>POKRYCIE &middot; {argumentacjaRow.procent_pow.toFixed(1)}%</span>
@@ -525,7 +525,7 @@
 							<div>
 								{#each argumentacjaRow.argumenty as arg, i}
 									<div class="grid gap-3.5 border-b border-dashed border-[var(--color-faint)] py-[9px] text-xs leading-relaxed {i === argumentacjaRow.argumenty.length - 1 ? 'border-b-0' : ''}" style="grid-template-columns: 36px 1fr;">
-										<div class="pt-0.5 font-mono text-[10px] font-semibold text-[var(--color-accent)]">{arg.waga}</div>
+										<div class="pt-0.5 font-mono text-[11px] font-semibold text-[var(--color-accent)]">{arg.waga}</div>
 										<div>{arg.text}</div>
 									</div>
 								{/each}
@@ -540,7 +540,7 @@
 		<div class="glass-card px-6 py-5">
 			<div class="mb-3 flex items-center justify-between">
 				<div class="eyebrow" style="letter-spacing: 1.5px;">&mdash; PLAN ZAGOSPODAROWANIA</div>
-				<span class="font-mono text-[10px] text-[var(--color-mute)]">
+				<span class="font-mono text-[11px] text-[var(--color-mute)]">
 					źródło: <a href="https://integracja.gugik.gov.pl/" target="_blank" rel="noopener" class="text-[var(--color-accent)] hover:underline">GUGiK KI MPZP</a>
 				</span>
 			</div>
@@ -600,7 +600,7 @@
 				<div class="mb-3 flex items-center justify-between">
 					<div class="eyebrow" style="letter-spacing: 1.5px;">&mdash; PLAN OGÓLNY GMINY</div>
 					{#if plot.pog_status}
-						<span class="rounded-[20px] px-3 py-1 font-mono text-[10px] font-semibold" style="letter-spacing: 0.8px;
+						<span class="rounded-[20px] px-3 py-1 font-mono text-[11px] font-semibold" style="letter-spacing: 0.8px;
 							{plot.pog_status.includes('obowiązujący')
 								? 'background: rgba(61,90,42,0.10); color: var(--color-accent); border: 1px solid rgba(61,90,42,0.25);'
 								: 'background: rgba(184,134,42,0.10); color: var(--color-amber); border: 1px solid rgba(184,134,42,0.25);'}"
@@ -642,7 +642,7 @@
 					&mdash; ŚREDNIE CENY W OKOLICY
 				</div>
 				{#if cenySrednie}
-					<div class="font-mono text-[10px] text-[var(--color-mute)]">
+					<div class="font-mono text-[11px] text-[var(--color-mute)]">
 						gmina {cenySrednie.gmina_teryt} · powiat {cenySrednie.powiat_teryt}
 					</div>
 				{/if}
@@ -657,12 +657,12 @@
 			{:else}
 				{#snippet cenyBlock(title: string, rows: Array<{ rodzaj_nieruchomosci: number; rodzaj_nazwa: string | null; liczba_transakcji: number; cena_za_m2_srednia: number | null; cena_za_m2_mediana: number | null; cena_za_m2_q1: number | null; cena_za_m2_q3: number | null; rok_min: number | null; rok_max: number | null }>)}
 					<div>
-						<div class="mb-2 font-mono text-[10px] font-semibold uppercase text-[var(--color-mute)]" style="letter-spacing: 1.2px;">{title}</div>
+						<div class="mb-2 font-mono text-[11px] font-semibold uppercase text-[var(--color-mute)]" style="letter-spacing: 1.2px;">{title}</div>
 						{#if rows.length === 0}
 							<p class="text-[11px] italic text-[var(--color-mute)]">Brak danych</p>
 						{:else}
 							<div class="overflow-hidden rounded-xl border border-[var(--color-glass-border)]">
-								<div class="grid items-center bg-[var(--color-glass)] px-3 py-2 font-mono text-[9.5px] text-[var(--color-mute)]" style="grid-template-columns: 1.6fr 55px 85px 85px 85px 85px 55px; letter-spacing: 1.2px;">
+								<div class="grid items-center bg-[var(--color-glass)] px-3 py-2 font-mono text-[11px] text-[var(--color-mute)]" style="grid-template-columns: 1.6fr 55px 85px 85px 85px 85px 55px; letter-spacing: 1.2px;">
 									<div>RODZAJ</div><div class="text-right">N</div><div class="text-right">Q1</div><div class="text-right">MEDIANA</div><div class="text-right">ŚREDNIA</div><div class="text-right">Q3</div><div class="text-right">LATA</div>
 								</div>
 								{#each rows as r}
@@ -673,7 +673,7 @@
 										<div class="text-right">{r.cena_za_m2_mediana != null ? formatPrice(r.cena_za_m2_mediana) : '—'}</div>
 										<div class="text-right font-semibold">{r.cena_za_m2_srednia != null ? formatPrice(r.cena_za_m2_srednia) : '—'}</div>
 										<div class="text-right text-[var(--color-mute)]">{r.cena_za_m2_q3 != null ? formatPrice(r.cena_za_m2_q3) : '—'}</div>
-										<div class="text-right text-[10px] text-[var(--color-mute)]">{r.rok_min && r.rok_max ? (r.rok_min === r.rok_max ? r.rok_min : `${r.rok_min}-${r.rok_max % 100}`) : '—'}</div>
+										<div class="text-right text-[11px] text-[var(--color-mute)]">{r.rok_min && r.rok_max ? (r.rok_min === r.rok_max ? r.rok_min : `${r.rok_min}-${r.rok_max % 100}`) : '—'}</div>
 									</div>
 								{/each}
 							</div>
@@ -688,9 +688,9 @@
 
 				{#if cenySrednie.powiat.length > 0}
 					<div class="mt-5">
-						<div class="mb-2 font-mono text-[10px] font-semibold uppercase text-[var(--color-mute)]" style="letter-spacing: 1.2px;">Powiat — per segment rynku</div>
+						<div class="mb-2 font-mono text-[11px] font-semibold uppercase text-[var(--color-mute)]" style="letter-spacing: 1.2px;">Powiat — per segment rynku</div>
 						<div class="overflow-hidden rounded-xl border border-[var(--color-glass-border)]">
-							<div class="grid items-center bg-[var(--color-glass)] px-3 py-2 font-mono text-[9.5px] text-[var(--color-mute)]" style="grid-template-columns: 1.2fr 1.2fr 55px 85px 85px 85px 85px 55px; letter-spacing: 1.2px;">
+							<div class="grid items-center bg-[var(--color-glass)] px-3 py-2 font-mono text-[11px] text-[var(--color-mute)]" style="grid-template-columns: 1.2fr 1.2fr 55px 85px 85px 85px 85px 55px; letter-spacing: 1.2px;">
 								<div>RODZAJ</div><div>SEGMENT</div><div class="text-right">N</div><div class="text-right">Q1</div><div class="text-right">MEDIANA</div><div class="text-right">ŚREDNIA</div><div class="text-right">Q3</div><div class="text-right">LATA</div>
 							</div>
 							{#each cenySrednie.powiat as r}
@@ -702,7 +702,7 @@
 									<div class="text-right">{r.cena_za_m2_mediana != null ? formatPrice(r.cena_za_m2_mediana) : '—'}</div>
 									<div class="text-right font-semibold">{r.cena_za_m2_srednia != null ? formatPrice(r.cena_za_m2_srednia) : '—'}</div>
 									<div class="text-right text-[var(--color-mute)]">{r.cena_za_m2_q3 != null ? formatPrice(r.cena_za_m2_q3) : '—'}</div>
-									<div class="text-right text-[10px] text-[var(--color-mute)]">{r.rok_min && r.rok_max ? (r.rok_min === r.rok_max ? r.rok_min : `${r.rok_min}-${r.rok_max % 100}`) : '—'}</div>
+									<div class="text-right text-[11px] text-[var(--color-mute)]">{r.rok_min && r.rok_max ? (r.rok_min === r.rok_max ? r.rok_min : `${r.rok_min}-${r.rok_max % 100}`) : '—'}</div>
 								</div>
 							{/each}
 						</div>
@@ -717,8 +717,8 @@
 				<div class="eyebrow" style="letter-spacing: 1.5px;">
 					&mdash; TRANSAKCJE W OKOLICY{#if !transactionsLoading} ({transactions.length}){/if}
 				</div>
-				<div class="flex flex-wrap items-center gap-3 font-mono text-[10px]">
-					<label class="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-[10px] text-[var(--color-mute)]">
+				<div class="flex flex-wrap items-center gap-3 font-mono text-[11px]">
+					<label class="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-[11px] text-[var(--color-mute)]">
 						<input
 							type="checkbox"
 							bind:checked={showOutliers}
@@ -755,7 +755,7 @@
 			{:else}
 				<div class="overflow-hidden rounded-xl border border-[var(--color-glass-border)]">
 					<!-- Header -->
-					<div class="grid items-center bg-[var(--color-glass)] px-4 py-2.5 font-mono text-[9.5px] text-[var(--color-mute)]" style="grid-template-columns: 55px 80px 1.2fr 1.5fr 65px 90px 85px 110px 70px; letter-spacing: 1.2px;">
+					<div class="grid items-center bg-[var(--color-glass)] px-4 py-2.5 font-mono text-[11px] text-[var(--color-mute)]" style="grid-template-columns: 55px 80px 1.2fr 1.5fr 65px 90px 85px 110px 70px; letter-spacing: 1.2px;">
 						<div>ODL.</div><div>DATA</div><div>DZIAŁKA</div><div>MIEJSCOWOŚĆ</div><div class="text-right">POW.</div><div class="text-right">CENA</div><div class="text-right">ZŁ/M²</div><div>RODZAJ</div><div>RYNEK</div>
 					</div>
 					{#each transactions as t, i (t.id)}
@@ -774,7 +774,7 @@
 							<div class="text-right">{formatPrice(t.cena_do_analizy ?? t.cena_transakcji)}</div>
 							<div class="text-right text-[var(--color-mute)]">{t.cena_za_m2 != null ? formatPrice(t.cena_za_m2) : '—'}</div>
 							<div class="text-[11px] text-[var(--color-mute)]" style="font-family: var(--font-sans);">{t.rodzaj_nieruchomosci != null ? RODZAJ_NIERUCHOMOSCI[t.rodzaj_nieruchomosci] ?? t.rodzaj_nieruchomosci : '—'}</div>
-							<div class="text-[10px]" style="font-family: var(--font-sans); color: {t.rodzaj_rynku === 1 ? 'var(--color-accent)' : t.rodzaj_rynku === 2 ? 'var(--color-amber)' : 'var(--color-mute)'};">
+							<div class="text-[11px]" style="font-family: var(--font-sans); color: {t.rodzaj_rynku === 1 ? 'var(--color-accent)' : t.rodzaj_rynku === 2 ? 'var(--color-amber)' : 'var(--color-mute)'};">
 								{t.rodzaj_rynku != null ? RODZAJ_RYNKU[t.rodzaj_rynku] ?? t.rodzaj_rynku : '—'}
 							</div>
 						</div>
@@ -807,13 +807,13 @@
 						<h3 class="truncate text-sm font-medium">{listing.name ?? 'Bez tytułu'}</h3>
 						<div class="mt-1.5 flex flex-wrap gap-1.5">
 							{#if listing.property_type}
-								<span class="glass-pill" style="font-size: 9px; padding: 3px 8px;">{listing.property_type}</span>
+								<span class="glass-pill" style="font-size: 11px; padding: 3px 8px;">{listing.property_type}</span>
 							{/if}
 							{#if listing.deal_type}
-								<span class="glass-pill" style="font-size: 9px; padding: 3px 8px; {listing.deal_type.toLowerCase().includes('wynajem') ? 'background: rgba(184,134,42,0.1); color: var(--color-amber); border-color: rgba(184,134,42,0.25);' : ''}">{listing.deal_type}</span>
+								<span class="glass-pill" style="font-size: 11px; padding: 3px 8px; {listing.deal_type.toLowerCase().includes('wynajem') ? 'background: rgba(184,134,42,0.1); color: var(--color-amber); border-color: rgba(184,134,42,0.25);' : ''}">{listing.deal_type}</span>
 							{/if}
 							{#if listing.site}
-								<span class="rounded-[20px] border border-[var(--color-glass-border)] bg-[var(--color-glass)] px-2 py-0.5 font-mono text-[9px] text-[var(--color-mute)]">{listing.site}</span>
+								<span class="rounded-[20px] border border-[var(--color-glass-border)] bg-[var(--color-glass)] px-2 py-0.5 font-mono text-[11px] text-[var(--color-mute)]">{listing.site}</span>
 							{/if}
 						</div>
 						<div class="mt-2 flex items-baseline justify-between">
@@ -828,7 +828,7 @@
 				{/snippet}
 
 				{#if activeListings.length > 0}
-					<div class="mb-2 font-mono text-[10px] font-semibold uppercase text-[var(--color-accent)]" style="letter-spacing: 1.2px;">Aktywne ({activeListings.length})</div>
+					<div class="mb-2 font-mono text-[11px] font-semibold uppercase text-[var(--color-accent)]" style="letter-spacing: 1.2px;">Aktywne ({activeListings.length})</div>
 					<div class="grid gap-2 md:grid-cols-2">
 						{#each activeListings as listing (listing.id)}
 							{@render listingCard(listing, false)}
@@ -837,7 +837,7 @@
 				{/if}
 
 				{#if inactiveListings.length > 0}
-					<div class="mb-2 mt-4 font-mono text-[10px] font-semibold uppercase text-[var(--color-mute)]" style="letter-spacing: 1.2px;">Nieaktywne ({inactiveListings.length})</div>
+					<div class="mb-2 mt-4 font-mono text-[11px] font-semibold uppercase text-[var(--color-mute)]" style="letter-spacing: 1.2px;">Nieaktywne ({inactiveListings.length})</div>
 					<div class="grid gap-2 md:grid-cols-2">
 						{#each inactiveListings as listing (listing.id)}
 							{@render listingCard(listing, true)}
@@ -854,7 +854,7 @@
 					&mdash; AKTYWNOŚĆ INWESTYCYJNA{#if !investmentsLoading} ({investments.length}){/if}
 				</div>
 				<div class="flex flex-wrap items-center gap-2">
-					<div class="flex gap-1 font-mono text-[10px]">
+					<div class="flex gap-1 font-mono text-[11px]">
 						{#each ['all', 'pozwolenie', 'zgloszenie'] as t}
 							<button
 								onclick={() => (investmentsType = t as InvestmentType)}
@@ -869,7 +869,7 @@
 					</div>
 					<select
 						bind:value={investmentsMonths}
-						class="rounded-[var(--r-sm)] border border-[var(--color-glass-border)] bg-[var(--color-glass)] px-2 py-1 font-mono text-[10px] text-[var(--color-mute)]"
+						class="rounded-[var(--r-sm)] border border-[var(--color-glass-border)] bg-[var(--color-glass)] px-2 py-1 font-mono text-[11px] text-[var(--color-mute)]"
 					>
 						<option value={12}>12 mies.</option>
 						<option value={24}>24 mies.</option>
@@ -898,7 +898,7 @@
 						>
 							<div>
 								{#if badge}
-									<span class="inline-block rounded-[20px] px-2.5 py-1 font-mono text-[9px] font-semibold text-white" style="background: {badge.cls.includes('emerald') ? 'var(--color-accent)' : 'var(--color-amber)'}; letter-spacing: 0.8px;">
+									<span class="inline-block rounded-[20px] px-2.5 py-1 font-mono text-[11px] font-semibold text-white" style="background: {badge.cls.includes('emerald') ? 'var(--color-accent)' : 'var(--color-amber)'}; letter-spacing: 0.8px;">
 										{badge.label.toUpperCase()}
 									</span>
 								{/if}
@@ -907,15 +907,15 @@
 								{#if inv.opis}
 									<p class="text-sm">{inv.opis}</p>
 								{/if}
-								<div class="mt-1 font-mono text-[10px] text-[var(--color-mute)]">
+								<div class="mt-1 font-mono text-[11px] text-[var(--color-mute)]">
 									{inv.data_decyzji ?? inv.data_wniosku ?? ''}
 									{#if inv.distance_m != null} &middot; {distLabel(inv.distance_m)}{/if}
 								</div>
 							</div>
-							<div class="font-mono text-[10px] text-[var(--color-mute)]">
+							<div class="font-mono text-[11px] text-[var(--color-mute)]">
 								{inv.miejscowosc ?? ''} {inv.organ ?? ''}
 							</div>
-							<div class="text-right font-mono text-[10px] text-[var(--color-accent)]">Więcej informacji &rarr;</div>
+							<div class="text-right font-mono text-[11px] text-[var(--color-accent)]">Więcej informacji &rarr;</div>
 						</button>
 					{/each}
 				</div>
