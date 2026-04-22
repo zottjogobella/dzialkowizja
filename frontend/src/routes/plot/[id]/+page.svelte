@@ -242,24 +242,67 @@
 		return `https://przegladarka-ekw.ms.gov.pl/eukw_prz/KsiegiWieczyste/wyszukiwanieKW?komunikaty=true&kod=${encodeURIComponent(dept)}&isEnglish=false`;
 	}
 
-	// Owner strings in the CSV are "name;;type" pairs, sometimes chained for
-	// multi-owner plots ("name1;;type1;;name2;;type2"). Pair them up so the UI
-	// can render each owner as a single line with a muted type suffix.
+	// CSV entities field has several shapes we must render:
+	//   "NAME;;TYPE"                                  — no PESEL (193k rows)
+	//   "NAME;PESEL;TYPE"                             — with PESEL (290k rows)
+	//   multi-owner: same shapes joined by NEWLINES   — browsers collapse the
+	//     newlines to spaces, so we must split before rendering
+	// TYPE is one of KNOWN_TYPES. We strip PESEL (never shown) and keep just
+	// name + type for display.
 	const OWNER_TYPE_TOKENS = new Set(['os prawna', 'os fizyczna', 'panstwo']);
 	function parseOwners(raw: string): { name: string; type: string | null }[] {
-		const parts = raw.split(';;').map(p => p.trim()).filter(Boolean);
 		const out: { name: string; type: string | null }[] = [];
-		for (let i = 0; i < parts.length; i++) {
-			const name = parts[i];
-			const next = parts[i + 1];
-			if (next && OWNER_TYPE_TOKENS.has(next)) {
-				out.push({ name, type: next });
-				i += 1;
-			} else {
-				out.push({ name, type: null });
+		// Split on newlines first (multi-owner rows are one-per-line).
+		for (const line of raw.split(/\r?\n/)) {
+			const trimmed = line.trim();
+			if (!trimmed) continue;
+			// Collapse ";;" → ";" so a single split handles both shapes.
+			const parts = trimmed.split(/;+/).map(p => p.trim()).filter(Boolean);
+			if (parts.length === 0) continue;
+			// Locate the type token. If missing, fall back to showing the raw
+			// line as a nameless owner so we never drop data.
+			const typeIdx = parts.findIndex(p => OWNER_TYPE_TOKENS.has(p.toLowerCase()));
+			if (typeIdx === -1) {
+				out.push({ name: trimmed, type: null });
+				continue;
 			}
+			const type = parts[typeIdx];
+			// Everything before the type is name + (optional) PESEL/NIP. Drop
+			// the trailing purely-numeric token if it looks like an identifier.
+			let nameTokens = parts.slice(0, typeIdx);
+			if (
+				nameTokens.length > 1 &&
+				/^\d{8,11}$/.test(nameTokens[nameTokens.length - 1])
+			) {
+				nameTokens = nameTokens.slice(0, -1);
+			}
+			const name = nameTokens.join(' ').trim();
+			out.push({ name: name || trimmed, type });
+		}
+		// Fallback: no newlines, no parseable content — show raw.
+		if (out.length === 0 && raw.trim()) {
+			out.push({ name: raw.trim(), type: null });
 		}
 		return out;
+	}
+
+	// Maps tab label → DOM id of the target section. "Wycena" has no dedicated
+	// section so it scrolls to argumentacja (where valuation data lives).
+	const TAB_TARGETS: Record<string, string> = {
+		'Mapa': 'sec-mapa',
+		'Wycena': 'sec-argumentacja',
+		'Księga wieczysta': 'sec-ksiega-wieczysta',
+		'Argumentacja': 'sec-argumentacja',
+		'Transakcje': 'sec-transakcje',
+		'Aktywność': 'sec-aktywnosc',
+	};
+	function scrollToTab(label: string) {
+		const id = TAB_TARGETS[label];
+		if (!id) return;
+		const el = document.getElementById(id);
+		if (!el) return;
+		el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		history.replaceState(null, '', `#${id}`);
 	}
 
 	const RODZAJ_NIERUCHOMOSCI: Record<number, string> = {
@@ -307,11 +350,12 @@
 			<!-- Tabs -->
 			<div class="mt-4 flex flex-wrap items-center gap-1 font-mono text-[10px] uppercase" style="letter-spacing: 1.2px;">
 				{#each ['Mapa', 'Wycena', 'Księga wieczysta', 'Argumentacja', 'Transakcje', 'Aktywność'] as tab, i}
-					<a
-						href="#{tab.toLowerCase().replace(/ /g, '-')}"
+					<button
+						type="button"
+						onclick={() => scrollToTab(tab)}
 						class="cursor-pointer rounded-[20px] px-3.5 py-1.5 transition-colors
 							{i === 0 ? 'bg-[var(--color-ink)] font-semibold text-white' : 'border border-[var(--color-glass-border)] text-[var(--color-mute)] hover:bg-[var(--color-glass)]'}"
-					>{tab}</a>
+					>{tab}</button>
 				{/each}
 				<button
 					onclick={() => (showPdfModal = true)}
@@ -327,7 +371,7 @@
 		</div>
 
 		<!-- Map card -->
-		<div class="glass-card overflow-hidden p-3.5">
+		<div id="sec-mapa" class="glass-card overflow-hidden p-3.5">
 			<div class="overflow-hidden rounded-xl">
 				<PlotMap
 					idDzialki={plot.id_dzialki}
@@ -347,7 +391,7 @@
 		{#if roszczenieRow || argumentacjaRow}
 			<div class="grid gap-[14px]" style="grid-template-columns: {roszczenieRow && argumentacjaRow ? '1fr 2fr' : '1fr'};">
 				{#if roszczenieRow}
-					<div class="glass-card px-6 py-5">
+					<div id="sec-ksiega-wieczysta" class="glass-card px-6 py-5">
 						<div class="eyebrow mb-3.5" style="letter-spacing: 1.5px;">&mdash; KSIĘGA WIECZYSTA I WŁAŚCICIEL</div>
 						<!-- KW number -->
 						<div class="glass-chip mb-3 px-4 py-3.5">
@@ -396,7 +440,7 @@
 				{/if}
 
 				{#if argumentacjaRow}
-					<div class="glass-card px-6 py-5">
+					<div id="sec-argumentacja" class="glass-card px-6 py-5">
 						<div class="mb-3 flex items-baseline justify-between">
 							<div class="eyebrow" style="letter-spacing: 1.5px;">&mdash; ARGUMENTACJA WYCENY</div>
 							{#if argumentacjaRow.pewnosc_kategoria}
@@ -556,7 +600,7 @@
 		{/if}
 
 		<!-- Transakcje w okolicy -->
-		<div class="glass-card px-6 py-5">
+		<div id="sec-transakcje" class="glass-card px-6 py-5">
 			<div class="mb-3 flex items-baseline justify-between">
 				<div class="eyebrow" style="letter-spacing: 1.5px;">
 					&mdash; TRANSAKCJE W OKOLICY{#if !transactionsLoading} ({transactions.length}){/if}
@@ -680,7 +724,7 @@
 		</div>
 
 		<!-- Aktywność inwestycyjna -->
-		<div class="glass-card px-6 py-5">
+		<div id="sec-aktywnosc" class="glass-card px-6 py-5">
 			<div class="mb-3 flex items-baseline justify-between">
 				<div class="eyebrow" style="letter-spacing: 1.5px;">
 					&mdash; AKTYWNOŚĆ INWESTYCYJNA{#if !investmentsLoading} ({investments.length}){/if}
