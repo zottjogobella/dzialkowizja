@@ -90,6 +90,10 @@ export interface Transaction {
 	distance_m: number | null;
 	lng: number | null;
 	lat: number | null;
+	segment_rynku: string | null;
+	outlier: number | null;
+	do_wyceny: number | null;
+	jakosc_ceny: number | null;
 }
 
 export interface Investment {

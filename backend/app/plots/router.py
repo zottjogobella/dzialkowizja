@@ -8,7 +8,7 @@ import logging
 import psycopg2
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response as FastAPIResponse
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi import Request
@@ -231,7 +231,11 @@ def _fetch_plot_centroid_2180(id_dzialki: str) -> tuple[float, float] | None:
 
 
 def _fetch_nearest_transactions(
-    cx: float, cy: float, limit: int = 30, type_filter: str = "all"
+    cx: float,
+    cy: float,
+    limit: int = 30,
+    type_filter: str = "all",
+    include_outliers: bool = False,
 ) -> list[dict]:
     """Find nearest land transactions by Euclidean distance in EPSG:2180.
 
@@ -244,6 +248,10 @@ def _fetch_nearest_transactions(
                           → niezabudowana / zabudowana)
         - ``"inne"``:     everything that isn't a plain land plot
                           (budynkowa, lokalowa, nieznane)
+
+    ``include_outliers`` — when False (default) the upstream RCN cleanup
+    flags (outlier=1 OR do_wyceny=0) are hidden. When True, everything
+    comes through and the frontend badges them.
     """
     conn = psycopg2.connect(
         host=settings.transakcje_db_host,
@@ -259,6 +267,13 @@ def _fetch_nearest_transactions(
         type_sql = " AND (rodzaj_nieruchomosci NOT IN (1, 2) OR rodzaj_nieruchomosci IS NULL)"
     else:
         type_sql = ""
+    if include_outliers:
+        outlier_sql = ""
+    else:
+        outlier_sql = (
+            " AND COALESCE(outlier, 0) = 0"
+            " AND COALESCE(do_wyceny, 1) = 1"
+        )
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -273,6 +288,7 @@ def _fetch_nearest_transactions(
                     strona_kupujaca, strona_sprzedajaca,
                     miejscowosc, ulica, numer_porzadkowy,
                     dodatkowe_informacje,
+                    segment_rynku, outlier, do_wyceny, jakosc_ceny,
                     ST_X(ST_Transform(ST_SetSRID(ST_MakePoint(cx_2180, cy_2180), 2180), 4326)) AS lng,
                     ST_Y(ST_Transform(ST_SetSRID(ST_MakePoint(cx_2180, cy_2180), 2180), 4326)) AS lat,
                     ST_Distance(
@@ -282,6 +298,7 @@ def _fetch_nearest_transactions(
                 FROM transakcje_gruntowe
                 WHERE cx_2180 IS NOT NULL AND cena_transakcji > 0
                 {type_sql}
+                {outlier_sql}
                 ORDER BY ST_SetSRID(ST_MakePoint(cx_2180, cy_2180), 2180)
                      <-> ST_SetSRID(ST_MakePoint(%s, %s), 2180)
                 LIMIT %s
@@ -508,6 +525,7 @@ async def get_plot_listing_stats(id_dzialki: str, _user=Depends(require_auth)):
 async def get_plot_transactions(
     id_dzialki: str,
     type: str = "all",
+    include_outliers: bool = False,
     user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
@@ -517,6 +535,8 @@ async def get_plot_transactions(
         type — all | gruntowe | inne, default ``all``. ``gruntowe`` keeps
                only rodzaj_nieruchomosci in {1,2} (plots of land);
                ``inne`` returns everything else (budynkowa/lokalowa).
+        include_outliers — when true, include rows flagged outlier=1 or
+               do_wyceny=0 by the RCN cleanup pipeline. Default false.
     """
     if await is_section_restricted(db, user, "section.transactions"):
         return []
@@ -529,11 +549,108 @@ async def get_plot_transactions(
     type_filter = type if type in ("all", "gruntowe", "inne") else "all"
     try:
         return await asyncio.to_thread(
-            _fetch_nearest_transactions, cx, cy, 30, type_filter
+            _fetch_nearest_transactions, cx, cy, 30, type_filter, include_outliers
         )
     except Exception:
         logger.exception("Failed to fetch transactions")
         return []
+
+
+def _parse_teryt(id_dzialki: str) -> tuple[str | None, str | None]:
+    """Extract (gmina_teryt, powiat_teryt) from an id_dzialki.
+
+    id_dzialki format: ``TTTTTT_X.YYYY.A`` where the first 6 characters are
+    the gmina TERYT code and the first 4 are the powiat TERYT code.
+    """
+    prefix = id_dzialki.split(".", 1)[0].replace("_", "")
+    if len(prefix) < 6 or not prefix[:6].isdigit():
+        return None, None
+    return prefix[:6], prefix[:4]
+
+
+@router.get("/{id_dzialki:path}/ceny-srednie")
+async def get_plot_ceny_srednie(
+    id_dzialki: str,
+    _user=Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """Average RCN prices for the plot's gmina and powiat.
+
+    Returns three blocks matching the three reference tables:
+      * ``gmina``:        per rodzaj_nieruchomosci (1..4) — no segment split
+      * ``powiat_total``: per rodzaj_nieruchomosci (1..4) — no segment split
+      * ``powiat``:       per rodzaj × segment_rynku (rows only where data exists)
+    """
+    gmina, powiat = _parse_teryt(id_dzialki)
+    if not gmina or not powiat:
+        raise HTTPException(status_code=400, detail="Nieprawidłowy identyfikator działki")
+
+    gmina_rows = (await db.execute(
+        text(
+            """
+            SELECT rodzaj_nieruchomosci, rodzaj_nazwa, liczba_transakcji,
+                   cena_za_m2_srednia, cena_za_m2_mediana,
+                   cena_za_m2_q1, cena_za_m2_q3,
+                   pow_m2_srednia, cena_transakcji_srednia, rok_min, rok_max
+            FROM srednie_ceny_gmina WHERE gmina = :g
+            ORDER BY rodzaj_nieruchomosci
+            """
+        ),
+        {"g": gmina},
+    )).mappings().all()
+
+    powiat_total_rows = (await db.execute(
+        text(
+            """
+            SELECT rodzaj_nieruchomosci, rodzaj_nazwa, liczba_transakcji,
+                   cena_za_m2_srednia, cena_za_m2_mediana,
+                   cena_za_m2_q1, cena_za_m2_q3,
+                   pow_m2_srednia, cena_transakcji_srednia, rok_min, rok_max
+            FROM srednie_ceny_powiat_total WHERE teryt = :t
+            ORDER BY rodzaj_nieruchomosci
+            """
+        ),
+        {"t": powiat},
+    )).mappings().all()
+
+    powiat_seg_rows = (await db.execute(
+        text(
+            """
+            SELECT rodzaj_nieruchomosci, rodzaj_nazwa, segment_rynku,
+                   liczba_transakcji,
+                   cena_za_m2_srednia, cena_za_m2_mediana,
+                   cena_za_m2_q1, cena_za_m2_q3,
+                   cena_za_m2_min, cena_za_m2_max,
+                   pow_m2_srednia, cena_transakcji_srednia, rok_min, rok_max
+            FROM srednie_ceny_powiat WHERE teryt = :t
+            ORDER BY rodzaj_nieruchomosci, segment_rynku
+            """
+        ),
+        {"t": powiat},
+    )).mappings().all()
+
+    def to_num(v):
+        """psycopg2/asyncpg returns Decimal for NUMERIC — make it JSON-safe."""
+        if v is None:
+            return None
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    def clean_row(r: dict) -> dict:
+        out = {}
+        for k, v in r.items():
+            out[k] = to_num(v) if k.startswith("cena") or k.startswith("pow") else v
+        return out
+
+    return {
+        "gmina_teryt": gmina,
+        "powiat_teryt": powiat,
+        "gmina": [clean_row(dict(r)) for r in gmina_rows],
+        "powiat_total": [clean_row(dict(r)) for r in powiat_total_rows],
+        "powiat": [clean_row(dict(r)) for r in powiat_seg_rows],
+    }
 
 
 @router.get("/{id_dzialki:path}/buildings")

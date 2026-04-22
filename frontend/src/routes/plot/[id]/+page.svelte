@@ -10,6 +10,7 @@
 		getPlotRoszczenie,
 		getPlotArgumentacja,
 		getPlotMpzp,
+		getPlotCenySrednie,
 		type ListingsResponse,
 		type InvestmentType,
 		type TransactionType,
@@ -17,6 +18,7 @@
 		type ArgumentacjaRow,
 		type MpzpFeature,
 		type MpzpResponse,
+		type CenySrednieResponse,
 	} from '$lib/api/plots';
 	import type { PlotDetail, Listing, Transaction, Investment } from '$lib/types/plot';
 	import PlotMap from '$lib/components/PlotMap.svelte';
@@ -36,6 +38,10 @@
 	let allTransactions = $state<Transaction[]>([]);
 	let transactionsLoading = $state(true);
 	let transactionsType = $state<TransactionType>('all');
+	// Toggle: show transactions the RCN cleanup flagged as outlier/do_wyceny=0.
+	// Default false (hide). Flipping this refetches since the filter lives
+	// server-side in the /transactions endpoint.
+	let showOutliers = $state(false);
 	let allInvestments = $state<Investment[]>([]);
 	let investmentsLoading = $state(true);
 	let investmentsType = $state<InvestmentType>('all');
@@ -58,6 +64,8 @@
 	);
 	let roszczenieRow = $state<RoszczenieRow | null>(null);
 	let argumentacjaRow = $state<ArgumentacjaRow | null>(null);
+	let cenySrednie = $state<CenySrednieResponse | null>(null);
+	let cenySrednieLoading = $state(true);
 	let selectedInvestment = $state<Investment | null>(null);
 	let showPdfModal = $state(false);
 	let mpzpFeatures = $state<MpzpFeature[]>([]);
@@ -134,6 +142,20 @@
 				argumentacjaRow = null;
 			});
 
+		// Average RCN prices for the plot's gmina + powiat.
+		cenySrednie = null;
+		cenySrednieLoading = true;
+		getPlotCenySrednie(id)
+			.then((data) => {
+				cenySrednie = data;
+			})
+			.catch(() => {
+				cenySrednie = null;
+			})
+			.finally(() => {
+				cenySrednieLoading = false;
+			});
+
 		// MPZP designation via KI WMS GetFeatureInfo at the plot centroid.
 		mpzpFeatures = [];
 		mpzpUpstreamError = false;
@@ -173,15 +195,18 @@
 			});
 	});
 
-	// Transactions — fetch ALL types once per plot. Type filtering is
-	// client-side via the $derived above so chip clicks are instant.
+	// Transactions — fetch ALL types once per (plot, showOutliers). Type
+	// filtering is client-side via the $derived above so chip clicks are
+	// instant, but the outlier filter lives server-side so a refetch is
+	// needed when the toggle flips.
 	let lastTxFetchKey = '';
 	$effect(() => {
 		const id = $page.params.id ?? '';
-		if (!id || id === lastTxFetchKey) return;
-		lastTxFetchKey = id;
+		const key = `${id}|${showOutliers ? 1 : 0}`;
+		if (!id || key === lastTxFetchKey) return;
+		lastTxFetchKey = key;
 		transactionsLoading = true;
-		getPlotTransactions(id, 'all')
+		getPlotTransactions(id, 'all', showOutliers)
 			.then((data) => {
 				allTransactions = data;
 			})
@@ -610,13 +635,98 @@
 			</div>
 		{/if}
 
+		<!-- Średnie ceny RCN dla gminy i powiatu -->
+		<div id="sec-ceny-srednie" class="glass-card px-6 py-5">
+			<div class="mb-3 flex items-baseline justify-between">
+				<div class="eyebrow" style="letter-spacing: 1.5px;">
+					&mdash; ŚREDNIE CENY W OKOLICY
+				</div>
+				{#if cenySrednie}
+					<div class="font-mono text-[10px] text-[var(--color-mute)]">
+						gmina {cenySrednie.gmina_teryt} · powiat {cenySrednie.powiat_teryt}
+					</div>
+				{/if}
+			</div>
+			{#if cenySrednieLoading}
+				<div class="flex items-center gap-2 text-sm text-[var(--color-mute)]">
+					<div class="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-faint)] border-t-[var(--color-accent)]"></div>
+					Ładuję średnie ceny…
+				</div>
+			{:else if !cenySrednie || (cenySrednie.gmina.length === 0 && cenySrednie.powiat_total.length === 0)}
+				<p class="text-sm text-[var(--color-mute)]">Brak średnich cen dla tej gminy/powiatu</p>
+			{:else}
+				{#snippet cenyBlock(title: string, rows: Array<{ rodzaj_nieruchomosci: number; rodzaj_nazwa: string | null; liczba_transakcji: number; cena_za_m2_srednia: number | null; cena_za_m2_mediana: number | null; cena_za_m2_q1: number | null; cena_za_m2_q3: number | null; rok_min: number | null; rok_max: number | null }>)}
+					<div>
+						<div class="mb-2 font-mono text-[10px] font-semibold uppercase text-[var(--color-mute)]" style="letter-spacing: 1.2px;">{title}</div>
+						{#if rows.length === 0}
+							<p class="text-[11px] italic text-[var(--color-mute)]">Brak danych</p>
+						{:else}
+							<div class="overflow-hidden rounded-xl border border-[var(--color-glass-border)]">
+								<div class="grid items-center bg-[var(--color-glass)] px-3 py-2 font-mono text-[9.5px] text-[var(--color-mute)]" style="grid-template-columns: 1.6fr 55px 85px 85px 85px 85px 55px; letter-spacing: 1.2px;">
+									<div>RODZAJ</div><div class="text-right">N</div><div class="text-right">Q1</div><div class="text-right">MEDIANA</div><div class="text-right">ŚREDNIA</div><div class="text-right">Q3</div><div class="text-right">LATA</div>
+								</div>
+								{#each rows as r}
+									<div class="grid items-center border-t border-[var(--color-faint)] px-3 py-2 font-mono text-[11px]" style="grid-template-columns: 1.6fr 55px 85px 85px 85px 85px 55px;">
+										<div class="truncate text-[11px]" style="font-family: var(--font-sans);">{r.rodzaj_nazwa ?? `(rodzaj ${r.rodzaj_nieruchomosci})`}</div>
+										<div class="text-right text-[var(--color-mute)]">{r.liczba_transakcji?.toLocaleString('pl-PL') ?? '—'}</div>
+										<div class="text-right text-[var(--color-mute)]">{r.cena_za_m2_q1 != null ? formatPrice(r.cena_za_m2_q1) : '—'}</div>
+										<div class="text-right">{r.cena_za_m2_mediana != null ? formatPrice(r.cena_za_m2_mediana) : '—'}</div>
+										<div class="text-right font-semibold">{r.cena_za_m2_srednia != null ? formatPrice(r.cena_za_m2_srednia) : '—'}</div>
+										<div class="text-right text-[var(--color-mute)]">{r.cena_za_m2_q3 != null ? formatPrice(r.cena_za_m2_q3) : '—'}</div>
+										<div class="text-right text-[10px] text-[var(--color-mute)]">{r.rok_min && r.rok_max ? (r.rok_min === r.rok_max ? r.rok_min : `${r.rok_min}-${r.rok_max % 100}`) : '—'}</div>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/snippet}
+
+				<div class="grid gap-4 md:grid-cols-2">
+					{@render cenyBlock('Gmina', cenySrednie.gmina)}
+					{@render cenyBlock('Powiat (ogółem)', cenySrednie.powiat_total)}
+				</div>
+
+				{#if cenySrednie.powiat.length > 0}
+					<div class="mt-5">
+						<div class="mb-2 font-mono text-[10px] font-semibold uppercase text-[var(--color-mute)]" style="letter-spacing: 1.2px;">Powiat — per segment rynku</div>
+						<div class="overflow-hidden rounded-xl border border-[var(--color-glass-border)]">
+							<div class="grid items-center bg-[var(--color-glass)] px-3 py-2 font-mono text-[9.5px] text-[var(--color-mute)]" style="grid-template-columns: 1.2fr 1.2fr 55px 85px 85px 85px 85px 55px; letter-spacing: 1.2px;">
+								<div>RODZAJ</div><div>SEGMENT</div><div class="text-right">N</div><div class="text-right">Q1</div><div class="text-right">MEDIANA</div><div class="text-right">ŚREDNIA</div><div class="text-right">Q3</div><div class="text-right">LATA</div>
+							</div>
+							{#each cenySrednie.powiat as r}
+								<div class="grid items-center border-t border-[var(--color-faint)] px-3 py-2 font-mono text-[11px]" style="grid-template-columns: 1.2fr 1.2fr 55px 85px 85px 85px 85px 55px;">
+									<div class="truncate text-[11px]" style="font-family: var(--font-sans);">{r.rodzaj_nazwa ?? `(${r.rodzaj_nieruchomosci})`}</div>
+									<div class="truncate text-[11px] text-[var(--color-mute)]" style="font-family: var(--font-sans);">{r.segment_rynku}</div>
+									<div class="text-right text-[var(--color-mute)]">{r.liczba_transakcji?.toLocaleString('pl-PL') ?? '—'}</div>
+									<div class="text-right text-[var(--color-mute)]">{r.cena_za_m2_q1 != null ? formatPrice(r.cena_za_m2_q1) : '—'}</div>
+									<div class="text-right">{r.cena_za_m2_mediana != null ? formatPrice(r.cena_za_m2_mediana) : '—'}</div>
+									<div class="text-right font-semibold">{r.cena_za_m2_srednia != null ? formatPrice(r.cena_za_m2_srednia) : '—'}</div>
+									<div class="text-right text-[var(--color-mute)]">{r.cena_za_m2_q3 != null ? formatPrice(r.cena_za_m2_q3) : '—'}</div>
+									<div class="text-right text-[10px] text-[var(--color-mute)]">{r.rok_min && r.rok_max ? (r.rok_min === r.rok_max ? r.rok_min : `${r.rok_min}-${r.rok_max % 100}`) : '—'}</div>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			{/if}
+		</div>
+
 		<!-- Transakcje w okolicy -->
 		<div id="sec-transakcje" class="glass-card px-6 py-5">
-			<div class="mb-3 flex items-baseline justify-between">
+			<div class="mb-3 flex items-baseline justify-between gap-3">
 				<div class="eyebrow" style="letter-spacing: 1.5px;">
 					&mdash; TRANSAKCJE W OKOLICY{#if !transactionsLoading} ({transactions.length}){/if}
 				</div>
-				<div class="flex gap-1 font-mono text-[10px]">
+				<div class="flex flex-wrap items-center gap-3 font-mono text-[10px]">
+					<label class="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-[10px] text-[var(--color-mute)]">
+						<input
+							type="checkbox"
+							bind:checked={showOutliers}
+							class="h-3 w-3 accent-[var(--color-accent)]"
+						/>
+						POKAŻ ODRZUCONE
+					</label>
+					<div class="flex gap-1">
 					{#each [
 						{ v: 'all' as TransactionType, label: 'Wszystkie' },
 						{ v: 'gruntowe' as TransactionType, label: 'Gruntowe' },
@@ -632,6 +742,7 @@
 							{opt.label}
 						</button>
 					{/each}
+					</div>
 				</div>
 			</div>
 			{#if transactionsLoading}
@@ -648,10 +759,12 @@
 						<div>ODL.</div><div>DATA</div><div>DZIAŁKA</div><div>MIEJSCOWOŚĆ</div><div class="text-right">POW.</div><div class="text-right">CENA</div><div class="text-right">ZŁ/M²</div><div>RODZAJ</div><div>RYNEK</div>
 					</div>
 					{#each transactions as t, i (t.id)}
+						{@const rejected = t.outlier === 1 || t.do_wyceny === 0}
 						<div
 							id="transaction-{t.id}"
-							class="grid items-center border-t border-[var(--color-faint)] px-4 py-2.5 font-mono text-[11.5px] transition-shadow"
+							class="grid items-center border-t border-[var(--color-faint)] px-4 py-2.5 font-mono text-[11.5px] transition-shadow {rejected ? 'opacity-50 line-through decoration-[var(--color-mute)]' : ''}"
 							style="grid-template-columns: 55px 80px 1.2fr 1.5fr 65px 90px 85px 110px 70px;"
+							title={rejected ? (t.outlier === 1 ? 'Odrzucona: wartość odstająca (outlier)' : 'Odrzucona: nie nadaje się do wyceny') : ''}
 						>
 							<div class="text-[var(--color-mute)]">{distLabel(t.distance_m)}</div>
 							<div>{t.data_transakcji ?? '—'}</div>

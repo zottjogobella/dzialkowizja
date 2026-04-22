@@ -27,10 +27,46 @@ export type TransactionType = 'all' | 'gruntowe' | 'inne';
 export async function getPlotTransactions(
 	idDzialki: string,
 	type: TransactionType = 'all',
+	includeOutliers: boolean = false,
 ): Promise<Transaction[]> {
 	const qs = new URLSearchParams({ type });
+	if (includeOutliers) qs.set('include_outliers', 'true');
 	return apiGet<Transaction[]>(
 		`/api/plots/${encodeURIComponent(idDzialki)}/transactions?${qs.toString()}`,
+	);
+}
+
+export interface CenaSredniaRodzaj {
+	rodzaj_nieruchomosci: number;
+	rodzaj_nazwa: string | null;
+	liczba_transakcji: number;
+	cena_za_m2_srednia: number | null;
+	cena_za_m2_mediana: number | null;
+	cena_za_m2_q1: number | null;
+	cena_za_m2_q3: number | null;
+	pow_m2_srednia: number | null;
+	cena_transakcji_srednia: number | null;
+	rok_min: number | null;
+	rok_max: number | null;
+}
+
+export interface CenaSredniaSegment extends CenaSredniaRodzaj {
+	segment_rynku: string;
+	cena_za_m2_min: number | null;
+	cena_za_m2_max: number | null;
+}
+
+export interface CenySrednieResponse {
+	gmina_teryt: string;
+	powiat_teryt: string;
+	gmina: CenaSredniaRodzaj[];
+	powiat_total: CenaSredniaRodzaj[];
+	powiat: CenaSredniaSegment[];
+}
+
+export async function getPlotCenySrednie(idDzialki: string): Promise<CenySrednieResponse> {
+	return apiGet<CenySrednieResponse>(
+		`/api/plots/${encodeURIComponent(idDzialki)}/ceny-srednie`,
 	);
 }
 
