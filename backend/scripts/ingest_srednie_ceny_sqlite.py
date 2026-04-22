@@ -118,7 +118,16 @@ TABLE_MAP = [
 def copy_table(
     sqlite_cur, pg_cur, sqlite_table: str, pg_table: str, cols: list[tuple[str, str]]
 ) -> int:
-    sq_cols = ", ".join(c[0] for c in cols)
+    # Some sqlite rows have rodzaj_nieruchomosci=NULL (rodzaj_nazwa='inna').
+    # The destination PK doesn't allow NULL, so coerce to 0 (= "inna/unknown").
+    # Same for segment_rynku in the powiat segment table.
+    def sel(col):
+        if col == "rodzaj_nieruchomosci":
+            return "COALESCE(rodzaj_nieruchomosci, 0) AS rodzaj_nieruchomosci"
+        if col == "segment_rynku":
+            return "COALESCE(segment_rynku, 'INNE') AS segment_rynku"
+        return col
+    sq_cols = ", ".join(sel(c[0]) for c in cols)
     pg_cols = ", ".join(c[1] for c in cols)
     placeholders = ", ".join(["%s"] * len(cols))
     insert_sql = f"INSERT INTO {pg_table} ({pg_cols}) VALUES ({placeholders})"
