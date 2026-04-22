@@ -250,8 +250,9 @@
 	// TYPE is one of KNOWN_TYPES. We strip PESEL (never shown) and keep just
 	// name + type for display.
 	const OWNER_TYPE_TOKENS = new Set(['os prawna', 'os fizyczna', 'panstwo']);
-	function parseOwners(raw: string): { name: string; type: string | null }[] {
-		const out: { name: string; type: string | null }[] = [];
+	type Owner = { name: string; pesel: string | null; type: string | null };
+	function parseOwners(raw: string): Owner[] {
+		const out: Owner[] = [];
 		// Split on newlines first (multi-owner rows are one-per-line).
 		for (const line of raw.split(/\r?\n/)) {
 			const trimmed = line.trim();
@@ -263,25 +264,28 @@
 			// line as a nameless owner so we never drop data.
 			const typeIdx = parts.findIndex(p => OWNER_TYPE_TOKENS.has(p.toLowerCase()));
 			if (typeIdx === -1) {
-				out.push({ name: trimmed, type: null });
+				out.push({ name: trimmed, pesel: null, type: null });
 				continue;
 			}
 			const type = parts[typeIdx];
-			// Everything before the type is name + (optional) PESEL/NIP. Drop
-			// the trailing purely-numeric token if it looks like an identifier.
+			// Everything before the type is name + (optional) PESEL/NIP. If
+			// the trailing token is 8–11 digits it's a PESEL (os fizyczna)
+			// or NIP (os prawna) — surface it under the name.
 			let nameTokens = parts.slice(0, typeIdx);
+			let pesel: string | null = null;
 			if (
 				nameTokens.length > 1 &&
 				/^\d{8,11}$/.test(nameTokens[nameTokens.length - 1])
 			) {
+				pesel = nameTokens[nameTokens.length - 1];
 				nameTokens = nameTokens.slice(0, -1);
 			}
 			const name = nameTokens.join(' ').trim();
-			out.push({ name: name || trimmed, type });
+			out.push({ name: name || trimmed, pesel, type });
 		}
 		// Fallback: no newlines, no parseable content — show raw.
 		if (out.length === 0 && raw.trim()) {
-			out.push({ name: raw.trim(), type: null });
+			out.push({ name: raw.trim(), pesel: null, type: null });
 		}
 		return out;
 	}
@@ -412,10 +416,17 @@
 							<div class="font-mono text-[10px] text-[var(--color-mute)]">WŁAŚCICIEL</div>
 							{#if roszczenieRow.entities}
 								{#each parseOwners(roszczenieRow.entities) as owner}
-									<div class="mt-1 font-serif text-[17px] font-medium">
-										{owner.name}
-										{#if owner.type}
-											<span class="ml-1 text-[11px] text-[var(--color-mute)]">({owner.type})</span>
+									<div class="mt-2 first:mt-1">
+										<div class="font-serif text-[17px] font-medium">
+											{owner.name}
+											{#if owner.type}
+												<span class="ml-1 text-[11px] text-[var(--color-mute)]">({owner.type})</span>
+											{/if}
+										</div>
+										{#if owner.pesel}
+											<div class="font-mono text-[11px] text-[var(--color-mute)]">
+												{owner.pesel.length === 11 ? 'PESEL' : owner.pesel.length === 10 ? 'NIP' : 'REGON'}: {owner.pesel}
+											</div>
 										{/if}
 									</div>
 								{/each}

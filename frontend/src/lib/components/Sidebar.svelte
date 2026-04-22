@@ -130,7 +130,10 @@
 			</button>
 
 			{#if menuOpen}
-				<div class="glass-card absolute bottom-full left-2 right-2 mb-2 py-1.5">
+				<div
+					class="glass-card absolute bottom-full left-2 right-2 mb-2 py-1.5"
+					style="background: var(--color-surface); backdrop-filter: none; -webkit-backdrop-filter: none;"
+				>
 					<div class="border-b border-[var(--color-faint)] px-4 py-2.5">
 						<div class="text-xs font-medium">{$user.display_name}</div>
 						<div class="text-[10px] text-[var(--color-mute)]">{$user.email ?? ''}</div>
