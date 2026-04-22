@@ -55,15 +55,63 @@ COLUMNS = [
 # Chunk size for streaming sqlite → postgres COPY buffer.
 CHUNK_ROWS = 50_000
 
+# Columns that MUST be numeric on the Postgres side. sqlite's dynamic typing
+# lets text values sneak into REAL/INTEGER columns (e.g. Excel overflow
+# markers like "###################"); those rows fail COPY unless coerced
+# to NULL before the transfer.
+NUMERIC_COLS = {
+    "cena_transakcji", "cena_nieruchomosci", "cena_dzialki", "cena_do_analizy",
+    "kwota_vat", "powierzchnia_m2", "powierzchnia_nieruchomosci_ha",
+    "cena_za_m2", "centroid_x", "centroid_y",
+    "powierzchnia_nieruchomosci_m2", "powierzchnia_m2_rcn",
+}
+INT_COLS = {
+    "rok", "liczba_dzialek_w_transakcji", "rodzaj_nieruchomosci",
+    "rodzaj_rynku", "rodzaj_transakcji", "rodzaj_prawa",
+    "sposob_uzytkowania", "strona_kupujaca", "strona_sprzedajaca",
+    "ma_cene_dzialki", "jedna_dzialka", "jakosc_ceny", "do_wyceny",
+    "outlier", "do_wyceny_rozszerzone",
+}
+# Indices matching COLUMNS order — computed once, used per-row.
+_NUMERIC_IDX: set[int] = set()
+_INT_IDX: set[int] = set()
 
-def _escape_copy(v) -> str:
-    """Serialize one sqlite value for a Postgres COPY text stream."""
+
+def _build_idx_sets():
+    _NUMERIC_IDX.clear(); _INT_IDX.clear()
+    for i, c in enumerate(COLUMNS):
+        if c in NUMERIC_COLS:
+            _NUMERIC_IDX.add(i)
+        elif c in INT_COLS:
+            _INT_IDX.add(i)
+
+
+def _escape_copy(v, is_numeric: bool = False, is_int: bool = False) -> str:
+    """Serialize one sqlite value for a Postgres COPY text stream.
+
+    For numeric/integer target columns, coerce unparseable text to NULL.
+    """
     if v is None:
         return r"\N"
     if isinstance(v, (int, float)):
+        if is_int and isinstance(v, float):
+            # Some sqlite ints come back as floats — safe narrowing.
+            try:
+                return str(int(v))
+            except (TypeError, ValueError, OverflowError):
+                return r"\N"
         return repr(v)
-    # Text: escape backslash, tab, newline, carriage return.
     s = str(v)
+    if is_numeric:
+        try:
+            return repr(float(s))
+        except (TypeError, ValueError):
+            return r"\N"
+    if is_int:
+        try:
+            return str(int(float(s)))
+        except (TypeError, ValueError):
+            return r"\N"
     return (
         s.replace("\\", "\\\\")
          .replace("\t", "\\t")
@@ -99,6 +147,7 @@ def ensure_schema(conn) -> None:
 
 def stream_copy(sq, pg, total: int, skip_geometry: bool) -> int:
     """Stream rows from sqlite into postgres via COPY FROM STDIN."""
+    _build_idx_sets()
     # sqlite SELECT in the same column order as COPY target.
     cols_sql = ", ".join(COLUMNS)
     sq_cur = sq.cursor()
@@ -122,7 +171,12 @@ def stream_copy(sq, pg, total: int, skip_geometry: bool) -> int:
                 # today but leave the knob.
                 row = list(row)
                 row[29] = None
-            buf.write("\t".join(_escape_copy(v) for v in row))
+            buf.write(
+                "\t".join(
+                    _escape_copy(v, is_numeric=(i in _NUMERIC_IDX), is_int=(i in _INT_IDX))
+                    for i, v in enumerate(row)
+                )
+            )
             buf.write("\n")
         buf.seek(0)
         pg_cur.copy_expert(
