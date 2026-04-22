@@ -76,13 +76,16 @@ def main() -> int:
         # Step 2 — dump centroids from gruntomat to local TSV via COPY.
         logger.info("dumping gruntomat centroids → %s", TSV_PATH)
         t0 = time.time()
+        # lots_enriched already has a precomputed ``centroid`` column in
+        # EPSG:2180 — use it directly. Running ST_Centroid(geom) for 39M
+        # rows takes ~90 hours; this takes minutes.
         with TSV_PATH.open("wb") as f, gm.cursor() as cur:
             cur.copy_expert(
                 "COPY ("
                 " SELECT id_dzialki,"
-                "        ST_X(ST_Centroid(geom)),"
-                "        ST_Y(ST_Centroid(geom)) "
-                " FROM lots_enriched WHERE geom IS NOT NULL"
+                "        ST_X(centroid),"
+                "        ST_Y(centroid) "
+                " FROM lots_enriched WHERE centroid IS NOT NULL"
                 ") TO STDOUT WITH (FORMAT text)",
                 f,
             )
