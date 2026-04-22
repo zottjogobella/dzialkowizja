@@ -156,8 +156,9 @@ def main(argv: list[str] | None = None) -> int:
         logger.error("sqlite not found: %s", args.sqlite_path)
         return 1
 
-    sq = sqlite3.connect(str(args.sqlite_path))
-    sq.execute("PRAGMA journal_mode=OFF")
+    # Open read-only so the source file (often a bind-mounted :ro volume)
+    # isn't touched. The file: URI form avoids sqlite's journal write.
+    sq = sqlite3.connect(f"file:{args.sqlite_path}?mode=ro", uri=True)
     total = sq.execute("SELECT COUNT(*) FROM transakcje_gruntowe").fetchone()[0]
     logger.info("sqlite rows: %d", total)
 
