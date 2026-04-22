@@ -75,7 +75,13 @@
 	let bdotLinesVisible = $state(false);
 	let bdotLinesBuffer = $state(10);  // default 10 m per spec
 	let osmLinesVisible = $state(false);
-	let osmLinesBuffer = $state(10);
+	// OSM buffer split by voltage band (per-side metres). Defaults come from
+	// the client spec: ≤30 kV→10, 30–110→15, 110–200→25, 200–400→35 (and >400).
+	// NULL / unparseable voltage falls back to the ≤30 kV band (10 m).
+	let osmBuffer30 = $state(10);
+	let osmBuffer110 = $state(15);
+	let osmBuffer200 = $state(25);
+	let osmBuffer400 = $state(35);
 	let bdotDevicesVisible = $state(false);
 	// Buffered polygon FCs kept in state so a $derived can compute the
 	// plot ∩ buffer intersection area reactively as the slider moves.
@@ -109,8 +115,17 @@
 	let listingPinsVisible = $state(false);
 	let invPinsVisible = $state(false);
 
-	// OSM voltage buffer presets (default 10, user can pick)
-	const OSM_BUFFER_PRESETS = [5, 10, 15] as const;
+	// Maps an OSM voltage (in volts, from p.voltage numeric) to the band buffer
+	// configured in the sliders above. Bands are right-closed (≤): a feature
+	// tagged exactly 110 000 V lives in the 30–110 band, not the 110–200 one.
+	function osmBufferForVoltage(voltageV: number | null | undefined): number {
+		if (voltageV == null || !Number.isFinite(voltageV)) return osmBuffer30;
+		const kV = voltageV / 1000;
+		if (kV <= 30) return osmBuffer30;
+		if (kV <= 110) return osmBuffer110;
+		if (kV <= 200) return osmBuffer200;
+		return osmBuffer400;
+	}
 
 	const FELT_COLORS = [
 		'#50957f', '#9fa145', '#80b66d', '#7aa824', '#60759f', '#377ca4',
@@ -303,9 +318,7 @@
 			: 0,
 	);
 	const osmIntersectM2 = $derived(
-		osmLinesVisible && osmLinesBuffer > 0
-			? computeIntersectionArea(osmBufferedFC)
-			: 0,
+		osmLinesVisible ? computeIntersectionArea(osmBufferedFC) : 0,
 	);
 	// Total plot area in m² from the plot polygon itself — used to express
 	// the intersection as a percentage of the whole plot and to scale the
@@ -334,15 +347,17 @@
 
 	function computeBufferedFC(
 		fc: GeoJSON.FeatureCollection | null,
-		bufferM: number,
+		bufferForFeature: (f: GeoJSON.Feature) => number,
 	): GeoJSON.FeatureCollection {
-		if (!fc || fc.features.length === 0 || bufferM <= 0) {
+		if (!fc || fc.features.length === 0) {
 			return { type: 'FeatureCollection', features: [] };
 		}
 		const out: GeoJSON.Feature[] = [];
 		for (const f of fc.features) {
+			const m = bufferForFeature(f);
+			if (m <= 0) continue;
 			try {
-				const b = buffer(f as any, bufferM, { units: 'meters' });
+				const b = buffer(f as any, m, { units: 'meters' });
 				if (b) out.push(b as GeoJSON.Feature);
 			} catch {
 				// skip degenerate geometry
@@ -359,8 +374,12 @@
 
 		// Buffer only applies to line sources, not bdot_devices
 		if (source === 'bdot' || source === 'osm') {
-			const bufferM = source === 'bdot' ? bdotLinesBuffer : osmLinesBuffer;
-			const buffered = computeBufferedFC(fc, bufferM);
+			const buffered =
+				source === 'bdot'
+					? computeBufferedFC(fc, () => bdotLinesBuffer)
+					: computeBufferedFC(fc, (f) =>
+							osmBufferForVoltage((f as any)?.properties?.voltage),
+						);
 			// Stash in state so the plot ∩ buffer $derived picks it up.
 			if (source === 'bdot') bdotBufferedFC = buffered;
 			else osmBufferedFC = buffered;
@@ -414,8 +433,11 @@
 		if (bdotLinesVisible) setPowerlineSourceData('bdot');
 	}
 
-	function onOsmBufferChange(v: number) {
-		osmLinesBuffer = v;
+	function onOsmBandChange(band: 30 | 110 | 200 | 400, v: number) {
+		if (band === 30) osmBuffer30 = v;
+		else if (band === 110) osmBuffer110 = v;
+		else if (band === 200) osmBuffer200 = v;
+		else osmBuffer400 = v;
 		if (osmLinesVisible) setPowerlineSourceData('osm');
 	}
 
@@ -1268,27 +1290,29 @@
 								{/if}
 							</label>
 							{#if osmLinesVisible}
-								<div class="ml-6 mb-1">
-									<label class="flex items-center justify-between text-[11px] text-gray-500">
-										<span>Bufor</span>
-										<span>{osmLinesBuffer} m</span>
-									</label>
-									<input
-										type="range" min="0" max="35" step="1"
-										value={osmLinesBuffer}
-										oninput={(e) => onOsmBufferChange(parseInt((e.target as HTMLInputElement).value))}
-										class="h-1 w-full cursor-pointer accent-cyan-600"
-									/>
-									<div class="mt-1 flex gap-1">
-										{#each OSM_BUFFER_PRESETS as p}
-											<button
-												onclick={() => onOsmBufferChange(p)}
-												class="rounded border px-1.5 py-0.5 text-[10px] {osmLinesBuffer === p ? 'border-cyan-500 bg-cyan-50 text-cyan-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}"
-											>
-												{p} m
-											</button>
-										{/each}
+								<div class="ml-6 mb-1 space-y-1.5">
+									<div class="text-[10px] italic text-gray-400">
+										Bufor zależny od napięcia linii (m na stronę)
 									</div>
+									{#each [
+										{ band: 30 as const, label: '≤ 30 kV', value: osmBuffer30 },
+										{ band: 110 as const, label: '30–110 kV', value: osmBuffer110 },
+										{ band: 200 as const, label: '110–200 kV', value: osmBuffer200 },
+										{ band: 400 as const, label: '> 200 kV', value: osmBuffer400 },
+									] as row}
+										<div>
+											<label class="flex items-center justify-between text-[11px] text-gray-500">
+												<span>{row.label}</span>
+												<span>{row.value} m</span>
+											</label>
+											<input
+												type="range" min="0" max="70" step="1"
+												value={row.value}
+												oninput={(e) => onOsmBandChange(row.band, parseInt((e.target as HTMLInputElement).value))}
+												class="h-1 w-full cursor-pointer accent-cyan-600"
+											/>
+										</div>
+									{/each}
 								</div>
 							{/if}
 

@@ -174,7 +174,7 @@ def _fetch_powerlines(
 async def get_plot_powerlines(
     id_dzialki: str,
     source: Source = Query(..., description="bdot | osm | bdot_devices"),
-    buffer_m: int = Query(50, ge=0, le=500, description="Search radius in metres"),
+    buffer_m: int = Query(100, ge=0, le=500, description="Search radius in metres"),
     _user=Depends(require_auth),
 ):
     """GeoJSON FeatureCollection of power lines within `buffer_m` of the plot.
