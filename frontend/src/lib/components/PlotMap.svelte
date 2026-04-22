@@ -82,6 +82,12 @@
 	let osmBuffer110 = $state(15);
 	let osmBuffer200 = $state(25);
 	let osmBuffer400 = $state(35);
+	// Per-band enable flags. Unchecking a band zeroes its buffer (the line
+	// stays visible, the zone disappears and stops counting in the intersection).
+	let osmBand30On = $state(true);
+	let osmBand110On = $state(true);
+	let osmBand200On = $state(true);
+	let osmBand400On = $state(true);
 	let bdotDevicesVisible = $state(false);
 	// Buffered polygon FCs kept in state so a $derived can compute the
 	// plot ∩ buffer intersection area reactively as the slider moves.
@@ -119,12 +125,18 @@
 	// configured in the sliders above. Bands are right-closed (≤): a feature
 	// tagged exactly 110 000 V lives in the 30–110 band, not the 110–200 one.
 	function osmBufferForVoltage(voltageV: number | null | undefined): number {
-		if (voltageV == null || !Number.isFinite(voltageV)) return osmBuffer30;
-		const kV = voltageV / 1000;
-		if (kV <= 30) return osmBuffer30;
-		if (kV <= 110) return osmBuffer110;
-		if (kV <= 200) return osmBuffer200;
-		return osmBuffer400;
+		// NULL / unparseable falls back to the ≤30 kV band.
+		const [on, m] =
+			voltageV == null || !Number.isFinite(voltageV)
+				? [osmBand30On, osmBuffer30]
+				: (voltageV as number) / 1000 <= 30
+					? [osmBand30On, osmBuffer30]
+					: (voltageV as number) / 1000 <= 110
+						? [osmBand110On, osmBuffer110]
+						: (voltageV as number) / 1000 <= 200
+							? [osmBand200On, osmBuffer200]
+							: [osmBand400On, osmBuffer400];
+		return on ? m : 0;
 	}
 
 	const FELT_COLORS = [
@@ -438,6 +450,14 @@
 		else if (band === 110) osmBuffer110 = v;
 		else if (band === 200) osmBuffer200 = v;
 		else osmBuffer400 = v;
+		if (osmLinesVisible) setPowerlineSourceData('osm');
+	}
+
+	function onOsmBandToggle(band: 30 | 110 | 200 | 400, on: boolean) {
+		if (band === 30) osmBand30On = on;
+		else if (band === 110) osmBand110On = on;
+		else if (band === 200) osmBand200On = on;
+		else osmBand400On = on;
 		if (osmLinesVisible) setPowerlineSourceData('osm');
 	}
 
@@ -1295,21 +1315,30 @@
 										Bufor zależny od napięcia linii (m na stronę)
 									</div>
 									{#each [
-										{ band: 30 as const, label: '≤ 30 kV', value: osmBuffer30 },
-										{ band: 110 as const, label: '30–110 kV', value: osmBuffer110 },
-										{ band: 200 as const, label: '110–200 kV', value: osmBuffer200 },
-										{ band: 400 as const, label: '> 200 kV', value: osmBuffer400 },
+										{ band: 30 as const, label: '≤ 30 kV', value: osmBuffer30, on: osmBand30On },
+										{ band: 110 as const, label: '30–110 kV', value: osmBuffer110, on: osmBand110On },
+										{ band: 200 as const, label: '110–200 kV', value: osmBuffer200, on: osmBand200On },
+										{ band: 400 as const, label: '> 200 kV', value: osmBuffer400, on: osmBand400On },
 									] as row}
 										<div>
-											<label class="flex items-center justify-between text-[11px] text-gray-500">
-												<span>{row.label}</span>
-												<span>{row.value} m</span>
-											</label>
+											<div class="flex items-center justify-between text-[11px] text-gray-500">
+												<label class="flex cursor-pointer items-center gap-1.5">
+													<input
+														type="checkbox"
+														checked={row.on}
+														onchange={(e) => onOsmBandToggle(row.band, (e.target as HTMLInputElement).checked)}
+														class="h-3 w-3 accent-cyan-600"
+													/>
+													<span class={row.on ? '' : 'text-gray-300 line-through'}>{row.label}</span>
+												</label>
+												<span class={row.on ? '' : 'text-gray-300'}>{row.value} m</span>
+											</div>
 											<input
 												type="range" min="0" max="70" step="1"
 												value={row.value}
+												disabled={!row.on}
 												oninput={(e) => onOsmBandChange(row.band, parseInt((e.target as HTMLInputElement).value))}
-												class="h-1 w-full cursor-pointer accent-cyan-600"
+												class="h-1 w-full cursor-pointer accent-cyan-600 disabled:cursor-not-allowed disabled:opacity-40"
 											/>
 										</div>
 									{/each}
