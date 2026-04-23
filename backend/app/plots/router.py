@@ -230,45 +230,6 @@ def _fetch_plot_centroid_2180(id_dzialki: str) -> tuple[float, float] | None:
         conn.close()
 
 
-def _nearest_lot_ids_from_gruntomat(
-    cx: float, cy: float, radius_m: int = 10000, limit: int = 500
-) -> list[tuple[str, float, float, float]]:
-    """Ask gruntomat for id_dzialki within a radius of (cx, cy) in EPSG:2180.
-
-    Returns list of (id_dzialki, distance_m, lng, lat). Ordered by
-    distance ascending. The spatial index on ``centroid`` keeps this fast
-    even for 39M-row lots_enriched. lng/lat come back already transformed
-    to WGS84 so the caller doesn't need a second roundtrip.
-    """
-    conn = psycopg2.connect(
-        host=settings.geo_db_host,
-        port=settings.geo_db_port,
-        dbname=settings.geo_db_name,
-        user=settings.geo_db_user,
-        password=settings.geo_db_password,
-        connect_timeout=10,
-    )
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT id_dzialki,
-                       ST_Distance(centroid, ST_SetSRID(ST_MakePoint(%s, %s), 2180)) AS d,
-                       ST_X(ST_Transform(centroid, 4326)) AS lng,
-                       ST_Y(ST_Transform(centroid, 4326)) AS lat
-                FROM lots_enriched
-                WHERE centroid IS NOT NULL
-                  AND ST_DWithin(centroid, ST_SetSRID(ST_MakePoint(%s, %s), 2180), %s)
-                ORDER BY centroid <-> ST_SetSRID(ST_MakePoint(%s, %s), 2180)
-                LIMIT %s
-                """,
-                (cx, cy, cx, cy, radius_m, cx, cy, limit),
-            )
-            return [(r[0], r[1], r[2], r[3]) for r in cur.fetchall()]
-    finally:
-        conn.close()
-
-
 def _fetch_nearest_transactions(
     cx: float,
     cy: float,
@@ -276,50 +237,37 @@ def _fetch_nearest_transactions(
     type_filter: str = "all",
     include_outliers: bool = False,
 ) -> list[dict]:
-    """Find nearest land transactions by Euclidean distance in EPSG:2180.
+    """Nearest land transactions, joined across DBs via postgres_fdw.
 
-    The sqlite source we loaded from ships centroids in per-województwo
-    local CRSes, so cx_2180/cy_2180 in transakcje are unreliable. Instead
-    we ask gruntomat for the nearest id_dzialki (indexed by a proper 2180
-    centroid), then pull transactions only for those ids.
+    The sqlite source ships centroids in per-województwo local CRSes, so
+    transakcje_gruntowe.cx_2180/cy_2180 are garbage. Instead we JOIN to
+    ``lots_enriched`` (a foreign table imported from gruntomat via
+    postgres_fdw in setup_transakcje_fdw.py) and get distance + lng/lat
+    from its properly-indexed EPSG:2180 centroid column.
 
     ``type_filter``:
         - ``"all"``:      everything (default)
-        - ``"gruntowe"``: only land plots (rodzaj_nieruchomosci IN 1,2
-                          → niezabudowana / zabudowana)
+        - ``"gruntowe"``: only land plots (rodzaj_nieruchomosci IN 1,2)
         - ``"inne"``:     everything that isn't a plain land plot
-                          (budynkowa, lokalowa, nieznane)
 
-    ``include_outliers`` — when False (default) the upstream RCN cleanup
-    flags (outlier=1 OR do_wyceny=0) are hidden. When True, everything
-    comes through and the frontend badges them.
+    ``include_outliers`` — False (default) hides outlier=1 / do_wyceny=0
+    rows. True lets them through so the UI can badge them.
     """
-    # Step 1 — find nearby id_dzialki in gruntomat (≤10 km, 500 candidates).
-    # 10 km gives enough headroom that we'll have transactions after the
-    # type/outlier filter. If the plot is in the middle of nowhere we just
-    # return fewer rows — no worse than before.
-    neighbours = _nearest_lot_ids_from_gruntomat(cx, cy, radius_m=10000, limit=2000)
-    if not neighbours:
-        return []
-    # id_dzialki → (distance_m, lng, lat) — all we need to enrich tx rows.
-    id_to_meta: dict[str, tuple[float, float, float]] = {
-        n[0]: (n[1], n[2], n[3]) for n in neighbours
-    }
-    ids = list(id_to_meta.keys())
-
     if type_filter == "gruntowe":
-        type_sql = " AND rodzaj_nieruchomosci IN (1, 2)"
+        type_sql = " AND t.rodzaj_nieruchomosci IN (1, 2)"
     elif type_filter == "inne":
-        type_sql = " AND (rodzaj_nieruchomosci NOT IN (1, 2) OR rodzaj_nieruchomosci IS NULL)"
+        type_sql = (
+            " AND (t.rodzaj_nieruchomosci NOT IN (1, 2) "
+            " OR t.rodzaj_nieruchomosci IS NULL)"
+        )
     else:
         type_sql = ""
-    if include_outliers:
-        outlier_sql = ""
-    else:
-        outlier_sql = (
-            " AND COALESCE(outlier, 0) = 0"
-            " AND COALESCE(do_wyceny, 1) = 1"
-        )
+    outlier_sql = (
+        ""
+        if include_outliers
+        else " AND COALESCE(t.outlier, 0) = 0"
+             " AND COALESCE(t.do_wyceny, 1) = 1"
+    )
 
     conn = psycopg2.connect(
         host=settings.transakcje_db_host,
@@ -333,64 +281,56 @@ def _fetch_nearest_transactions(
         with conn.cursor() as cur:
             cur.execute(
                 f"""
-                SELECT id, teryt, wojewodztwo, id_dzialki,
-                    data_transakcji, rok, oznaczenie_dokumentu, tworca_dokumentu,
-                    cena_transakcji, cena_nieruchomosci, cena_dzialki, cena_do_analizy,
-                    kwota_vat, liczba_dzialek_w_transakcji,
-                    powierzchnia_m2, powierzchnia_nieruchomosci_ha, cena_za_m2,
-                    rodzaj_nieruchomosci, rodzaj_rynku, rodzaj_transakcji, rodzaj_prawa,
-                    udzial_w_prawie, sposob_uzytkowania, przeznaczenie_mpzp,
-                    strona_kupujaca, strona_sprzedajaca,
-                    miejscowosc, ulica, numer_porzadkowy,
-                    dodatkowe_informacje,
-                    segment_rynku, outlier, do_wyceny, jakosc_ceny
-                FROM transakcje_gruntowe
-                WHERE id_dzialki = ANY(%s) AND cena_transakcji > 0
-                {type_sql}
-                {outlier_sql}
+                WITH pt AS (
+                    SELECT ST_SetSRID(ST_MakePoint(%s, %s), 2180) AS g
+                )
+                SELECT t.id, t.teryt, t.wojewodztwo, t.id_dzialki,
+                    t.data_transakcji, t.rok, t.oznaczenie_dokumentu, t.tworca_dokumentu,
+                    t.cena_transakcji, t.cena_nieruchomosci, t.cena_dzialki, t.cena_do_analizy,
+                    t.kwota_vat, t.liczba_dzialek_w_transakcji,
+                    t.powierzchnia_m2, t.powierzchnia_nieruchomosci_ha, t.cena_za_m2,
+                    t.rodzaj_nieruchomosci, t.rodzaj_rynku, t.rodzaj_transakcji, t.rodzaj_prawa,
+                    t.udzial_w_prawie, t.sposob_uzytkowania, t.przeznaczenie_mpzp,
+                    t.strona_kupujaca, t.strona_sprzedajaca,
+                    t.miejscowosc, t.ulica, t.numer_porzadkowy,
+                    t.dodatkowe_informacje,
+                    t.segment_rynku, t.outlier, t.do_wyceny, t.jakosc_ceny,
+                    ST_X(ST_Transform(le.centroid, 4326)) AS lng,
+                    ST_Y(ST_Transform(le.centroid, 4326)) AS lat,
+                    ST_Distance(le.centroid, (SELECT g FROM pt)) AS distance_m
+                FROM transakcje_gruntowe t
+                JOIN lots_enriched le USING (id_dzialki)
+                WHERE le.centroid IS NOT NULL
+                  AND ST_DWithin(le.centroid, (SELECT g FROM pt), 10000)
+                  AND t.cena_transakcji > 0
+                  {type_sql}
+                  {outlier_sql}
+                ORDER BY ST_Distance(le.centroid, (SELECT g FROM pt))
+                LIMIT %s
                 """,
-                (ids,),
+                (cx, cy, limit),
             )
             columns = [desc[0] for desc in cur.description]
             rows = cur.fetchall()
 
-        # Enrich with distance + lng/lat from the gruntomat-side query
-        # (transakcje centroid columns are garbage per-województwo CRSes).
         results: list[dict] = []
         for row in rows:
             d = dict(zip(columns, row))
-            id_d = d.get("id_dzialki")
-            meta = id_to_meta.get(id_d) if id_d else None
-            if meta is None:
-                continue
-            distance, lng, lat = meta
-            d["distance_m"] = round(distance, 1)
-            d["lng"] = lng
-            d["lat"] = lat
+            if d.get("distance_m") is not None:
+                d["distance_m"] = round(d["distance_m"], 1)
             for key in ("data_transakcji",):
                 if d.get(key) is not None and not isinstance(d[key], str):
                     d[key] = str(d[key])
             results.append(d)
-
-        # Sort by distance and cap to the user-requested limit.
-        results.sort(key=lambda r: r.get("distance_m") or float("inf"))
-        return results[:limit]
+        return results
     finally:
         conn.close()
 
 
 def _fetch_transaction_stats(cx: float, cy: float, limit: int = 300) -> list[dict]:
-    """Lightweight query for charts: just distance, date, price/m². No heavy text fields.
-
-    Same cross-DB pattern as _fetch_nearest_transactions: gruntomat picks
-    nearby id_dzialki, transakcje DB fills in date/price.
+    """Lightweight chart data: distance + date + price/m². One SQL query
+    spanning transakcje_gruntowe × (foreign) lots_enriched via FDW.
     """
-    neighbours = _nearest_lot_ids_from_gruntomat(cx, cy, radius_m=20000, limit=5000)
-    if not neighbours:
-        return []
-    id_to_distance: dict[str, float] = {n[0]: n[1] for n in neighbours}
-    ids = list(id_to_distance.keys())
-
     conn = psycopg2.connect(
         host=settings.transakcje_db_host,
         port=settings.transakcje_db_port,
@@ -403,29 +343,33 @@ def _fetch_transaction_stats(cx: float, cy: float, limit: int = 300) -> list[dic
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id_dzialki, data_transakcji, cena_za_m2
-                FROM transakcje_gruntowe
-                WHERE id_dzialki = ANY(%s)
-                  AND cena_za_m2 IS NOT NULL
-                  AND cena_za_m2 > 0
+                WITH pt AS (
+                    SELECT ST_SetSRID(ST_MakePoint(%s, %s), 2180) AS g
+                )
+                SELECT t.data_transakcji,
+                       t.cena_za_m2,
+                       ST_Distance(le.centroid, (SELECT g FROM pt)) AS distance_m
+                FROM transakcje_gruntowe t
+                JOIN lots_enriched le USING (id_dzialki)
+                WHERE le.centroid IS NOT NULL
+                  AND ST_DWithin(le.centroid, (SELECT g FROM pt), 20000)
+                  AND t.cena_za_m2 IS NOT NULL
+                  AND t.cena_za_m2 > 0
+                ORDER BY ST_Distance(le.centroid, (SELECT g FROM pt))
+                LIMIT %s
                 """,
-                (ids,),
+                (cx, cy, limit),
             )
-            rows = cur.fetchall()
-        results: list[dict] = []
-        for id_d, date, price in rows:
-            d = id_to_distance.get(id_d)
-            if d is None:
-                continue
-            if date is not None and not isinstance(date, str):
-                date = str(date)
-            results.append({
-                "date": date,
-                "price_per_m2": float(price),
-                "distance_m": round(d, 1),
-            })
-        results.sort(key=lambda r: r["distance_m"] if r["distance_m"] is not None else float("inf"))
-        return results[:limit]
+            results = []
+            for date, price, d in cur.fetchall():
+                if date is not None and not isinstance(date, str):
+                    date = str(date)
+                results.append({
+                    "date": date,
+                    "price_per_m2": float(price),
+                    "distance_m": round(d, 1) if d is not None else None,
+                })
+            return results
     finally:
         conn.close()
 
