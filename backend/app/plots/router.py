@@ -237,13 +237,15 @@ def _fetch_nearest_transactions(
     type_filter: str = "all",
     include_outliers: bool = False,
 ) -> list[dict]:
-    """Nearest land transactions, joined across DBs via postgres_fdw.
+    """Nearest land transactions, joined across DBs in a single SQL round trip.
 
     The sqlite source ships centroids in per-województwo local CRSes, so
-    transakcje_gruntowe.cx_2180/cy_2180 are garbage. Instead we JOIN to
-    ``lots_enriched`` (a foreign table imported from gruntomat via
-    postgres_fdw in setup_transakcje_fdw.py) and get distance + lng/lat
-    from its properly-indexed EPSG:2180 centroid column.
+    transakcje_gruntowe.cx_2180/cy_2180 are garbage. We use ``dblink``
+    instead of a plain postgres_fdw JOIN because postgres_fdw can't push
+    PostGIS's KNN ``<->`` operator — without it the foreign scan has to
+    fetch every lot in the ring and sort locally (~30 s). ``dblink``
+    lets gruntomat run the full KNN + LIMIT against its GiST index
+    (~1 s) and returns only the 500 closest candidates.
 
     ``type_filter``:
         - ``"all"``:      everything (default)
@@ -269,6 +271,24 @@ def _fetch_nearest_transactions(
              " AND COALESCE(t.do_wyceny, 1) = 1"
     )
 
+    # dblink's query argument is a text string executed literally on the
+    # foreign side, so we can't use psycopg2 parameters inside it. cx/cy
+    # come from PostGIS on our own gruntomat centroid lookup — coerce to
+    # plain floats and inline.
+    cx_f = float(cx)
+    cy_f = float(cy)
+    remote_sql = (
+        "SELECT id_dzialki,"
+        f" ST_Distance(centroid, ST_SetSRID(ST_MakePoint({cx_f}, {cy_f}), 2180)),"
+        " ST_X(ST_Transform(centroid, 4326)),"
+        " ST_Y(ST_Transform(centroid, 4326))"
+        " FROM lots_enriched"
+        " WHERE centroid IS NOT NULL"
+        f" AND ST_DWithin(centroid, ST_SetSRID(ST_MakePoint({cx_f}, {cy_f}), 2180), 10000)"
+        f" ORDER BY centroid <-> ST_SetSRID(ST_MakePoint({cx_f}, {cy_f}), 2180)"
+        " LIMIT 500"
+    )
+
     conn = psycopg2.connect(
         host=settings.transakcje_db_host,
         port=settings.transakcje_db_port,
@@ -281,8 +301,10 @@ def _fetch_nearest_transactions(
         with conn.cursor() as cur:
             cur.execute(
                 f"""
-                WITH pt AS (
-                    SELECT ST_SetSRID(ST_MakePoint(%s, %s), 2180) AS g
+                WITH nearest AS (
+                    SELECT * FROM dblink('gruntomat_fdw', %s)
+                    AS x(id_dzialki text, distance_m double precision,
+                         lng double precision, lat double precision)
                 )
                 SELECT t.id, t.teryt, t.wojewodztwo, t.id_dzialki,
                     t.data_transakcji, t.rok, t.oznaczenie_dokumentu, t.tworca_dokumentu,
@@ -295,20 +317,16 @@ def _fetch_nearest_transactions(
                     t.miejscowosc, t.ulica, t.numer_porzadkowy,
                     t.dodatkowe_informacje,
                     t.segment_rynku, t.outlier, t.do_wyceny, t.jakosc_ceny,
-                    ST_X(ST_Transform(le.centroid, 4326)) AS lng,
-                    ST_Y(ST_Transform(le.centroid, 4326)) AS lat,
-                    ST_Distance(le.centroid, (SELECT g FROM pt)) AS distance_m
+                    n.lng, n.lat, n.distance_m
                 FROM transakcje_gruntowe t
-                JOIN lots_enriched le USING (id_dzialki)
-                WHERE le.centroid IS NOT NULL
-                  AND ST_DWithin(le.centroid, (SELECT g FROM pt), 10000)
-                  AND t.cena_transakcji > 0
+                JOIN nearest n USING (id_dzialki)
+                WHERE t.cena_transakcji > 0
                   {type_sql}
                   {outlier_sql}
-                ORDER BY ST_Distance(le.centroid, (SELECT g FROM pt))
+                ORDER BY n.distance_m
                 LIMIT %s
                 """,
-                (cx, cy, limit),
+                (remote_sql, limit),
             )
             columns = [desc[0] for desc in cur.description]
             rows = cur.fetchall()
@@ -328,9 +346,21 @@ def _fetch_nearest_transactions(
 
 
 def _fetch_transaction_stats(cx: float, cy: float, limit: int = 300) -> list[dict]:
-    """Lightweight chart data: distance + date + price/m². One SQL query
-    spanning transakcje_gruntowe × (foreign) lots_enriched via FDW.
+    """Lightweight chart data: distance + date + price/m². Same dblink
+    pattern as _fetch_nearest_transactions — KNN runs on gruntomat.
     """
+    cx_f = float(cx)
+    cy_f = float(cy)
+    remote_sql = (
+        "SELECT id_dzialki,"
+        f" ST_Distance(centroid, ST_SetSRID(ST_MakePoint({cx_f}, {cy_f}), 2180))"
+        " FROM lots_enriched"
+        " WHERE centroid IS NOT NULL"
+        f" AND ST_DWithin(centroid, ST_SetSRID(ST_MakePoint({cx_f}, {cy_f}), 2180), 20000)"
+        f" ORDER BY centroid <-> ST_SetSRID(ST_MakePoint({cx_f}, {cy_f}), 2180)"
+        " LIMIT 2000"
+    )
+
     conn = psycopg2.connect(
         host=settings.transakcje_db_host,
         port=settings.transakcje_db_port,
@@ -343,22 +373,19 @@ def _fetch_transaction_stats(cx: float, cy: float, limit: int = 300) -> list[dic
         with conn.cursor() as cur:
             cur.execute(
                 """
-                WITH pt AS (
-                    SELECT ST_SetSRID(ST_MakePoint(%s, %s), 2180) AS g
+                WITH nearest AS (
+                    SELECT * FROM dblink('gruntomat_fdw', %s)
+                    AS x(id_dzialki text, distance_m double precision)
                 )
-                SELECT t.data_transakcji,
-                       t.cena_za_m2,
-                       ST_Distance(le.centroid, (SELECT g FROM pt)) AS distance_m
+                SELECT t.data_transakcji, t.cena_za_m2, n.distance_m
                 FROM transakcje_gruntowe t
-                JOIN lots_enriched le USING (id_dzialki)
-                WHERE le.centroid IS NOT NULL
-                  AND ST_DWithin(le.centroid, (SELECT g FROM pt), 20000)
-                  AND t.cena_za_m2 IS NOT NULL
+                JOIN nearest n USING (id_dzialki)
+                WHERE t.cena_za_m2 IS NOT NULL
                   AND t.cena_za_m2 > 0
-                ORDER BY ST_Distance(le.centroid, (SELECT g FROM pt))
+                ORDER BY n.distance_m
                 LIMIT %s
                 """,
-                (cx, cy, limit),
+                (remote_sql, limit),
             )
             results = []
             for date, price, d in cur.fetchall():
