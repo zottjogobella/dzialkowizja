@@ -277,6 +277,10 @@ def _fetch_nearest_transactions(
     # plain floats and inline.
     cx_f = float(cx)
     cy_f = float(cy)
+    # 2000 is a compromise: large-city lots (Kraków) have a transaction in
+    # almost every nearest-500 neighbour, but a rural plot's 500 nearest
+    # might all be unsold forest — we'd then miss farther transactions.
+    # 2000 keeps rural queries non-empty without blowing remote latency.
     remote_sql = (
         "SELECT id_dzialki,"
         f" ST_Distance(centroid, ST_SetSRID(ST_MakePoint({cx_f}, {cy_f}), 2180)),"
@@ -286,7 +290,7 @@ def _fetch_nearest_transactions(
         " WHERE centroid IS NOT NULL"
         f" AND ST_DWithin(centroid, ST_SetSRID(ST_MakePoint({cx_f}, {cy_f}), 2180), 10000)"
         f" ORDER BY centroid <-> ST_SetSRID(ST_MakePoint({cx_f}, {cy_f}), 2180)"
-        " LIMIT 500"
+        " LIMIT 2000"
     )
 
     conn = psycopg2.connect(
