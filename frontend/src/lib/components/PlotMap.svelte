@@ -1430,7 +1430,7 @@
 					{/if}
 					{#if roszczenieRow.no_kw_in_sheet}
 						<div class="flex items-start gap-3 rounded-lg border border-red-200 bg-white px-3.5 py-3">
-							<span class="flag-badge flag-badge--no-kw shrink-0" aria-hidden="true">KW</span>
+							<span class="flag-badge flag-badge--no-kw shrink-0" aria-hidden="true">Brak KW</span>
 							<div>
 								<div class="text-sm font-semibold text-gray-900">Brak numeru KW</div>
 								<div class="mt-0.5 text-xs text-gray-600">W arkuszu nie odnaleziono księgi wieczystej dla tej działki.</div>

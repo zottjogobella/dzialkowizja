@@ -198,7 +198,7 @@
 									<span class="flag-badge flag-badge--state" title="Skarb Państwa wśród właścicieli">P</span>
 								{/if}
 								{#if suggestion.no_kw_in_sheet}
-									<span class="flag-badge flag-badge--no-kw" title="Brak numeru KW w arkuszu">KW</span>
+									<span class="flag-badge flag-badge--no-kw" title="Brak numeru KW w arkuszu">Brak KW</span>
 								{/if}
 							</span>
 						{/if}
