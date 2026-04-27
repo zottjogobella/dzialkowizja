@@ -10,6 +10,7 @@
 		area as turfArea,
 		union,
 		featureCollection,
+		booleanIntersects,
 	} from '@turf/turf';
 	import type { Transaction, Listing, Investment } from '$lib/types/plot';
 	import {
@@ -124,21 +125,82 @@
 	let listingPinsVisible = $state(false);
 	let invPinsVisible = $state(false);
 
-	// Maps an OSM voltage (in volts, from p.voltage numeric) to the band buffer
-	// configured in the sliders above. Bands are right-closed (≤): a feature
-	// tagged exactly 110 000 V lives in the 30–110 band, not the 110–200 one.
+	// Per-band colors used both by map paint expressions and the legend
+	// swatches in the controls panel. Keys match the `voltage_band` feature
+	// property set in annotateOsmFeatures().
+	type OsmBand = '30' | '110' | '200' | '400';
+	const OSM_BAND_COLORS: Record<OsmBand, string> = {
+		'30': '#65a30d',   // ≤ 30 kV — lime
+		'110': '#0891b2',  // 30–110 kV — cyan
+		'200': '#ea580c',  // 110–200 kV — orange
+		'400': '#b91c1c',  // > 200 kV — red
+	};
+
+	// Bands are right-closed (≤): a feature tagged exactly 110 000 V lives
+	// in the 30–110 band, not the 110–200 one. NULL/unparseable → ≤30 band.
+	function osmVoltageBand(voltageV: number | null | undefined): OsmBand {
+		if (voltageV == null || !Number.isFinite(voltageV)) return '30';
+		const kv = (voltageV as number) / 1000;
+		if (kv <= 30) return '30';
+		if (kv <= 110) return '110';
+		if (kv <= 200) return '200';
+		return '400';
+	}
+
+	// Pretty-print voltage for line labels. Uses the parsed numeric value
+	// when available (so "110000" → "110 kV"), otherwise falls back to the
+	// raw OSM tag value.
+	function osmVoltageLabel(
+		voltageV: number | null | undefined,
+		voltageRaw: string | null | undefined,
+	): string {
+		if (voltageV != null && Number.isFinite(voltageV)) {
+			const kv = (voltageV as number) / 1000;
+			if (kv >= 1) {
+				const rounded = Number.isInteger(kv) ? kv.toString() : kv.toFixed(1);
+				return `${rounded} kV`;
+			}
+			return `${Math.round(voltageV as number)} V`;
+		}
+		return voltageRaw ?? '';
+	}
+
+	// Adds `voltage_band` and `voltage_label` properties to each OSM line so
+	// MapLibre paint expressions and the symbol layer can read them
+	// directly. Turf's buffer() preserves properties, so the buffered FC
+	// inherits these without extra wiring.
+	function annotateOsmFeatures(
+		fc: GeoJSON.FeatureCollection,
+	): GeoJSON.FeatureCollection {
+		return {
+			type: 'FeatureCollection',
+			features: fc.features.map((f) => {
+				const props = (f.properties ?? {}) as any;
+				return {
+					...f,
+					properties: {
+						...props,
+						voltage_band: osmVoltageBand(props.voltage),
+						voltage_label: osmVoltageLabel(props.voltage, props.voltage_raw),
+					},
+				};
+			}),
+		};
+	}
+
+	// Maps an OSM voltage to the band buffer in metres configured in the
+	// sliders above. Returns 0 when the band is unchecked, which makes the
+	// buffer disappear and stops counting in the intersection.
 	function osmBufferForVoltage(voltageV: number | null | undefined): number {
-		// NULL / unparseable falls back to the ≤30 kV band.
+		const band = osmVoltageBand(voltageV);
 		const [on, m] =
-			voltageV == null || !Number.isFinite(voltageV)
+			band === '30'
 				? [osmBand30On, osmBuffer30]
-				: (voltageV as number) / 1000 <= 30
-					? [osmBand30On, osmBuffer30]
-					: (voltageV as number) / 1000 <= 110
-						? [osmBand110On, osmBuffer110]
-						: (voltageV as number) / 1000 <= 200
-							? [osmBand200On, osmBuffer200]
-							: [osmBand400On, osmBuffer400];
+				: band === '110'
+					? [osmBand110On, osmBuffer110]
+					: band === '200'
+						? [osmBand200On, osmBuffer200]
+						: [osmBand400On, osmBuffer400];
 		return on ? m : 0;
 	}
 
@@ -277,7 +339,8 @@
 		try {
 			// Fetch within a generous radius so slider changes don't require refetch
 			const fc = await getPlotPowerlines(idDzialki, source, 500);
-			powerlineFeatures[source] = fc;
+			powerlineFeatures[source] =
+				source === 'osm' ? annotateOsmFeatures(fc) : fc;
 		} catch (e) {
 			console.error('Failed to fetch powerlines', source, e);
 			powerlineFeatures[source] = { type: 'FeatureCollection', features: [] };
@@ -418,7 +481,7 @@
 		const vis = visible ? 'visible' : 'none';
 		const layers = {
 			bdot: ['pl-bdot-buffer-fill', 'pl-bdot-line'],
-			osm: ['pl-osm-buffer-fill', 'pl-osm-line'],
+			osm: ['pl-osm-buffer-fill', 'pl-osm-line', 'pl-osm-line-label'],
 			bdot_devices: ['pl-bdot_devices-point', 'pl-bdot_devices-poly-fill', 'pl-bdot_devices-poly-outline'],
 		}[source];
 		for (const id of layers) {
@@ -435,10 +498,51 @@
 		setPowerlineVisibility('bdot', bdotLinesVisible);
 	}
 
+	// True once we've auto-checked the OSM bands for the current parcel —
+	// resets when the user navigates to a different działka (effect below)
+	// so each parcel gets its own auto-detection. Manual band toggles after
+	// auto-apply stick because we only re-detect on the first activation.
+	let osmBandsAutoApplied = $state(false);
+
+	// Returns which voltage bands have at least one OSM line whose geometry
+	// passes through the parcel polygon. Used to seed the band checkboxes
+	// so the claim calculator only counts strefy ochronne for lines that
+	// actually cross the plot.
+	function detectIntersectingOsmBands(
+		fc: GeoJSON.FeatureCollection | null,
+	): Record<OsmBand, boolean> {
+		const result: Record<OsmBand, boolean> = { '30': false, '110': false, '200': false, '400': false };
+		const plot = plotAsFeature();
+		if (!plot || !fc) return result;
+		for (const f of fc.features) {
+			try {
+				if (!booleanIntersects(plot as any, f as any)) continue;
+			} catch {
+				continue;
+			}
+			const band = ((f.properties as any)?.voltage_band ?? '30') as OsmBand;
+			result[band] = true;
+		}
+		return result;
+	}
+
 	async function toggleOsmLines() {
 		osmLinesVisible = !osmLinesVisible;
 		if (osmLinesVisible) {
 			await ensurePowerlines('osm');
+			if (!osmBandsAutoApplied) {
+				const hit = detectIntersectingOsmBands(powerlineFeatures.osm);
+				// Only narrow the bands when at least one line crosses the
+				// parcel — otherwise leave defaults so the user still sees
+				// nearby lines' buffers if any are within the fetch radius.
+				if (hit['30'] || hit['110'] || hit['200'] || hit['400']) {
+					osmBand30On = hit['30'];
+					osmBand110On = hit['110'];
+					osmBand200On = hit['200'];
+					osmBand400On = hit['400'];
+				}
+				osmBandsAutoApplied = true;
+			}
 			setPowerlineSourceData('osm');
 		}
 		setPowerlineVisibility('osm', osmLinesVisible);
@@ -823,18 +927,52 @@
 						paint: { 'line-color': '#c53030', 'line-width': 2.5 },
 					});
 
-					// OSM lines + buffer
+					// OSM lines + buffer. Color is data-driven on `voltage_band`
+					// so each voltage class gets its own hue (annotated in
+					// annotateOsmFeatures()). Fallback colour matches the ≤30 kV
+					// band — same band that osmVoltageBand() uses for unparseable
+					// voltages, so legend and map stay consistent.
+					const osmBandColorExpr: any = [
+						'match', ['get', 'voltage_band'],
+						'30', OSM_BAND_COLORS['30'],
+						'110', OSM_BAND_COLORS['110'],
+						'200', OSM_BAND_COLORS['200'],
+						'400', OSM_BAND_COLORS['400'],
+						OSM_BAND_COLORS['30'],
+					];
 					map.addSource('pl-osm', { type: 'geojson', data: empty });
 					map.addSource('pl-osm-buffer', { type: 'geojson', data: empty });
 					map.addLayer({
 						id: 'pl-osm-buffer-fill', type: 'fill', source: 'pl-osm-buffer',
 						layout: { visibility: 'none' },
-						paint: { 'fill-color': '#06b6d4', 'fill-opacity': 0.22 },
+						paint: { 'fill-color': osmBandColorExpr, 'fill-opacity': 0.22 },
 					});
 					map.addLayer({
 						id: 'pl-osm-line', type: 'line', source: 'pl-osm',
 						layout: { visibility: 'none', 'line-cap': 'round', 'line-join': 'round' },
-						paint: { 'line-color': '#0e7490', 'line-width': 2.5, 'line-dasharray': [2, 1] },
+						paint: { 'line-color': osmBandColorExpr, 'line-width': 2.5, 'line-dasharray': [2, 1] },
+					});
+					// Voltage labels along each line (e.g. "110 kV"). Uses
+					// symbol-placement: line so the text follows the line's
+					// curvature; symbol-spacing prevents stacking on long runs.
+					map.addLayer({
+						id: 'pl-osm-line-label', type: 'symbol', source: 'pl-osm',
+						layout: {
+							visibility: 'none',
+							'symbol-placement': 'line',
+							'symbol-spacing': 220,
+							'text-field': ['get', 'voltage_label'],
+							'text-size': 11,
+							'text-font': ['Noto Sans Regular'],
+							'text-keep-upright': true,
+							'text-allow-overlap': false,
+							'text-ignore-placement': false,
+						},
+						paint: {
+							'text-color': osmBandColorExpr,
+							'text-halo-color': '#ffffff',
+							'text-halo-width': 1.6,
+						},
 					});
 
 					// BDOT point devices (mix of Point + Polygon)
@@ -975,6 +1113,16 @@
 		if (buildings.features.length > 0) {
 			addBuildingsLayers(map, buildings);
 		}
+	});
+
+	// Reset per-parcel cache and the OSM auto-band-detection flag when the
+	// user navigates to a different działka — otherwise they'd see the old
+	// parcel's lines and the auto-detection would skip (or use stale data).
+	$effect(() => {
+		idDzialki;
+		osmBandsAutoApplied = false;
+		powerlineFeatures = { bdot: null, osm: null, bdot_devices: null };
+		powerlineLoading = { bdot: false, osm: false, bdot_devices: false };
 	});
 
 	// Keep pin sources in sync when transactions / listings / investments
@@ -1340,7 +1488,12 @@
 							{#if !hidden('map.layer.powerlines.osm')}
 							<label class="mt-1 flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={osmLinesVisible} onchange={toggleOsmLines} class="accent-cyan-600" />
-								<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#0e7490"></span>
+								<span class="inline-flex h-2.5 w-2.5 overflow-hidden rounded-sm" title="Kolory zależne od napięcia">
+									<span class="h-full w-1/4" style="background:{OSM_BAND_COLORS['30']}"></span>
+									<span class="h-full w-1/4" style="background:{OSM_BAND_COLORS['110']}"></span>
+									<span class="h-full w-1/4" style="background:{OSM_BAND_COLORS['200']}"></span>
+									<span class="h-full w-1/4" style="background:{OSM_BAND_COLORS['400']}"></span>
+								</span>
 								<span class="flex-1">OSM</span>
 								{#if powerlineLoading.osm}
 									<span class="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600"></span>
@@ -1352,10 +1505,10 @@
 										Bufor zależny od napięcia linii (m na stronę)
 									</div>
 									{#each [
-										{ band: 30 as const, label: '≤ 30 kV', value: osmBuffer30, on: osmBand30On },
-										{ band: 110 as const, label: '30–110 kV', value: osmBuffer110, on: osmBand110On },
-										{ band: 200 as const, label: '110–200 kV', value: osmBuffer200, on: osmBand200On },
-										{ band: 400 as const, label: '> 200 kV', value: osmBuffer400, on: osmBand400On },
+										{ band: 30 as const, key: '30' as OsmBand, label: '≤ 30 kV', value: osmBuffer30, on: osmBand30On },
+										{ band: 110 as const, key: '110' as OsmBand, label: '30–110 kV', value: osmBuffer110, on: osmBand110On },
+										{ band: 200 as const, key: '200' as OsmBand, label: '110–200 kV', value: osmBuffer200, on: osmBand200On },
+										{ band: 400 as const, key: '400' as OsmBand, label: '> 200 kV', value: osmBuffer400, on: osmBand400On },
 									] as row}
 										<div>
 											<div class="flex items-center justify-between text-[11px] text-gray-500">
@@ -1366,6 +1519,11 @@
 														onchange={(e) => onOsmBandToggle(row.band, (e.target as HTMLInputElement).checked)}
 														class="h-3 w-3 accent-cyan-600"
 													/>
+													<span
+														class="inline-block h-2 w-2 rounded-sm"
+														style="background:{OSM_BAND_COLORS[row.key]}"
+														class:opacity-30={!row.on}
+													></span>
 													<span class={row.on ? '' : 'text-gray-300 line-through'}>{row.label}</span>
 												</label>
 												<span class={row.on ? '' : 'text-gray-300'}>{row.value} m</span>
@@ -1525,7 +1683,12 @@
 							{#if osmLinesVisible}
 								<div>
 									<div class="flex items-center gap-2 text-gray-600">
-										<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#0e7490"></span>
+										<span class="inline-flex h-2.5 w-2.5 overflow-hidden rounded-sm">
+											<span class="h-full w-1/4" style="background:{OSM_BAND_COLORS['30']}"></span>
+											<span class="h-full w-1/4" style="background:{OSM_BAND_COLORS['110']}"></span>
+											<span class="h-full w-1/4" style="background:{OSM_BAND_COLORS['200']}"></span>
+											<span class="h-full w-1/4" style="background:{OSM_BAND_COLORS['400']}"></span>
+										</span>
 										<span>OSM ∩ działka</span>
 									</div>
 									<div class="mt-0.5 flex items-baseline gap-2 pl-4 font-mono tabular-nums">
