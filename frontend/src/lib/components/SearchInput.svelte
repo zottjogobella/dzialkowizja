@@ -174,7 +174,7 @@
 					role="option"
 					aria-selected={i === selectedIndex}
 					class="glass-chip grid w-full cursor-pointer items-center text-left transition-[filter]"
-					style="grid-template-columns: 36px 80px 1fr 1fr 40px; padding: 11px 16px; border-color: {i === selectedIndex ? 'rgba(61,90,42,0.18)' : 'var(--color-glass-border)'}; background: {i === selectedIndex ? 'rgba(61,90,42,0.05)' : 'var(--color-glass)'};"
+					style="grid-template-columns: 36px 80px 1fr 1fr 40px; padding: 11px 16px; border-color: {i === selectedIndex ? 'rgba(61,90,42,0.18)' : 'var(--color-glass-border)'}; background: {i === selectedIndex ? '#eef3e8' : 'var(--color-surface)'};"
 					onmouseenter={() => (selectedIndex = i)}
 					onclick={() => selectSuggestion(suggestion)}
 				>
