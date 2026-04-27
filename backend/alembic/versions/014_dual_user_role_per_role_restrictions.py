@@ -56,6 +56,10 @@ def upgrade() -> None:
         sa.Column("role", sa.String(32), nullable=True),
     )
 
+    # Drop the old PK first — we need to insert duplicate (org, field_key)
+    # rows differing only by role, which the original PK forbids.
+    op.execute("ALTER TABLE restricted_fields DROP CONSTRAINT restricted_fields_pkey")
+
     # Duplicate every existing row for the second role, then label originals
     # as handlowiec. Net effect: legacy restrictions apply to both new roles.
     op.execute(
@@ -69,7 +73,6 @@ def upgrade() -> None:
     op.execute("UPDATE restricted_fields SET role = 'handlowiec' WHERE role IS NULL")
 
     op.alter_column("restricted_fields", "role", nullable=False)
-    op.execute("ALTER TABLE restricted_fields DROP CONSTRAINT restricted_fields_pkey")
     op.create_primary_key(
         "restricted_fields_pkey",
         "restricted_fields",
