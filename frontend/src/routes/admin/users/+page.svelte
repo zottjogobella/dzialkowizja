@@ -300,14 +300,16 @@
 						</td>
 						<td class="px-4 py-2 text-right tabular-nums">{u.search_count_7d}</td>
 						<td class="px-4 py-2 text-[var(--color-text-muted)]">{formatDate(u.last_active_at)}</td>
-						<td class="px-4 py-2 text-right space-x-2">
-							<button class="text-xs text-[var(--color-primary)] hover:underline" onclick={() => openEdit(u)}>Edytuj</button>
-							<button class="text-xs text-[var(--color-primary)] hover:underline" onclick={() => { pwUser = u; pwValue = ''; pwError = null; }}>Zmień hasło</button>
-							{#if u.is_active}
-								<button class="text-xs text-red-600 hover:underline" onclick={() => deactivate(u)}>Dezaktywuj</button>
-							{:else}
-								<button class="text-xs text-green-700 hover:underline" onclick={() => activate(u)}>Aktywuj</button>
-							{/if}
+						<td class="px-4 py-2">
+							<div class="flex flex-col items-end gap-1">
+								<button class="text-xs text-[var(--color-primary)] hover:underline" onclick={() => openEdit(u)}>Edytuj</button>
+								<button class="text-xs text-[var(--color-primary)] hover:underline" onclick={() => { pwUser = u; pwValue = ''; pwError = null; }}>Zmień hasło</button>
+								{#if u.is_active}
+									<button class="text-xs text-red-600 hover:underline" onclick={() => deactivate(u)}>Dezaktywuj</button>
+								{:else}
+									<button class="text-xs text-green-700 hover:underline" onclick={() => activate(u)}>Aktywuj</button>
+								{/if}
+							</div>
 						</td>
 					</tr>
 				{/each}
