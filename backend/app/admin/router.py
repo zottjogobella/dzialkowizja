@@ -36,7 +36,7 @@ from .schemas import (
     RestrictionsResponse,
     RestrictionsUpdateIn,
     TopPlotOut,
-    UpdateUserRoleIn,
+    UpdateUserIn,
     UserOut,
     UserStatsOut,
 )
@@ -118,24 +118,49 @@ async def deactivate_user(
     return {"ok": True}
 
 
-@router.put("/users/{user_id}/role")
-async def set_user_role(
+@router.patch("/users/{user_id}", response_model=UserOut)
+async def update_user(
     user_id: uuid.UUID,
-    body: UpdateUserRoleIn,
+    body: UpdateUserIn,
     actor: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> UserOut:
     target = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if target is None:
         raise HTTPException(status_code=404, detail="Użytkownik nie znaleziony")
     _ensure_same_org(actor, target)
     if target.role not in RESTRICTABLE_ROLES:
         raise HTTPException(
-            status_code=400, detail="Można zmienić rolę tylko handlowcom/prawnikom"
+            status_code=400, detail="Można edytować tylko handlowców i prawników"
         )
-    target.role = body.role
+
+    if body.email is not None and body.email != target.email:
+        clash = await db.execute(
+            select(User.id).where(User.email == body.email, User.id != target.id)
+        )
+        if clash.scalar_one_or_none():
+            raise HTTPException(
+                status_code=409, detail="Inny użytkownik ma już ten email"
+            )
+        target.email = body.email
+    if body.display_name is not None:
+        target.display_name = body.display_name
+    if body.role is not None:
+        target.role = body.role
+
     await db.commit()
-    return {"ok": True}
+    await db.refresh(target)
+    return UserOut(
+        id=str(target.id),
+        email=target.email,
+        display_name=target.display_name,
+        is_active=target.is_active,
+        role=target.role,
+        organization_id=str(target.organization_id) if target.organization_id else None,
+        created_at=target.created_at.isoformat(),
+        last_active_at=None,
+        search_count_7d=0,
+    )
 
 
 @router.put("/users/{user_id}/password")
@@ -288,6 +313,7 @@ async def list_restrictions(
             key=key,
             label=spec["label"],
             description=spec["description"],
+            group=spec["group"],
             is_restricted=key in hidden,
         )
         for key, spec in RESTRICTABLE_FIELDS.items()

@@ -15,7 +15,9 @@ class CreateUserIn(BaseModel):
     email: str
     password: str
     display_name: str
-    role: UserRoleLiteral
+    # Defaults to handlowiec so older frontend builds (which don't send role)
+    # keep working while the UI rolls out the role selector.
+    role: UserRoleLiteral = "handlowiec"
 
     @field_validator("display_name")
     @classmethod
@@ -36,8 +38,36 @@ class CreateUserIn(BaseModel):
         return v
 
 
-class UpdateUserRoleIn(BaseModel):
-    role: UserRoleLiteral
+class UpdateUserIn(BaseModel):
+    """Partial update of a non-admin user. All fields optional — only those
+    provided are changed.
+    """
+
+    email: str | None = None
+    display_name: str | None = None
+    role: UserRoleLiteral | None = None
+
+    @field_validator("display_name")
+    @classmethod
+    def name_not_empty(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        if len(v) < 2:
+            raise ValueError("Nazwa musi mieć minimum 2 znaki")
+        if len(v) > 100:
+            raise ValueError("Nazwa może mieć maksimum 100 znaków")
+        return v
+
+    @field_validator("email")
+    @classmethod
+    def email_lower(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip().lower()
+        if "@" not in v or len(v) < 3 or len(v) > 255:
+            raise ValueError("Niepoprawny email")
+        return v
 
 
 class UserOut(BaseModel):
@@ -71,6 +101,7 @@ class FieldOut(BaseModel):
     key: str
     label: str
     description: str
+    group: str
     is_restricted: bool
 
 

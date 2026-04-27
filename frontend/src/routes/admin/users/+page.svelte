@@ -20,10 +20,13 @@
 	let error: string | null = $state(null);
 	let noOrg = $state(false);
 
+	type UserRole = 'handlowiec' | 'prawnik';
+
 	let showModal = $state(false);
 	let formEmail = $state('');
 	let formPassword = $state('');
 	let formName = $state('');
+	let formRole: UserRole = $state('handlowiec');
 	let formError: string | null = $state(null);
 	let saving = $state(false);
 
@@ -31,6 +34,21 @@
 	let pwValue = $state('');
 	let pwError: string | null = $state(null);
 	let pwSaving = $state(false);
+
+	let editUser: AdminUser | null = $state(null);
+	let editEmail = $state('');
+	let editName = $state('');
+	let editRole: UserRole = $state('handlowiec');
+	let editError: string | null = $state(null);
+	let editSaving = $state(false);
+
+	function openEdit(u: AdminUser) {
+		editUser = u;
+		editEmail = u.email;
+		editName = u.display_name;
+		editRole = (u.role === 'prawnik' ? 'prawnik' : 'handlowiec') as UserRole;
+		editError = null;
+	}
 
 	async function load() {
 		loading = true;
@@ -69,7 +87,12 @@
 					'Content-Type': 'application/json',
 					'X-CSRF-Token': getCsrfToken()
 				},
-				body: JSON.stringify({ email: formEmail, password: formPassword, display_name: formName })
+				body: JSON.stringify({
+					email: formEmail,
+					password: formPassword,
+					display_name: formName,
+					role: formRole
+				})
 			});
 			if (!res.ok) {
 				let detail = `Błąd zapisu (${res.status})`;
@@ -90,6 +113,7 @@
 			formEmail = '';
 			formPassword = '';
 			formName = '';
+			formRole = 'handlowiec';
 			await load();
 		} catch {
 			formError = 'Błąd sieci';
@@ -105,6 +129,52 @@
 			await load();
 		} catch {
 			alert('Nie udało się dezaktywować użytkownika');
+		}
+	}
+
+	async function saveEdit(e: Event) {
+		e.preventDefault();
+		if (!editUser) return;
+		editSaving = true;
+		editError = null;
+		try {
+			const body: Record<string, string> = {};
+			if (editEmail !== editUser.email) body.email = editEmail;
+			if (editName !== editUser.display_name) body.display_name = editName;
+			if (editRole !== editUser.role) body.role = editRole;
+			if (Object.keys(body).length === 0) {
+				editUser = null;
+				return;
+			}
+			const res = await apiFetch(`/api/admin/users/${editUser.id}`, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-CSRF-Token': getCsrfToken()
+				},
+				body: JSON.stringify(body)
+			});
+			if (!res.ok) {
+				let detail = `Błąd (${res.status})`;
+				try {
+					const b = await res.json();
+					if (b?.detail) {
+						detail = typeof b.detail === 'string'
+							? b.detail
+							: Array.isArray(b.detail)
+								? b.detail.map((d: any) => d.msg ?? JSON.stringify(d)).join('; ')
+								: JSON.stringify(b.detail);
+					}
+				} catch {}
+				editError = detail;
+				return;
+			}
+			editUser = null;
+			await load();
+		} catch {
+			editError = 'Błąd sieci';
+		} finally {
+			editSaving = false;
 		}
 	}
 
@@ -204,6 +274,7 @@
 						<td class="px-4 py-2 text-right tabular-nums">{u.search_count_7d}</td>
 						<td class="px-4 py-2 text-[var(--color-text-muted)]">{formatDate(u.last_active_at)}</td>
 						<td class="px-4 py-2 text-right space-x-2">
+							<button class="text-xs text-[var(--color-primary)] hover:underline" onclick={() => openEdit(u)}>Edytuj</button>
 							<button class="text-xs text-[var(--color-primary)] hover:underline" onclick={() => { pwUser = u; pwValue = ''; pwError = null; }}>Zmień hasło</button>
 							{#if u.is_active}
 								<button class="text-xs text-red-600 hover:underline" onclick={() => deactivate(u)}>Dezaktywuj</button>
@@ -240,6 +311,13 @@
 					<label class="mb-1 block text-xs uppercase tracking-wider text-[var(--color-text-muted)]" for="password">Hasło</label>
 					<input id="password" type="text" bind:value={formPassword} required class="w-full rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm" />
 					<p class="mt-1 text-xs text-[var(--color-text-muted)]">Minimum 6 znaków.</p>
+				</div>
+				<div>
+					<label class="mb-1 block text-xs uppercase tracking-wider text-[var(--color-text-muted)]" for="role">Rola</label>
+					<select id="role" bind:value={formRole} class="w-full rounded border border-[var(--color-border)] px-3 py-2 text-sm">
+						<option value="handlowiec">Handlowiec</option>
+						<option value="prawnik">Prawnik</option>
+					</select>
 				</div>
 				{#if formError}
 					<p class="text-sm text-red-600">{formError}</p>
@@ -283,6 +361,47 @@
 					<button type="button" class="rounded px-4 py-2 text-sm text-[var(--color-text-muted)] hover:bg-gray-100" onclick={() => (pwUser = null)}>Anuluj</button>
 					<button type="submit" disabled={pwSaving} class="rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
 						{pwSaving ? 'Zapisywanie...' : 'Zapisz'}
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
+
+{#if editUser}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+		role="presentation"
+		onclick={() => (editUser = null)}
+		onkeydown={(e) => e.key === 'Escape' && (editUser = null)}
+	>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div role="dialog" aria-modal="true" tabindex="-1" class="w-full max-w-md rounded-lg bg-[var(--color-surface)] p-6 shadow-xl" onclick={(e) => e.stopPropagation()}>
+			<h2 class="mb-4 text-lg font-semibold">Edytuj użytkownika</h2>
+			<form onsubmit={saveEdit} class="space-y-3">
+				<div>
+					<label class="mb-1 block text-xs uppercase tracking-wider text-[var(--color-text-muted)]" for="edit-email">Login (email)</label>
+					<input id="edit-email" type="text" bind:value={editEmail} required class="w-full rounded border border-[var(--color-border)] px-3 py-2 text-sm" />
+				</div>
+				<div>
+					<label class="mb-1 block text-xs uppercase tracking-wider text-[var(--color-text-muted)]" for="edit-name">Nazwa wyświetlana</label>
+					<input id="edit-name" type="text" bind:value={editName} required minlength="2" class="w-full rounded border border-[var(--color-border)] px-3 py-2 text-sm" />
+				</div>
+				<div>
+					<label class="mb-1 block text-xs uppercase tracking-wider text-[var(--color-text-muted)]" for="edit-role">Rola</label>
+					<select id="edit-role" bind:value={editRole} class="w-full rounded border border-[var(--color-border)] px-3 py-2 text-sm">
+						<option value="handlowiec">Handlowiec</option>
+						<option value="prawnik">Prawnik</option>
+					</select>
+				</div>
+				{#if editError}
+					<p class="text-sm text-red-600">{editError}</p>
+				{/if}
+				<div class="mt-4 flex justify-end gap-2">
+					<button type="button" class="rounded px-4 py-2 text-sm text-[var(--color-text-muted)] hover:bg-gray-100" onclick={() => (editUser = null)}>Anuluj</button>
+					<button type="submit" disabled={editSaving} class="rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
+						{editSaving ? 'Zapisywanie...' : 'Zapisz'}
 					</button>
 				</div>
 			</form>
