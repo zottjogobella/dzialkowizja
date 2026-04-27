@@ -251,6 +251,7 @@
 				<tr>
 					<th class="px-4 py-2 text-left">Nazwa</th>
 					<th class="px-4 py-2 text-left">Email</th>
+					<th class="px-4 py-2 text-left">Rola</th>
 					<th class="px-4 py-2 text-left">Status</th>
 					<th class="px-4 py-2 text-right">Wyszukiwań (7d)</th>
 					<th class="px-4 py-2 text-left">Ostatnia aktywność</th>
@@ -264,6 +265,15 @@
 							<a href="/admin/users/{u.id}" class="font-medium text-[var(--color-primary)] hover:underline">{u.display_name}</a>
 						</td>
 						<td class="px-4 py-2 text-[var(--color-text-muted)]">{u.email}</td>
+						<td class="px-4 py-2">
+							{#if u.role === 'prawnik'}
+								<span class="rounded bg-violet-100 px-2 py-0.5 text-xs text-violet-800">Prawnik</span>
+							{:else if u.role === 'handlowiec'}
+								<span class="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Handlowiec</span>
+							{:else}
+								<span class="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700">{u.role}</span>
+							{/if}
+						</td>
 						<td class="px-4 py-2">
 							{#if u.is_active}
 								<span class="rounded bg-green-100 px-2 py-0.5 text-xs text-green-800">aktywny</span>
