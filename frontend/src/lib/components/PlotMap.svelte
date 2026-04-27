@@ -356,6 +356,16 @@
 	// a zł/m² rate, so the two modes stay consistent.
 	const bdotClaimZl = $derived((plotValuationZl * 0.5 * bdotCoveragePct) / 100);
 	const osmClaimZl = $derived((plotValuationZl * 0.5 * osmCoveragePct) / 100);
+	// Same formula but anchored to the prior plot valuation from the sheet
+	// (not the live input), so users can compare "ile by wyszło wcześniej".
+	// Null when the sheet has no prior figure for this plot.
+	const oldValuation = $derived(roszczenieRow?.wartosc_dzialki_old ?? null);
+	const bdotClaimZlOld = $derived(
+		oldValuation != null ? (oldValuation * 0.5 * bdotCoveragePct) / 100 : null,
+	);
+	const osmClaimZlOld = $derived(
+		oldValuation != null ? (oldValuation * 0.5 * osmCoveragePct) / 100 : null,
+	);
 
 	function computeBufferedFC(
 		fc: GeoJSON.FeatureCollection | null,
@@ -1487,6 +1497,14 @@
 										<div class="mt-0.5 font-mono text-base font-semibold tabular-nums text-amber-800">
 											{Math.round(bdotClaimZl).toLocaleString('pl-PL')} zł
 										</div>
+										{#if bdotClaimZlOld != null}
+											<div class="mt-0.5 flex items-baseline justify-between text-[10px] text-gray-500">
+												<span class="italic">Poprzednio</span>
+												<span class="font-mono tabular-nums">
+													{Math.round(bdotClaimZlOld).toLocaleString('pl-PL')} zł
+												</span>
+											</div>
+										{/if}
 									</div>
 								{/if}
 								{#if osmLinesVisible}
@@ -1498,6 +1516,14 @@
 										<div class="mt-0.5 font-mono text-base font-semibold tabular-nums text-amber-800">
 											{Math.round(osmClaimZl).toLocaleString('pl-PL')} zł
 										</div>
+										{#if osmClaimZlOld != null}
+											<div class="mt-0.5 flex items-baseline justify-between text-[10px] text-gray-500">
+												<span class="italic">Poprzednio</span>
+												<span class="font-mono tabular-nums">
+													{Math.round(osmClaimZlOld).toLocaleString('pl-PL')} zł
+												</span>
+											</div>
+										{/if}
 									</div>
 								{/if}
 							</div>
