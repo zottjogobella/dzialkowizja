@@ -190,11 +190,20 @@ class Roszczenie(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id_dzialki: Mapped[str] = mapped_column(String(255), nullable=False)
     wartosc_dzialki: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
+    # Prior valuation from the CSV's ``wycena_old`` column — shown alongside
+    # the current value so users can see how the figure changed.
+    wartosc_dzialki_old: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
     # Land registry number + owners, read straight from the CSV for the plots
     # covered by the sheet. Nullable so rows loaded before the columns existed
     # stay queryable.
     kw: Mapped[str | None] = mapped_column(String(64), nullable=True)
     entities: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Ownership-complication flags from the CSV — surfaced as badges in the
+    # search dropdown. Nullable so older rows stay queryable until the next
+    # ingest fills them in.
+    has_sluzebnosci: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    has_10_or_more_owners: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    has_state_owner: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
 
 class Argumentacja(Base):

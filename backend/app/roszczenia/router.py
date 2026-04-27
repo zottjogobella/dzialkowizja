@@ -40,12 +40,15 @@ async def get_roszczenie(
         {
           "id_dzialki": "...",
           "wartosc_dzialki": 831744695.3,
+          "wartosc_dzialki_old": 720000000.0,
           "kw": "BB1B/00053878/8",
           "entities": "NAME;;os prawna"
         }
 
-    For role=user, ``kw`` and ``entities`` may be redacted to ``null`` based
-    on per-organization restrictions toggled by the admin.
+    ``wartosc_dzialki_old`` is the prior valuation from the CSV — null when
+    that column wasn't present in the source. For role=user, ``kw`` and
+    ``entities`` may be redacted to ``null`` based on per-organization
+    restrictions toggled by the admin.
     """
     stmt = select(Roszczenie).where(Roszczenie.id_dzialki == id_dzialki)
     result = await db.execute(stmt)
@@ -56,6 +59,7 @@ async def get_roszczenie(
     payload = {
         "id_dzialki": row.id_dzialki,
         "wartosc_dzialki": float(row.wartosc_dzialki),
+        "wartosc_dzialki_old": float(row.wartosc_dzialki_old) if row.wartosc_dzialki_old is not None else None,
         "kw": row.kw,
         "entities": row.entities,
     }

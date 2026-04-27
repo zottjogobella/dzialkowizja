@@ -1457,6 +1457,14 @@
 									zł
 								</span>
 							</div>
+							{#if roszczenieRow?.wartosc_dzialki_old != null}
+								<div class="mt-1 flex items-baseline justify-between text-[10px] text-gray-500">
+									<span class="italic">Poprzednio</span>
+									<span class="font-mono tabular-nums">
+										{Math.round(roszczenieRow.wartosc_dzialki_old).toLocaleString('pl-PL')} zł
+									</span>
+								</div>
+							{/if}
 							<div class="mt-1 text-[10px] text-gray-400">
 								Roszczenie = wartość × 0,5 × (strefa / działka)
 							</div>

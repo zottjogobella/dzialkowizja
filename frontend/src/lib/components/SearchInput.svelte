@@ -184,7 +184,22 @@
 							{suggestion.type === 'lot' ? 'DZIAŁKA' : 'ADRES'}
 						</span>
 					</div>
-					<div class="font-serif text-base font-medium">{suggestion.label}</div>
+					<div class="flex items-center gap-2 min-w-0">
+						<span class="font-serif text-base font-medium truncate">{suggestion.label}</span>
+						{#if suggestion.has_sluzebnosci || suggestion.has_10_or_more_owners || suggestion.has_state_owner}
+							<span class="flex shrink-0 gap-1">
+								{#if suggestion.has_sluzebnosci}
+									<span class="flag-badge flag-badge--sluzebnosci" title="Służebności na księdze wieczystej">S</span>
+								{/if}
+								{#if suggestion.has_10_or_more_owners}
+									<span class="flag-badge flag-badge--many-owners" title="10 lub więcej współwłaścicieli">10</span>
+								{/if}
+								{#if suggestion.has_state_owner}
+									<span class="flag-badge flag-badge--state" title="Skarb Państwa wśród właścicieli">P</span>
+								{/if}
+							</span>
+						{/if}
+					</div>
 					<div class="text-xs text-[var(--color-mute)]">{suggestion.secondary}</div>
 					<div class="text-right font-mono text-[10px] text-[var(--color-mute)]">{i === 0 ? '&crarr;' : '&rarr;'}</div>
 				</button>

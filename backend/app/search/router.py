@@ -11,7 +11,12 @@ from app.policy.daily_limit import enforce_daily_search_limit
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .schemas import SearchSuggestion
-from .service import is_lot_query, search_addresses, search_lots
+from .service import (
+    attach_roszczenia_flags,
+    is_lot_query,
+    search_addresses,
+    search_lots,
+)
 
 router = APIRouter()
 
@@ -32,6 +37,8 @@ async def search(
     else:
         results = await search_addresses(q, limit)
         query_type = "address"
+
+    await attach_roszczenia_flags(db, results)
 
     await record(
         db, user,

@@ -174,6 +174,8 @@ export interface RoszczenieRow {
 	id_dzialki: string;
 	/** Total plot valuation from the sheet. Claim = this × 0.5 × coverage_fraction. */
 	wartosc_dzialki: number;
+	/** Prior valuation from the same sheet (CSV's `wycena_old`). Null when absent. */
+	wartosc_dzialki_old: number | null;
 	/** Land registry number (księga wieczysta). Null if not in the CSV. */
 	kw: string | null;
 	/** Owner names + type, semicolon-separated as in the source CSV. */

@@ -7,6 +7,9 @@ export interface SearchSuggestion {
 	id_dzialki?: string;
 	lng?: number;
 	lat?: number;
+	has_sluzebnosci?: boolean | null;
+	has_10_or_more_owners?: boolean | null;
+	has_state_owner?: boolean | null;
 }
 
 export async function searchSuggestions(

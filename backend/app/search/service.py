@@ -3,8 +3,11 @@ from __future__ import annotations
 import re
 
 import psycopg2
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.db.models import Roszczenie
 
 from .schemas import SearchSuggestion
 
@@ -252,3 +255,42 @@ async def search_addresses(q: str, limit: int = 5) -> list[SearchSuggestion]:
             )
         )
     return results
+
+
+async def attach_roszczenia_flags(
+    db: AsyncSession, suggestions: list[SearchSuggestion]
+) -> None:
+    """Mutate ``suggestions`` in-place with the three ownership flags.
+
+    Looks up each suggestion's plot ID in the roszczenia table (app DB) so
+    the dropdown can show S/10/P badges for plots covered by the sheet.
+    Plots not in the sheet stay with all-None flags and render no badges.
+    """
+    if not suggestions:
+        return
+
+    def _plot_id(s: SearchSuggestion) -> str | None:
+        return s.label if s.type == "lot" else s.id_dzialki
+
+    ids = {pid for s in suggestions if (pid := _plot_id(s))}
+    if not ids:
+        return
+
+    rows = (
+        await db.execute(
+            select(
+                Roszczenie.id_dzialki,
+                Roszczenie.has_sluzebnosci,
+                Roszczenie.has_10_or_more_owners,
+                Roszczenie.has_state_owner,
+            ).where(Roszczenie.id_dzialki.in_(ids))
+        )
+    ).all()
+    by_id = {r[0]: r for r in rows}
+
+    for s in suggestions:
+        pid = _plot_id(s)
+        if pid and (r := by_id.get(pid)):
+            s.has_sluzebnosci = r[1]
+            s.has_10_or_more_owners = r[2]
+            s.has_state_owner = r[3]
