@@ -1394,13 +1394,13 @@
 			 Skarb Państwa from the roszczenia sheet. Sits right above
 			 Strefa · Roszczenie because these flags materially change how the
 			 claim should be read. -->
-		{#if roszczenieRow && (roszczenieRow.has_sluzebnosci || roszczenieRow.has_10_or_more_owners || roszczenieRow.has_state_owner)}
+		{#if roszczenieRow && (roszczenieRow.has_sluzebnosci || roszczenieRow.has_10_or_more_owners || roszczenieRow.has_state_owner || roszczenieRow.no_kw_in_sheet)}
 			<div id="sec-ostrzezenia" class="mb-3.5 rounded-xl border border-red-300 bg-red-50 px-5 py-4 shadow-sm">
 				<div class="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-red-700">
 					<span aria-hidden="true">⚠</span>
 					<span>Uwaga &mdash; Komplikacje własnościowe</span>
 				</div>
-				<div class="grid gap-3 sm:grid-cols-3">
+				<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 					{#if roszczenieRow.has_sluzebnosci}
 						<div class="flex items-start gap-3 rounded-lg border border-red-200 bg-white px-3.5 py-3">
 							<span class="flag-badge flag-badge--sluzebnosci shrink-0" aria-hidden="true">S</span>
@@ -1425,6 +1425,15 @@
 							<div>
 								<div class="text-sm font-semibold text-gray-900">Skarb Państwa</div>
 								<div class="mt-0.5 text-xs text-gray-600">Wśród właścicieli figuruje Skarb Państwa.</div>
+							</div>
+						</div>
+					{/if}
+					{#if roszczenieRow.no_kw_in_sheet}
+						<div class="flex items-start gap-3 rounded-lg border border-red-200 bg-white px-3.5 py-3">
+							<span class="flag-badge flag-badge--no-kw shrink-0" aria-hidden="true">KW</span>
+							<div>
+								<div class="text-sm font-semibold text-gray-900">Brak numeru KW</div>
+								<div class="mt-0.5 text-xs text-gray-600">W arkuszu nie odnaleziono księgi wieczystej dla tej działki.</div>
 							</div>
 						</div>
 					{/if}

@@ -186,6 +186,8 @@ export interface RoszczenieRow {
 	has_10_or_more_owners: boolean | null;
 	/** Skarb Państwa is among the owners. */
 	has_state_owner: boolean | null;
+	/** Plot is in the sheet but no KW number was found for it. */
+	no_kw_in_sheet: boolean;
 }
 
 export interface ArgumentacjaArgument {

@@ -115,6 +115,14 @@ body {
 	border: 1px solid rgba(61, 90, 42, 0.40);
 	color: var(--color-accent);
 }
+.flag-badge--no-kw {
+	background: rgba(15, 18, 24, 0.06);
+	border: 1px solid rgba(15, 18, 24, 0.30);
+	color: var(--color-mute);
+	text-decoration: line-through;
+	text-decoration-thickness: 2px;
+	text-decoration-color: rgba(184, 67, 67, 0.85);
+}
 
 /* Scrollbar */
 *::-webkit-scrollbar { width: 6px; height: 6px; }

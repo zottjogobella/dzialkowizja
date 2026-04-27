@@ -10,6 +10,7 @@ export interface SearchSuggestion {
 	has_sluzebnosci?: boolean | null;
 	has_10_or_more_owners?: boolean | null;
 	has_state_owner?: boolean | null;
+	no_kw_in_sheet?: boolean | null;
 }
 
 export async function searchSuggestions(

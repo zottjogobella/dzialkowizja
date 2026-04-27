@@ -15,3 +15,5 @@ class SearchSuggestion(BaseModel):
     has_sluzebnosci: bool | None = None
     has_10_or_more_owners: bool | None = None
     has_state_owner: bool | None = None
+    # True when the plot is in the sheet but has no KW. None when not covered.
+    no_kw_in_sheet: bool | None = None

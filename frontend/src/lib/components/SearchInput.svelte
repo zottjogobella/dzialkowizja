@@ -186,7 +186,7 @@
 					</div>
 					<div class="flex items-center gap-2 min-w-0">
 						<span class="font-serif text-base font-medium truncate">{suggestion.label}</span>
-						{#if suggestion.has_sluzebnosci || suggestion.has_10_or_more_owners || suggestion.has_state_owner}
+						{#if suggestion.has_sluzebnosci || suggestion.has_10_or_more_owners || suggestion.has_state_owner || suggestion.no_kw_in_sheet}
 							<span class="flex shrink-0 gap-1">
 								{#if suggestion.has_sluzebnosci}
 									<span class="flag-badge flag-badge--sluzebnosci" title="Służebności na księdze wieczystej">S</span>
@@ -196,6 +196,9 @@
 								{/if}
 								{#if suggestion.has_state_owner}
 									<span class="flag-badge flag-badge--state" title="Skarb Państwa wśród właścicieli">P</span>
+								{/if}
+								{#if suggestion.no_kw_in_sheet}
+									<span class="flag-badge flag-badge--no-kw" title="Brak numeru KW w arkuszu">KW</span>
 								{/if}
 							</span>
 						{/if}

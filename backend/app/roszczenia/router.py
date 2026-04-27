@@ -56,6 +56,9 @@ async def get_roszczenie(
     if row is None:
         raise HTTPException(status_code=404, detail="brak w arkuszu")
 
+    # `no_kw_in_sheet` is computed before redaction and stays outside the
+    # restrictable-fields registry: it's a complication flag, not KW data, so
+    # users with `roszczenia.kw` hidden still get the "brak KW" warning.
     payload = {
         "id_dzialki": row.id_dzialki,
         "wartosc_dzialki": float(row.wartosc_dzialki),
@@ -65,6 +68,7 @@ async def get_roszczenie(
         "has_sluzebnosci": row.has_sluzebnosci,
         "has_10_or_more_owners": row.has_10_or_more_owners,
         "has_state_owner": row.has_state_owner,
+        "no_kw_in_sheet": not (row.kw and row.kw.strip()),
     }
 
     if user.role == "user":

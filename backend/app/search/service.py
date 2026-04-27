@@ -283,6 +283,7 @@ async def attach_roszczenia_flags(
                 Roszczenie.has_sluzebnosci,
                 Roszczenie.has_10_or_more_owners,
                 Roszczenie.has_state_owner,
+                Roszczenie.kw,
             ).where(Roszczenie.id_dzialki.in_(ids))
         )
     ).all()
@@ -294,3 +295,4 @@ async def attach_roszczenia_flags(
             s.has_sluzebnosci = r[1]
             s.has_10_or_more_owners = r[2]
             s.has_state_owner = r[3]
+            s.no_kw_in_sheet = not (r[4] and r[4].strip())
