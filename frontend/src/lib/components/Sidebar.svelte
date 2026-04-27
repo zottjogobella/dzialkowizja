@@ -9,7 +9,7 @@
 
 	let loggingOut = $state(false);
 	let menuOpen = $state(false);
-	let clickedItemId = $state<number | null>(null);
+	let clickedItemId = $state<string | null>(null);
 
 	onMount(() => {
 		if (!$historyLoaded) {
@@ -27,7 +27,7 @@
 		return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
 	}
 
-	function rerunSearch(item: { id: number; query_text: string; query_type: string; top_result_id?: string | null }) {
+	function rerunSearch(item: { id: string; query_text: string; query_type: string; top_result_id?: string | null }) {
 		clickedItemId = item.id;
 		searchQuery.set(item.query_text);
 		hasSearched.set(true);
