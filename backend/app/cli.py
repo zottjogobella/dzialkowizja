@@ -44,8 +44,8 @@ async def _resolve_org(db: AsyncSession, slug: str | None) -> Organization | Non
 async def create_user(
     email: str, display_name: str, password: str, role: str, organization_slug: str | None
 ) -> None:
-    if role not in {"super_admin", "admin", "user"}:
-        print("Niepoprawna rola — użyj: super_admin | admin | user")
+    if role not in {"super_admin", "admin", "handlowiec", "prawnik"}:
+        print("Niepoprawna rola — użyj: super_admin | admin | handlowiec | prawnik")
         sys.exit(1)
     errors = validate_password(password)
     if errors:
@@ -54,7 +54,7 @@ async def create_user(
             print(f"  - {e}")
         sys.exit(1)
     if role != "super_admin" and not organization_slug:
-        print("Rola admin/user wymaga --organization <slug>")
+        print("Rola admin/handlowiec/prawnik wymaga --organization <slug>")
         sys.exit(1)
 
     async with await _get_session() as db:
@@ -139,8 +139,14 @@ def main() -> None:
     create.add_argument("--email", required=True)
     create.add_argument("--name", required=True)
     create.add_argument("--password", required=True)
-    create.add_argument("--role", default="user", choices=["super_admin", "admin", "user"])
-    create.add_argument("--organization", default=None, help="Slug organizacji (dla admin/user)")
+    create.add_argument(
+        "--role",
+        default="handlowiec",
+        choices=["super_admin", "admin", "handlowiec", "prawnik"],
+    )
+    create.add_argument(
+        "--organization", default=None, help="Slug organizacji (dla admin/handlowiec/prawnik)"
+    )
 
     super_admin = sub.add_parser("create-super-admin", help="Utwórz super admina (bootstrap)")
     super_admin.add_argument("--email", required=True)

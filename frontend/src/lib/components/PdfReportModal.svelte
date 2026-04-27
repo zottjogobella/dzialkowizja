@@ -54,7 +54,7 @@
 
 	const available = $derived<Record<SectionId, boolean>>({
 		map: true,
-		kw: !!roszczenieRow,
+		kw: !!roszczenieRow && roszczenieRow.source === 'sheet',
 		argumentacja: !!argumentacjaRow,
 		mpzp: mpzpFeatures.length > 0,
 		zoning: !!plot?.zoning_symbol,
@@ -364,7 +364,7 @@
 		{/if}
 
 		<!-- KW SECTION -->
-		{#if selected.kw && roszczenieRow}
+		{#if selected.kw && roszczenieRow && roszczenieRow.source === 'sheet'}
 			<div style="margin-bottom: 32px;">
 				<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #6b6e76; font-weight: 600; text-transform: uppercase; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5;">KSIĘGA WIECZYSTA I WŁAŚCICIEL</div>
 				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">

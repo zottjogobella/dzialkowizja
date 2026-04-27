@@ -1,16 +1,21 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, field_validator
 
 from app.auth.password import validate_password
 
 
+UserRoleLiteral = Literal["handlowiec", "prawnik"]
+
+
 class CreateUserIn(BaseModel):
     email: str
     password: str
     display_name: str
+    role: UserRoleLiteral
 
     @field_validator("display_name")
     @classmethod
@@ -29,6 +34,10 @@ class CreateUserIn(BaseModel):
         if errors:
             raise ValueError("; ".join(errors))
         return v
+
+
+class UpdateUserRoleIn(BaseModel):
+    role: UserRoleLiteral
 
 
 class UserOut(BaseModel):
@@ -66,12 +75,18 @@ class FieldOut(BaseModel):
 
 
 class RestrictionsResponse(BaseModel):
+    role: UserRoleLiteral
     fields: list[FieldOut]
 
 
 class RestrictionsUpdateIn(BaseModel):
-    """Map of field_key -> True (hide from user) / False (show)."""
+    """Per-role visibility update.
 
+    ``role`` is the tier these toggles apply to (handlowiec or prawnik).
+    ``updates`` maps field_key -> True (hide from that role) / False (show).
+    """
+
+    role: UserRoleLiteral
     updates: dict[str, bool]
 
 

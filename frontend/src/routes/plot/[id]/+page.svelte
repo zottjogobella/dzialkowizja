@@ -417,9 +417,9 @@
 		</div>
 
 		<!-- KW + Argumentacja row -->
-		{#if roszczenieRow || argumentacjaRow}
-			<div class="grid gap-[14px]" style="grid-template-columns: {roszczenieRow && argumentacjaRow ? '1fr 2fr' : '1fr'};">
-				{#if roszczenieRow}
+		{#if (roszczenieRow && roszczenieRow.source === 'sheet') || argumentacjaRow}
+			<div class="grid gap-[14px]" style="grid-template-columns: {roszczenieRow && roszczenieRow.source === 'sheet' && argumentacjaRow ? '1fr 2fr' : '1fr'};">
+				{#if roszczenieRow && roszczenieRow.source === 'sheet'}
 					<div id="sec-ksiega-wieczysta" class="glass-card px-6 py-5">
 						<div class="eyebrow mb-3.5" style="letter-spacing: 1.5px;">&mdash; KSIĘGA WIECZYSTA I WŁAŚCICIEL</div>
 						<!-- KW number -->

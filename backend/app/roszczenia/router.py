@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.audit.recorder import record
 from app.auth.dependencies import require_auth
 from app.db.engine import get_db
-from app.db.models import Roszczenie, User
+from app.db.models import Roszczenie, User, WycenaSupplemental
 from app.middleware.rate_limit_dep import rate_limit_detail
 from app.permissions.fields import get_restricted_keys, redact
 
@@ -53,27 +53,52 @@ async def get_roszczenie(
     stmt = select(Roszczenie).where(Roszczenie.id_dzialki == id_dzialki)
     result = await db.execute(stmt)
     row = result.scalar_one_or_none()
-    if row is None:
-        raise HTTPException(status_code=404, detail="brak w arkuszu")
+    if row is not None:
+        # `no_kw_in_sheet` is computed before redaction and stays outside the
+        # restrictable-fields registry: it's a complication flag, not KW data, so
+        # users with `roszczenia.kw` hidden still get the "brak KW" warning.
+        payload = {
+            "id_dzialki": row.id_dzialki,
+            "wartosc_dzialki": float(row.wartosc_dzialki),
+            "wartosc_dzialki_old": float(row.wartosc_dzialki_old) if row.wartosc_dzialki_old is not None else None,
+            "kw": row.kw,
+            "entities": row.entities,
+            "has_sluzebnosci": row.has_sluzebnosci,
+            "has_10_or_more_owners": row.has_10_or_more_owners,
+            "has_state_owner": row.has_state_owner,
+            "no_kw_in_sheet": not (row.kw and row.kw.strip()),
+            "source": "sheet",
+        }
 
-    # `no_kw_in_sheet` is computed before redaction and stays outside the
-    # restrictable-fields registry: it's a complication flag, not KW data, so
-    # users with `roszczenia.kw` hidden still get the "brak KW" warning.
-    payload = {
-        "id_dzialki": row.id_dzialki,
-        "wartosc_dzialki": float(row.wartosc_dzialki),
-        "wartosc_dzialki_old": float(row.wartosc_dzialki_old) if row.wartosc_dzialki_old is not None else None,
-        "kw": row.kw,
-        "entities": row.entities,
-        "has_sluzebnosci": row.has_sluzebnosci,
-        "has_10_or_more_owners": row.has_10_or_more_owners,
-        "has_state_owner": row.has_state_owner,
-        "no_kw_in_sheet": not (row.kw and row.kw.strip()),
-    }
+        restricted = await get_restricted_keys(db, user.organization_id, user.role)
+        if restricted:
+            redact(payload, restricted, prefix="roszczenia")
+    else:
+        # Fallback to the supplemental sheet (wider plot coverage but no KW /
+        # owner data). Returned in the same shape with the missing fields as
+        # null/false so the frontend can still autofill the valuation.
+        supp = (
+            await db.execute(
+                select(WycenaSupplemental).where(
+                    WycenaSupplemental.id_dzialki == id_dzialki
+                )
+            )
+        ).scalar_one_or_none()
+        if supp is None:
+            raise HTTPException(status_code=404, detail="brak w arkuszu")
 
-    if user.role == "user":
-        restricted = await get_restricted_keys(db, user.organization_id)
-        redact(payload, restricted, prefix="roszczenia")
+        payload = {
+            "id_dzialki": supp.id_dzialki,
+            "wartosc_dzialki": float(supp.wartosc_dzialki),
+            "wartosc_dzialki_old": None,
+            "kw": None,
+            "entities": None,
+            "has_sluzebnosci": None,
+            "has_10_or_more_owners": None,
+            "has_state_owner": None,
+            "no_kw_in_sheet": False,
+            "source": "supplemental",
+        }
 
     await record(db, user, action_type="roszczenie_fetch", request=request, target_id=id_dzialki)
     return payload

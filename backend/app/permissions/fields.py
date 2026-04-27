@@ -1,12 +1,17 @@
-"""Registry of restrictable response fields and per-org restriction lookup.
+"""Registry of restrictable response fields and per-role restriction lookup.
 
 The registry is the single source of truth for which fields admins can hide
-from role=user. Each key follows ``<endpoint>.<field>`` so the admin UI can
-group them and so backend redaction sites can filter the relevant subset
-by prefix.
+from non-admin tiers. Each key follows ``<endpoint>.<field>`` so the admin
+UI can group them and so backend redaction sites can filter the relevant
+subset by prefix.
+
+Restrictions are scoped per ``(organization_id, role)`` — admins configure
+``handlowiec`` and ``prawnik`` independently. ``admin`` and ``super_admin``
+are never redacted.
 
 Adding a new restrictable field is two steps: register it here, then call
-``redact()`` (or check ``is_restricted()``) in the endpoint that returns it.
+``redact()`` (or check ``is_section_restricted()``) in the endpoint that
+returns it.
 """
 
 from __future__ import annotations
@@ -17,7 +22,7 @@ from typing import TypedDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import RestrictedField
+from app.db.models import RESTRICTABLE_ROLES, RestrictedField
 
 
 class FieldSpec(TypedDict):
@@ -64,18 +69,20 @@ RESTRICTABLE_FIELDS: dict[str, FieldSpec] = {
 }
 
 
-async def get_restricted_keys(db: AsyncSession, organization_id: uuid.UUID | None) -> set[str]:
-    """Return the set of field keys hidden for role=user inside this org.
+async def get_restricted_keys(
+    db: AsyncSession, organization_id: uuid.UUID | None, role: str
+) -> set[str]:
+    """Return the set of field keys hidden for ``role`` inside this org.
 
-    super_admin lives outside any org (organization_id is None) — they should
-    never be redacted, so callers shouldn't reach this function for them.
-    For safety we still return an empty set when organization_id is None.
+    Returns an empty set for admin/super_admin (or any role outside
+    ``RESTRICTABLE_ROLES``) and for users without an organization.
     """
-    if organization_id is None:
+    if organization_id is None or role not in RESTRICTABLE_ROLES:
         return set()
     rows = await db.execute(
         select(RestrictedField.field_key).where(
-            RestrictedField.organization_id == organization_id
+            RestrictedField.organization_id == organization_id,
+            RestrictedField.role == role,
         )
     )
     return {r[0] for r in rows}
@@ -84,13 +91,13 @@ async def get_restricted_keys(db: AsyncSession, organization_id: uuid.UUID | Non
 async def is_section_restricted(
     db: AsyncSession, user, section_key: str,
 ) -> bool:
-    """Check if a whole section is hidden for this user's org.
+    """Check if a whole section is hidden for this user's role+org.
 
-    Returns False for admins/super_admins — only role=user is affected.
+    Returns False for admin/super_admin — they always see everything.
     """
-    if user.role != "user":
+    if user.role not in RESTRICTABLE_ROLES:
         return False
-    restricted = await get_restricted_keys(db, user.organization_id)
+    restricted = await get_restricted_keys(db, user.organization_id, user.role)
     return section_key in restricted
 
 

@@ -188,6 +188,12 @@ export interface RoszczenieRow {
 	has_state_owner: boolean | null;
 	/** Plot is in the sheet but no KW number was found for it. */
 	no_kw_in_sheet: boolean;
+	/**
+	 * Which sheet the row came from. ``sheet`` is the curated roszczenia
+	 * sheet (with KW + owner data); ``supplemental`` is the wider valuation
+	 * sheet that's used as a fallback when the plot isn't in the curated one.
+	 */
+	source: 'sheet' | 'supplemental';
 }
 
 export interface ArgumentacjaArgument {

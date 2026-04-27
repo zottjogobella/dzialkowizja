@@ -23,7 +23,7 @@ async def enforce_login_hours(user: User, db: AsyncSession) -> None:
     their org's configured window. Silent return otherwise (including for
     admins, super_admins, users with no org, or orgs with the feature off).
     """
-    if user.role != "user":
+    if user.role in {"admin", "super_admin"}:
         return
     if user.organization_id is None:
         return

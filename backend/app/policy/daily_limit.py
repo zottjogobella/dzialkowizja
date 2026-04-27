@@ -23,7 +23,7 @@ async def enforce_daily_search_limit(
     user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    if user.role != "user":
+    if user.role in {"admin", "super_admin"}:
         return
     if user.organization_id is None:
         return

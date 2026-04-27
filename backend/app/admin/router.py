@@ -17,7 +17,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import require_admin
 from app.auth.password import hash_password
 from app.db.engine import get_db
-from app.db.models import ActivityLog, Organization, RestrictedField, SearchHistory, User
+from app.db.models import (
+    RESTRICTABLE_ROLES,
+    ActivityLog,
+    Organization,
+    RestrictedField,
+    SearchHistory,
+    User,
+)
 from app.permissions.fields import RESTRICTABLE_FIELDS
 
 from .schemas import (
@@ -29,6 +36,7 @@ from .schemas import (
     RestrictionsResponse,
     RestrictionsUpdateIn,
     TopPlotOut,
+    UpdateUserRoleIn,
     UserOut,
     UserStatsOut,
 )
@@ -72,7 +80,7 @@ async def create_user(
         email=body.email.lower(),
         password_hash=hash_password(body.password),
         display_name=body.display_name,
-        role="user",
+        role=body.role,
         organization_id=org_id,
         invited_by_user_id=actor.id,
     )
@@ -103,9 +111,29 @@ async def deactivate_user(
     if target is None:
         raise HTTPException(status_code=404, detail="Użytkownik nie znaleziony")
     _ensure_same_org(actor, target)
-    if target.role != "user":
+    if target.role not in RESTRICTABLE_ROLES:
         raise HTTPException(status_code=400, detail="Można dezaktywować tylko zwykłych użytkowników")
     target.is_active = False
+    await db.commit()
+    return {"ok": True}
+
+
+@router.put("/users/{user_id}/role")
+async def set_user_role(
+    user_id: uuid.UUID,
+    body: UpdateUserRoleIn,
+    actor: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    target = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Użytkownik nie znaleziony")
+    _ensure_same_org(actor, target)
+    if target.role not in RESTRICTABLE_ROLES:
+        raise HTTPException(
+            status_code=400, detail="Można zmienić rolę tylko handlowcom/prawnikom"
+        )
+    target.role = body.role
     await db.commit()
     return {"ok": True}
 
@@ -121,7 +149,7 @@ async def set_user_password(
     if target is None:
         raise HTTPException(status_code=404, detail="Użytkownik nie znaleziony")
     _ensure_same_org(actor, target)
-    if target.role != "user":
+    if target.role not in RESTRICTABLE_ROLES:
         raise HTTPException(status_code=400, detail="Można zmienić hasło tylko zwykłym użytkownikom")
     password = body.get("password", "")
     from app.auth.password import validate_password
@@ -142,7 +170,7 @@ async def list_users(
     org_id = _target_org(actor)
     rows = await db.execute(
         select(User)
-        .where(User.organization_id == org_id, User.role == "user")
+        .where(User.organization_id == org_id, User.role.in_(RESTRICTABLE_ROLES))
         .order_by(User.created_at.desc())
     )
     users = rows.scalars().all()
@@ -231,14 +259,28 @@ async def user_activity(
     )
 
 
+def _validate_role(role: str) -> str:
+    if role not in RESTRICTABLE_ROLES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Nieznana rola: {role} (dozwolone: {', '.join(RESTRICTABLE_ROLES)})",
+        )
+    return role
+
+
 @router.get("/restrictions", response_model=RestrictionsResponse)
 async def list_restrictions(
+    role: str = Query(..., description="handlowiec | prawnik"),
     actor: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> RestrictionsResponse:
+    _validate_role(role)
     org_id = _target_org(actor)
     rows = await db.execute(
-        select(RestrictedField.field_key).where(RestrictedField.organization_id == org_id)
+        select(RestrictedField.field_key).where(
+            RestrictedField.organization_id == org_id,
+            RestrictedField.role == role,
+        )
     )
     hidden = {r[0] for r in rows}
     fields = [
@@ -250,7 +292,7 @@ async def list_restrictions(
         )
         for key, spec in RESTRICTABLE_FIELDS.items()
     ]
-    return RestrictionsResponse(fields=fields)
+    return RestrictionsResponse(role=role, fields=fields)  # type: ignore[arg-type]
 
 
 @router.put("/restrictions", response_model=RestrictionsResponse)
@@ -275,6 +317,7 @@ async def update_restrictions(
         await db.execute(
             delete(RestrictedField).where(
                 RestrictedField.organization_id == org_id,
+                RestrictedField.role == body.role,
                 RestrictedField.field_key.in_(to_remove),
             )
         )
@@ -283,16 +326,21 @@ async def update_restrictions(
         existing_rows = await db.execute(
             select(RestrictedField.field_key).where(
                 RestrictedField.organization_id == org_id,
+                RestrictedField.role == body.role,
                 RestrictedField.field_key.in_(to_add),
             )
         )
         already = {r[0] for r in existing_rows}
         for key in to_add:
             if key not in already:
-                db.add(RestrictedField(organization_id=org_id, field_key=key))
+                db.add(
+                    RestrictedField(
+                        organization_id=org_id, role=body.role, field_key=key
+                    )
+                )
 
     await db.commit()
-    return await list_restrictions(actor=actor, db=db)
+    return await list_restrictions(role=body.role, actor=actor, db=db)
 
 
 @router.get("/stats", response_model=OrgStatsOut)

@@ -107,7 +107,7 @@ def rate_limit(scope: str, max_per_window: int, window_seconds: int = 60) -> Cal
     """
 
     async def _dep(user: User = Depends(require_auth)) -> None:
-        if user.role != "user":
+        if user.role in {"admin", "super_admin"}:
             return
         key = f"rl:{scope}:{user.id}"
         try:

@@ -14,7 +14,12 @@ class Base(DeclarativeBase):
 
 # Postgres enum is owned by the migration (CREATE TYPE there); we reference
 # the existing type by name and disable create/drop in the metadata.
-USER_ROLE = Enum("super_admin", "admin", "user", name="user_role", create_type=False)
+USER_ROLE = Enum(
+    "super_admin", "admin", "handlowiec", "prawnik", name="user_role", create_type=False
+)
+
+# Tiers that admins can hide fields from. super_admin/admin always see everything.
+RESTRICTABLE_ROLES: tuple[str, ...] = ("handlowiec", "prawnik")
 
 
 class Organization(Base):
@@ -53,7 +58,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    role: Mapped[str] = mapped_column(USER_ROLE, nullable=False, default="user")
+    role: Mapped[str] = mapped_column(USER_ROLE, nullable=False, default="handlowiec")
     organization_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=True
     )
@@ -108,10 +113,11 @@ class SearchHistory(Base):
 
 
 class RestrictedField(Base):
-    """A field hidden from role=user inside this organization.
+    """A field hidden from a specific user-tier role inside this organization.
 
-    Presence of a row means *hidden*. Absence means *visible*. Admin toggles
-    these from the admin panel; the registry of legal field_keys is in
+    Presence of a row means *hidden* for that role. ``role`` is one of
+    ``RESTRICTABLE_ROLES`` (handlowiec/prawnik); admin/super_admin are
+    never affected. The registry of legal ``field_key`` values lives in
     ``app/permissions/fields.py``.
     """
 
@@ -120,6 +126,7 @@ class RestrictedField(Base):
     organization_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), primary_key=True
     )
+    role: Mapped[str] = mapped_column(String(32), primary_key=True)
     field_key: Mapped[str] = mapped_column(String(128), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -204,6 +211,30 @@ class Roszczenie(Base):
     has_sluzebnosci: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     has_10_or_more_owners: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     has_state_owner: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+
+class WycenaSupplemental(Base):
+    """Supplemental plot valuations (fallback when not in ``roszczenia``).
+
+    Loaded from ``wyceny_5_5M_union3_dedup_without_old_combined_ids.csv``
+    by ``backend/scripts/ingest_wycena_supplemental_csv.py``. The sheet
+    covers many more plots than ``roszczenia`` but lacks KW / owner data,
+    so it's used purely to surface a valuation for plots the main sheet
+    doesn't cover. ``roszczenia`` always wins when both have a row.
+    """
+
+    __tablename__ = "wycena_supplemental"
+    __table_args__ = (Index("ix_wycena_supplemental_lot", "id_dzialki", unique=True),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id_dzialki: Mapped[str] = mapped_column(String(255), nullable=False)
+    wartosc_dzialki: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
+    cena_m2: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    pow_dzialki: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    pow_buforu: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    segment_rynku: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    pewnosc: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    source: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class Argumentacja(Base):
