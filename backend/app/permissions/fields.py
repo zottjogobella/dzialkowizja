@@ -43,37 +43,7 @@ RESTRICTABLE_FIELDS: dict[str, FieldSpec] = {
     # ── Nagłówek działki ──
     "header.tabs": {
         "label": "Pasek zakładek",
-        "description": "Cały pasek nawigacyjny (Mapa / Wycena / Księga wieczysta / Argumentacja / Transakcje / Aktywność).",
-        "group": "Nagłówek działki",
-    },
-    "header.tab.mapa": {
-        "label": "Zakładka „Mapa”",
-        "description": "Pojedynczy przycisk zakładki Mapa.",
-        "group": "Nagłówek działki",
-    },
-    "header.tab.wycena": {
-        "label": "Zakładka „Wycena”",
-        "description": "Pojedynczy przycisk zakładki Wycena.",
-        "group": "Nagłówek działki",
-    },
-    "header.tab.kw": {
-        "label": "Zakładka „Księga wieczysta”",
-        "description": "Pojedynczy przycisk zakładki Księga wieczysta.",
-        "group": "Nagłówek działki",
-    },
-    "header.tab.argumentacja": {
-        "label": "Zakładka „Argumentacja”",
-        "description": "Pojedynczy przycisk zakładki Argumentacja.",
-        "group": "Nagłówek działki",
-    },
-    "header.tab.transakcje": {
-        "label": "Zakładka „Transakcje”",
-        "description": "Pojedynczy przycisk zakładki Transakcje.",
-        "group": "Nagłówek działki",
-    },
-    "header.tab.aktywnosc": {
-        "label": "Zakładka „Aktywność”",
-        "description": "Pojedynczy przycisk zakładki Aktywność.",
+        "description": "Cały pasek nawigacyjny pod tytułem. Pojedyncze zakładki znikają automatycznie razem z odpowiadającą im sekcją (np. ukrycie „Transakcje w okolicy” usuwa też przycisk „Transakcje”).",
         "group": "Nagłówek działki",
     },
     "header.pdf_button": {

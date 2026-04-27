@@ -389,16 +389,19 @@
 				{/if}
 			</div>
 			{#if true}
-			{@const TAB_KEYS = {
-				'Mapa': 'header.tab.mapa',
-				'Wycena': 'header.tab.wycena',
-				'Księga wieczysta': 'header.tab.kw',
-				'Argumentacja': 'header.tab.argumentacja',
-				'Transakcje': 'header.tab.transakcje',
-				'Aktywność': 'header.tab.aktywnosc',
+			{@const TAB_SECTIONS = {
+				// A tab vanishes when the section it would scroll to is hidden.
+				// "Wycena" and "Argumentacja" both scroll to argumentacja so they
+				// share section.argumentacja.
+				'Mapa': 'section.map',
+				'Wycena': 'section.argumentacja',
+				'Księga wieczysta': 'section.kw_card',
+				'Argumentacja': 'section.argumentacja',
+				'Transakcje': 'section.transactions',
+				'Aktywność': 'section.investments',
 			} as Record<string, string>}
 			{@const visibleTabs = ['Mapa', 'Wycena', 'Księga wieczysta', 'Argumentacja', 'Transakcje', 'Aktywność']
-				.filter(t => !hidden(TAB_KEYS[t]))}
+				.filter(t => !hidden(TAB_SECTIONS[t]))}
 			{#if (!hidden('header.tabs') && visibleTabs.length > 0) || !hidden('header.pdf_button')}
 				<!-- Tabs -->
 				<div class="mt-4 flex flex-wrap items-center gap-1 font-mono text-[11px] uppercase" style="letter-spacing: 1.2px;">
