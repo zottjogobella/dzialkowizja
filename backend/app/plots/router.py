@@ -34,7 +34,7 @@ PLOT_COLUMNS = (
     " is_nature_protected, nature_protection,"
     " nearest_road_name, nearest_road_class, nearest_road_distance_m,"
     " nearest_education_m, nearest_healthcare_m, nearest_shopping_m, nearest_transport_m,"
-    " has_water, has_sewage, has_gas, has_electric, has_heating, has_telecom,"
+    " has_water, has_sewage, has_gas, has_electric,"
     " utility_count"
 )
 

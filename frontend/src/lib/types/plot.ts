@@ -32,8 +32,6 @@ export interface PlotDetail extends PlotSummary {
 	has_sewage: boolean | null;
 	has_gas: boolean | null;
 	has_electric: boolean | null;
-	has_heating: boolean | null;
-	has_telecom: boolean | null;
 	utility_count: number | null;
 }
 
