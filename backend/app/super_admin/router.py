@@ -86,33 +86,50 @@ async def create_organization(
         raise HTTPException(status_code=409, detail="Slug jest już zajęty")
     from datetime import time as _time
 
-    from app.db.models import OrganizationLoginHours
+    from app.db.models import (
+        RESTRICTABLE_ROLES,
+        OrganizationLoginHours,
+        OrganizationRolePolicy,
+    )
 
     org = Organization(name=body.name, slug=body.slug, created_by_user_id=actor.id)
     db.add(org)
     await db.flush()  # need org.id for the child rows before commit
 
-    # Default schedule: Mon-Fri 09:00-18:00 open, Sat-Sun closed.
-    for dow in range(0, 5):
+    # Seed both roles independently. Default schedule: Mon-Fri 09:00-18:00
+    # open, Sat-Sun closed; default policy: enforcement on, 40 searches/day.
+    for role in RESTRICTABLE_ROLES:
         db.add(
-            OrganizationLoginHours(
+            OrganizationRolePolicy(
                 organization_id=org.id,
-                day_of_week=dow,
-                closed=False,
-                start_time=_time(9, 0),
-                end_time=_time(18, 0),
+                role=role,
+                login_hours_enabled=True,
+                daily_search_limit_enabled=True,
+                daily_search_limit=40,
             )
         )
-    for dow in range(5, 7):
-        db.add(
-            OrganizationLoginHours(
-                organization_id=org.id,
-                day_of_week=dow,
-                closed=True,
-                start_time=None,
-                end_time=None,
+        for dow in range(0, 5):
+            db.add(
+                OrganizationLoginHours(
+                    organization_id=org.id,
+                    role=role,
+                    day_of_week=dow,
+                    closed=False,
+                    start_time=_time(9, 0),
+                    end_time=_time(18, 0),
+                )
             )
-        )
+        for dow in range(5, 7):
+            db.add(
+                OrganizationLoginHours(
+                    organization_id=org.id,
+                    role=role,
+                    day_of_week=dow,
+                    closed=True,
+                    start_time=None,
+                    end_time=None,
+                )
+            )
 
     await db.commit()
     await db.refresh(org)

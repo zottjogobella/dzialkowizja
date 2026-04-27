@@ -2,36 +2,49 @@
 
 Called from ``/api/auth/login`` (before issuing a session) and from
 ``require_auth`` (on every authenticated request — a user logged in at
-17:50 is kicked out at 18:01 on their next API call). role=user only;
-admins and super_admins bypass.
+17:50 is kicked out at 18:01 on their next API call). handlowiec/prawnik
+only; admins and super_admins bypass.
+
+Schedule lookup is per (org, user.role, day_of_week) — handlowiec and
+prawnik can have completely different windows configured.
 """
 
 from __future__ import annotations
-
-import uuid
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Organization, OrganizationLoginHours, User
+from app.db.models import (
+    RESTRICTABLE_ROLES,
+    OrganizationLoginHours,
+    OrganizationRolePolicy,
+    User,
+)
 from app.utils.time import now_warsaw
 
 
 async def enforce_login_hours(user: User, db: AsyncSession) -> None:
     """Raise HTTPException(403, code=outside_hours) when the user is outside
-    their org's configured window. Silent return otherwise (including for
-    admins, super_admins, users with no org, or orgs with the feature off).
+    their (org, role) configured window. Silent return otherwise (admins,
+    super_admins, users with no org, or roles with the feature off).
     """
-    if user.role in {"admin", "super_admin"}:
+    if user.role not in RESTRICTABLE_ROLES:
         return
     if user.organization_id is None:
         return
 
-    org = (
-        await db.execute(select(Organization).where(Organization.id == user.organization_id))
+    pol = (
+        await db.execute(
+            select(OrganizationRolePolicy).where(
+                OrganizationRolePolicy.organization_id == user.organization_id,
+                OrganizationRolePolicy.role == user.role,
+            )
+        )
     ).scalar_one_or_none()
-    if org is None or not org.login_hours_enabled:
+    # No policy row yet (org created after upgrade but role never visited
+    # in admin) → behave as feature-off so we don't lock anyone out.
+    if pol is None or not pol.login_hours_enabled:
         return
 
     now = now_warsaw()
@@ -41,7 +54,8 @@ async def enforce_login_hours(user: User, db: AsyncSession) -> None:
     schedule = (
         await db.execute(
             select(OrganizationLoginHours).where(
-                OrganizationLoginHours.organization_id == org.id,
+                OrganizationLoginHours.organization_id == user.organization_id,
+                OrganizationLoginHours.role == user.role,
                 OrganizationLoginHours.day_of_week == dow,
             )
         )
@@ -49,8 +63,8 @@ async def enforce_login_hours(user: User, db: AsyncSession) -> None:
 
     if schedule is None:
         # Missing day row — treat as closed, loudly. Should never happen
-        # because create_organization seeds all 7 rows; if it does, the
-        # user shouldn't sneak through.
+        # because every save replaces all 7 rows; if it does, the user
+        # shouldn't sneak through.
         raise HTTPException(
             status_code=403,
             detail={

@@ -9,12 +9,20 @@
 		end_time: string | null;
 	};
 
+	type Role = 'handlowiec' | 'prawnik';
+
 	type Policy = {
+		role: Role;
 		login_hours_enabled: boolean;
 		daily_search_limit_enabled: boolean;
 		daily_search_limit: number;
 		days: Day[];
 	};
+
+	const ROLES: { value: Role; label: string }[] = [
+		{ value: 'handlowiec', label: 'Handlowiec' },
+		{ value: 'prawnik', label: 'Prawnik' },
+	];
 
 	const DAY_LABELS = [
 		'Poniedziałek',
@@ -26,6 +34,7 @@
 		'Niedziela'
 	];
 
+	let role: Role = $state('handlowiec');
 	let policy: Policy | null = $state(null);
 	let loading = $state(true);
 	let saving = $state(false);
@@ -33,12 +42,13 @@
 	let savedAt: number | null = $state(null);
 	let noOrg = $state(false);
 
-	async function load() {
+	async function load(target: Role = role) {
 		loading = true;
 		noOrg = false;
 		error = null;
 		try {
-			policy = await apiGet<Policy>('/api/admin/policy');
+			policy = await apiGet<Policy>(`/api/admin/policy?role=${target}`);
+			role = policy.role;
 		} catch (e) {
 			if (e instanceof ApiError && e.status === 400) {
 				noOrg = true;
@@ -48,6 +58,11 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	async function switchRole(next: Role) {
+		if (next === role || saving || loading) return;
+		await load(next);
 	}
 
 	function setDayClosed(dow: number, closed: boolean) {
@@ -69,7 +84,7 @@
 		error = null;
 		saving = true;
 		try {
-			policy = await apiPut<Policy>('/api/admin/policy', policy);
+			policy = await apiPut<Policy>('/api/admin/policy', { ...policy, role });
 			savedAt = Date.now();
 		} catch (e) {
 			if (e instanceof ApiError) {
@@ -86,13 +101,30 @@
 		}
 	}
 
-	onMount(load);
+	onMount(() => load());
 </script>
 
 <h1 class="mb-2 text-xl font-semibold text-[var(--color-primary)]">Limity</h1>
-<p class="mb-6 max-w-2xl text-sm text-[var(--color-text-muted)]">
-	Ustaw godziny logowania i dzienny limit wyszukiwań dla użytkowników w Twojej organizacji. Administratorzy nie podlegają tym ograniczeniom.
+<p class="mb-4 max-w-2xl text-sm text-[var(--color-text-muted)]">
+	Ustaw godziny logowania i dzienny limit wyszukiwań osobno dla każdej roli w Twojej organizacji. Administratorzy nie podlegają tym ograniczeniom.
 </p>
+
+<!-- Role tabs: per-tier limits are independent (handlowiec vs prawnik). -->
+<div class="mb-5 flex gap-1 border-b border-[var(--color-border)]">
+	{#each ROLES as r}
+		<button
+			type="button"
+			onclick={() => switchRole(r.value)}
+			disabled={saving || loading}
+			class="-mb-px cursor-pointer border-b-2 px-4 py-2 text-sm font-medium transition-colors
+				{role === r.value
+					? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+					: 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-primary)]'}"
+		>
+			{r.label}
+		</button>
+	{/each}
+</div>
 
 {#if loading}
 	<p class="text-sm text-[var(--color-text-muted)]">Ładowanie...</p>
@@ -115,7 +147,7 @@
 			Godziny logowania aktywne
 		</label>
 		<p class="mb-4 text-xs text-[var(--color-text-muted)]">
-			Gdy wyłączone — użytkownicy mogą logować się 24/7.
+			Gdy wyłączone — użytkownicy tej roli mogą logować się 24/7.
 		</p>
 
 		<div class="space-y-2" class:opacity-50={!policy.login_hours_enabled}>

@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from datetime import time
+from typing import Literal
 
 from pydantic import BaseModel, field_validator, model_validator
+
+
+PolicyRoleLiteral = Literal["handlowiec", "prawnik"]
 
 
 class LoginHoursDay(BaseModel):
@@ -45,6 +49,7 @@ class LoginHoursDay(BaseModel):
 
 
 class PolicyOut(BaseModel):
+    role: PolicyRoleLiteral
     login_hours_enabled: bool
     daily_search_limit_enabled: bool
     daily_search_limit: int
@@ -52,6 +57,7 @@ class PolicyOut(BaseModel):
 
 
 class PolicyUpdateIn(BaseModel):
+    role: PolicyRoleLiteral
     login_hours_enabled: bool
     daily_search_limit_enabled: bool
     daily_search_limit: int

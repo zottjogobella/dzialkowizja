@@ -32,9 +32,6 @@ class Organization(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     stats_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
-    login_hours_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
-    daily_search_limit_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
-    daily_search_limit: Mapped[int] = mapped_column(Integer, default=40, server_default="40")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     members: Mapped[list[User]] = relationship(
@@ -45,6 +42,9 @@ class Organization(Base):
         back_populates="organization", cascade="all, delete-orphan"
     )
     login_hours: Mapped[list[OrganizationLoginHours]] = relationship(
+        back_populates="organization", cascade="all, delete-orphan"
+    )
+    role_policies: Mapped[list[OrganizationRolePolicy]] = relationship(
         back_populates="organization", cascade="all, delete-orphan"
     )
 
@@ -294,10 +294,11 @@ class Argumentacja(Base):
 
 
 class OrganizationLoginHours(Base):
-    """Per-day login window for an organization.
+    """Per-day login window for a (org, role) pair.
 
-    Exactly 7 rows per org (day_of_week 0..6, Mon=0). ``closed=TRUE`` means
-    no access on that day; otherwise ``start_time`` and ``end_time`` define
+    Exactly 7 rows per (org, role), so 14 rows per org once both
+    handlowiec and prawnik are seeded. ``closed=TRUE`` means no access on
+    that day for that role; otherwise ``start_time`` / ``end_time`` define
     an inclusive-start, exclusive-end window interpreted in Europe/Warsaw.
     """
 
@@ -308,9 +309,42 @@ class OrganizationLoginHours(Base):
         ForeignKey("organizations.id", ondelete="CASCADE"),
         primary_key=True,
     )
+    role: Mapped[str] = mapped_column(String(32), primary_key=True)
     day_of_week: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
     closed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
 
     organization: Mapped[Organization] = relationship(back_populates="login_hours")
+
+
+class OrganizationRolePolicy(Base):
+    """Per-role org policy: login-hours toggle + daily search limit.
+
+    Replaces the three legacy columns on ``organizations`` so admins can
+    enforce different limits on handlowiec vs prawnik. One row per
+    (org, role); admins/super_admins are unaffected.
+    """
+
+    __tablename__ = "organization_role_policy"
+
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    role: Mapped[str] = mapped_column(String(32), primary_key=True)
+    login_hours_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
+    daily_search_limit_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
+    daily_search_limit: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=40, server_default="40"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    organization: Mapped[Organization] = relationship(back_populates="role_policies")

@@ -1,8 +1,10 @@
 """Daily per-user search-limit enforcement.
 
 FastAPI dependency layered on ``/api/search`` alongside the existing
-per-minute rate limiter. Counts rows in ``activity_log`` with action_type='search'
-written today in Europe/Warsaw. role=user only; admins and super_admins bypass.
+per-minute rate limiter. Counts rows in ``activity_log`` with
+action_type='search' written today in Europe/Warsaw. Limit is per
+(org, user.role) — handlowiec and prawnik can have different caps.
+admins and super_admins bypass.
 """
 
 from __future__ import annotations
@@ -15,7 +17,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_auth
 from app.db.engine import get_db
-from app.db.models import ActivityLog, Organization, User
+from app.db.models import (
+    RESTRICTABLE_ROLES,
+    ActivityLog,
+    OrganizationRolePolicy,
+    User,
+)
 from app.utils.time import now_warsaw, warsaw_midnight_utc
 
 
@@ -23,15 +30,20 @@ async def enforce_daily_search_limit(
     user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    if user.role in {"admin", "super_admin"}:
+    if user.role not in RESTRICTABLE_ROLES:
         return
     if user.organization_id is None:
         return
 
-    org = (
-        await db.execute(select(Organization).where(Organization.id == user.organization_id))
+    pol = (
+        await db.execute(
+            select(OrganizationRolePolicy).where(
+                OrganizationRolePolicy.organization_id == user.organization_id,
+                OrganizationRolePolicy.role == user.role,
+            )
+        )
     ).scalar_one_or_none()
-    if org is None or not org.daily_search_limit_enabled:
+    if pol is None or not pol.daily_search_limit_enabled:
         return
 
     today_utc = warsaw_midnight_utc()
@@ -47,7 +59,7 @@ async def enforce_daily_search_limit(
         )
     ).scalar_one()
 
-    if int(count) >= org.daily_search_limit:
+    if int(count) >= pol.daily_search_limit:
         # Next local midnight. Adding timedelta(days=1) then rounding to
         # midnight handles DST correctly: the wall clock lands on 00:00
         # regardless of the 23- or 25-hour spring/fall day.
@@ -62,9 +74,9 @@ async def enforce_daily_search_limit(
                 "code": "daily_limit_exceeded",
                 "message": (
                     f"Wyczerpano dzienny limit wyszukiwań "
-                    f"({org.daily_search_limit}). Reset o 00:00."
+                    f"({pol.daily_search_limit}). Reset o 00:00."
                 ),
-                "limit": org.daily_search_limit,
+                "limit": pol.daily_search_limit,
                 "reset_at": reset_warsaw.isoformat(),
             },
             headers={"Retry-After": str(retry_after)},
