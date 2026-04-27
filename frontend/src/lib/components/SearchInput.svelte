@@ -201,7 +201,7 @@
 						{/if}
 					</div>
 					<div class="text-xs text-[var(--color-mute)]">{suggestion.secondary}</div>
-					<div class="text-right font-mono text-[10px] text-[var(--color-mute)]">{i === 0 ? '&crarr;' : '&rarr;'}</div>
+					<div class="text-right font-mono text-[10px] text-[var(--color-mute)]">{i === 0 ? '↵' : '→'}</div>
 				</button>
 			{/each}
 		</div>
