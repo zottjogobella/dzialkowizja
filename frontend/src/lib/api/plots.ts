@@ -180,6 +180,12 @@ export interface RoszczenieRow {
 	kw: string | null;
 	/** Owner names + type, semicolon-separated as in the source CSV. */
 	entities: string | null;
+	/** KW lists easements (służebności). */
+	has_sluzebnosci: boolean | null;
+	/** 10 or more co-owners on the title. */
+	has_10_or_more_owners: boolean | null;
+	/** Skarb Państwa is among the owners. */
+	has_state_owner: boolean | null;
 }
 
 export interface ArgumentacjaArgument {

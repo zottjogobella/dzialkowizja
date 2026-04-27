@@ -416,6 +416,48 @@
 			</div>
 		</div>
 
+		<!-- Ownership-complication alert: surfaces służebności / 10+ owners /
+			 Skarb Państwa from the roszczenia sheet. These materially affect the
+			 claim, so they get a full-width red-tinted banner rather than just
+			 the small badges in the search dropdown. -->
+		{#if roszczenieRow && (roszczenieRow.has_sluzebnosci || roszczenieRow.has_10_or_more_owners || roszczenieRow.has_state_owner)}
+			<div id="sec-ostrzezenia" class="rounded-xl border border-red-300 bg-red-50 px-6 py-5 shadow-sm">
+				<div class="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-red-700">
+					<span aria-hidden="true">⚠</span>
+					<span>Uwaga &mdash; Komplikacje własnościowe</span>
+				</div>
+				<div class="grid gap-3 sm:grid-cols-3">
+					{#if roszczenieRow.has_sluzebnosci}
+						<div class="flex items-start gap-3 rounded-lg border border-red-200 bg-white px-3.5 py-3">
+							<span class="flag-badge flag-badge--sluzebnosci shrink-0" aria-hidden="true">S</span>
+							<div>
+								<div class="text-sm font-semibold text-gray-900">Służebności</div>
+								<div class="mt-0.5 text-xs text-gray-600">Księga wieczysta zawiera obciążenia służebnościami.</div>
+							</div>
+						</div>
+					{/if}
+					{#if roszczenieRow.has_10_or_more_owners}
+						<div class="flex items-start gap-3 rounded-lg border border-red-200 bg-white px-3.5 py-3">
+							<span class="flag-badge flag-badge--many-owners shrink-0" aria-hidden="true">10</span>
+							<div>
+								<div class="text-sm font-semibold text-gray-900">10 lub więcej współwłaścicieli</div>
+								<div class="mt-0.5 text-xs text-gray-600">Działka ma przynajmniej dziesięciu współwłaścicieli.</div>
+							</div>
+						</div>
+					{/if}
+					{#if roszczenieRow.has_state_owner}
+						<div class="flex items-start gap-3 rounded-lg border border-red-200 bg-white px-3.5 py-3">
+							<span class="flag-badge flag-badge--state shrink-0" aria-hidden="true">P</span>
+							<div>
+								<div class="text-sm font-semibold text-gray-900">Skarb Państwa</div>
+								<div class="mt-0.5 text-xs text-gray-600">Wśród właścicieli figuruje Skarb Państwa.</div>
+							</div>
+						</div>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
 		<!-- KW + Argumentacja row -->
 		{#if roszczenieRow || argumentacjaRow}
 			<div class="grid gap-[14px]" style="grid-template-columns: {roszczenieRow && argumentacjaRow ? '1fr 2fr' : '1fr'};">

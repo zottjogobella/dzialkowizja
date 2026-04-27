@@ -62,6 +62,9 @@ async def get_roszczenie(
         "wartosc_dzialki_old": float(row.wartosc_dzialki_old) if row.wartosc_dzialki_old is not None else None,
         "kw": row.kw,
         "entities": row.entities,
+        "has_sluzebnosci": row.has_sluzebnosci,
+        "has_10_or_more_owners": row.has_10_or_more_owners,
+        "has_state_owner": row.has_state_owner,
     }
 
     if user.role == "user":
