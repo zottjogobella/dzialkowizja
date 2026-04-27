@@ -41,6 +41,10 @@ class UserResponse(BaseModel):
     is_active: bool
     role: str
     organization_id: str | None = None
+    # Field keys hidden from this user right now (empty for admin/super_admin).
+    # Frontend uses this list to drop layout-only sections cleanly without
+    # relying solely on null payloads.
+    restricted_keys: list[str] = []
 
     class Config:
         from_attributes = True

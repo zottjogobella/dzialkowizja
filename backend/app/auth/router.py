@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db.engine import get_db
 from app.db.models import User
+from app.permissions.fields import get_effective_restrictions
 
 from .dependencies import get_current_user, require_auth
 from .password import verify_password_timing_safe
@@ -57,6 +58,7 @@ async def login(body: LoginRequest, request: Request, response: Response, db: As
     signed, csrf = await create_session(db, user.id, ip, request.headers.get("User-Agent"))
     _set_cookies(response, signed, csrf)
 
+    restricted = await get_effective_restrictions(db, user)
     return UserResponse(
         id=str(user.id),
         email=user.email,
@@ -64,6 +66,7 @@ async def login(body: LoginRequest, request: Request, response: Response, db: As
         is_active=user.is_active,
         role=user.role,
         organization_id=str(user.organization_id) if user.organization_id else None,
+        restricted_keys=sorted(restricted),
     )
 
 
@@ -87,7 +90,8 @@ async def logout(
 
 
 @router.get("/me", response_model=UserResponse)
-async def me(user: User = Depends(require_auth)):
+async def me(user: User = Depends(require_auth), db: AsyncSession = Depends(get_db)):
+    restricted = await get_effective_restrictions(db, user)
     return UserResponse(
         id=str(user.id),
         email=user.email,
@@ -95,4 +99,5 @@ async def me(user: User = Depends(require_auth)):
         is_active=user.is_active,
         role=user.role,
         organization_id=str(user.organization_id) if user.organization_id else None,
+        restricted_keys=sorted(restricted),
     )

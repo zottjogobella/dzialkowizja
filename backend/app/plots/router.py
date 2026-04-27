@@ -19,7 +19,7 @@ from app.config import settings
 from app.db.engine import get_db
 from app.db.models import PlotSnapshot, User
 from app.middleware.rate_limit_dep import rate_limit_detail
-from app.permissions.fields import is_section_restricted
+from app.permissions.fields import get_restricted_keys, is_section_restricted
 from app.plots.schemas import Listing
 
 logger = logging.getLogger(__name__)
@@ -607,7 +607,7 @@ def _parse_teryt(id_dzialki: str) -> tuple[str | None, str | None]:
 @router.get("/{id_dzialki:path}/ceny-srednie")
 async def get_plot_ceny_srednie(
     id_dzialki: str,
-    _user=Depends(require_auth),
+    user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """Average RCN prices for the plot's gmina and powiat.
@@ -616,12 +616,30 @@ async def get_plot_ceny_srednie(
       * ``gmina``:        per rodzaj_nieruchomosci (1..4) — no segment split
       * ``powiat_total``: per rodzaj_nieruchomosci (1..4) — no segment split
       * ``powiat``:       per rodzaj × segment_rynku (rows only where data exists)
+
+    Honours sub-section restrictions: each table is dropped (replaced with
+    an empty list) if the corresponding ``average_prices.*`` key is hidden,
+    and the whole payload short-circuits to empty when the parent
+    ``section.average_prices`` is hidden.
     """
     gmina, powiat = _parse_teryt(id_dzialki)
     if not gmina or not powiat:
         raise HTTPException(status_code=400, detail="Nieprawidłowy identyfikator działki")
 
-    gmina_rows = (await db.execute(
+    restricted = await get_restricted_keys(db, user.organization_id, user.role)
+    if "section.average_prices" in restricted:
+        return {
+            "gmina_teryt": gmina,
+            "powiat_teryt": powiat,
+            "gmina": [],
+            "powiat_total": [],
+            "powiat": [],
+        }
+    hide_gmina = "average_prices.gmina" in restricted
+    hide_powiat_total = "average_prices.powiat_total" in restricted
+    hide_powiat_segments = "average_prices.powiat_segments" in restricted
+
+    gmina_rows = [] if hide_gmina else (await db.execute(
         text(
             """
             SELECT rodzaj_nieruchomosci, rodzaj_nazwa, liczba_transakcji,
@@ -635,7 +653,7 @@ async def get_plot_ceny_srednie(
         {"g": gmina},
     )).mappings().all()
 
-    powiat_total_rows = (await db.execute(
+    powiat_total_rows = [] if hide_powiat_total else (await db.execute(
         text(
             """
             SELECT rodzaj_nieruchomosci, rodzaj_nazwa, liczba_transakcji,
@@ -649,7 +667,7 @@ async def get_plot_ceny_srednie(
         {"t": powiat},
     )).mappings().all()
 
-    powiat_seg_rows = (await db.execute(
+    powiat_seg_rows = [] if hide_powiat_segments else (await db.execute(
         text(
             """
             SELECT rodzaj_nieruchomosci, rodzaj_nazwa, segment_rynku,
@@ -814,6 +832,26 @@ async def get_plot_snapshot(
     )
 
 
+# Mapping of restricted-field key -> list of result columns to redact.
+# Keeps the get_plot redaction loop a one-line lookup; sub-section toggles
+# (e.g. ``section.zoning``) clobber every column the section reads.
+_PLOT_REDACTIONS: dict[str, tuple[str, ...]] = {
+    "plot.area": ("area",),
+    "plot.is_buildable": ("is_buildable",),
+    "plot.lot_type": ("lot_type",),
+    "plot.building_count_bdot": ("building_count_bdot",),
+    "section.zoning": (
+        "zoning_symbol",
+        "zoning_name",
+        "zoning_max_height",
+        "zoning_max_coverage",
+        "zoning_min_green",
+        "pog_status",
+    ),
+    "section.nature_protection": ("is_nature_protected", "nature_protection"),
+}
+
+
 @router.get("/{id_dzialki:path}")
 async def get_plot(
     id_dzialki: str,
@@ -826,4 +864,14 @@ async def get_plot(
     if result is None:
         raise HTTPException(status_code=404, detail="Działka nie znaleziona")
     await record(db, user, action_type="plot_view", request=request, target_id=id_dzialki)
+
+    # Server-side redaction so role=handlowiec/prawnik can't peek at hidden
+    # plot fields via the network tab. Frontend additionally hides the UI
+    # for restricted_keys returned by /me — these two layers complement.
+    restricted = await get_restricted_keys(db, user.organization_id, user.role)
+    for key, cols in _PLOT_REDACTIONS.items():
+        if key in restricted:
+            for col in cols:
+                if col in result:
+                    result[col] = None
     return result

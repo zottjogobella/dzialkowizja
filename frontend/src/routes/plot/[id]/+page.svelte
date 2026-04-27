@@ -24,6 +24,14 @@
 	import PlotMap from '$lib/components/PlotMap.svelte';
 	import InvestmentDetailsModal from '$lib/components/InvestmentDetailsModal.svelte';
 	import PdfReportModal from '$lib/components/PdfReportModal.svelte';
+	import { restrictions } from '$lib/stores/restrictions';
+
+	// Whole-section / sub-section / per-field hiding driven by the admin
+	// "Ukryte pola" panel. Wrapping every visible element in {#if !hidden(...)}
+	// keeps the layout from leaving "Dane ukryte" stubs behind — a hidden
+	// section vanishes entirely, and parent sections collapse to nothing
+	// when *all* their children are hidden.
+	const hidden = (key: string) => $restrictions.has(key);
 
 	let plot = $state<PlotDetail | null>(null);
 	let loading = $state(true);
@@ -362,157 +370,183 @@
 			<div class="eyebrow mb-2.5">&mdash; DZIAŁKA EWIDENCYJNA</div>
 			<div class="flex flex-wrap items-baseline gap-x-5 gap-y-2">
 				<div class="font-mono text-[30px] font-medium" style="letter-spacing: -0.2px;">{plot.id_dzialki}</div>
-				<div class="font-serif text-[22px] font-medium italic text-[var(--color-mute)]">
-					{[plot.miejscowosc, plot.ulica, plot.gmina].filter(Boolean).join(', ') || ''}
-				</div>
-				<div class="ml-auto flex flex-wrap gap-1.5 font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 0.8px;">
-					{#if plot.id_dzialki}
-						{@const parts = plot.id_dzialki.split('.')}
-						{@const teryt = parts[0]?.split('_')[0] ?? ''}
-						<span class="rounded-[20px] border border-[var(--color-glass-border)] bg-[var(--color-glass)] px-2.5 py-1">TERYT {teryt}</span>
-					{/if}
-					{#if plot.gmina}
-						<span class="rounded-[20px] border border-[var(--color-glass-border)] bg-[var(--color-glass)] px-2.5 py-1">{plot.gmina}</span>
-					{/if}
-				</div>
+				{#if !hidden('header.location')}
+					<div class="font-serif text-[22px] font-medium italic text-[var(--color-mute)]">
+						{[plot.miejscowosc, plot.ulica, plot.gmina].filter(Boolean).join(', ') || ''}
+					</div>
+				{/if}
+				{#if !hidden('header.teryt_badge') || !hidden('header.gmina_badge')}
+					<div class="ml-auto flex flex-wrap gap-1.5 font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 0.8px;">
+						{#if plot.id_dzialki && !hidden('header.teryt_badge')}
+							{@const parts = plot.id_dzialki.split('.')}
+							{@const teryt = parts[0]?.split('_')[0] ?? ''}
+							<span class="rounded-[20px] border border-[var(--color-glass-border)] bg-[var(--color-glass)] px-2.5 py-1">TERYT {teryt}</span>
+						{/if}
+						{#if plot.gmina && !hidden('header.gmina_badge')}
+							<span class="rounded-[20px] border border-[var(--color-glass-border)] bg-[var(--color-glass)] px-2.5 py-1">{plot.gmina}</span>
+						{/if}
+					</div>
+				{/if}
 			</div>
-			<!-- Tabs -->
-			<div class="mt-4 flex flex-wrap items-center gap-1 font-mono text-[11px] uppercase" style="letter-spacing: 1.2px;">
-				{#each ['Mapa', 'Wycena', 'Księga wieczysta', 'Argumentacja', 'Transakcje', 'Aktywność'] as tab, i}
-					<button
-						type="button"
-						onclick={() => scrollToTab(tab)}
-						class="cursor-pointer rounded-[20px] px-3.5 py-1.5 transition-colors
-							{i === 0 ? 'bg-[var(--color-ink)] font-semibold text-white' : 'border border-[var(--color-glass-border)] text-[var(--color-mute)] hover:bg-[var(--color-glass)]'}"
-					>{tab}</button>
-				{/each}
-				<button
-					onclick={() => (showPdfModal = true)}
-					class="ml-auto flex cursor-pointer items-center gap-1.5 rounded-[20px] bg-[var(--color-accent)] px-4 py-1.5 font-mono text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
-					style="letter-spacing: 1.2px;"
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-					</svg>
-					RAPORT PDF
-				</button>
-			</div>
+			{#if true}
+			{@const TAB_KEYS = {
+				'Mapa': 'header.tab.mapa',
+				'Wycena': 'header.tab.wycena',
+				'Księga wieczysta': 'header.tab.kw',
+				'Argumentacja': 'header.tab.argumentacja',
+				'Transakcje': 'header.tab.transakcje',
+				'Aktywność': 'header.tab.aktywnosc',
+			} as Record<string, string>}
+			{@const visibleTabs = ['Mapa', 'Wycena', 'Księga wieczysta', 'Argumentacja', 'Transakcje', 'Aktywność']
+				.filter(t => !hidden(TAB_KEYS[t]))}
+			{#if (!hidden('header.tabs') && visibleTabs.length > 0) || !hidden('header.pdf_button')}
+				<!-- Tabs -->
+				<div class="mt-4 flex flex-wrap items-center gap-1 font-mono text-[11px] uppercase" style="letter-spacing: 1.2px;">
+					{#if !hidden('header.tabs')}
+						{#each visibleTabs as tab, i}
+							<button
+								type="button"
+								onclick={() => scrollToTab(tab)}
+								class="cursor-pointer rounded-[20px] px-3.5 py-1.5 transition-colors
+									{i === 0 ? 'bg-[var(--color-ink)] font-semibold text-white' : 'border border-[var(--color-glass-border)] text-[var(--color-mute)] hover:bg-[var(--color-glass)]'}"
+							>{tab}</button>
+						{/each}
+					{/if}
+					{#if !hidden('header.pdf_button')}
+						<button
+							onclick={() => (showPdfModal = true)}
+							class="ml-auto flex cursor-pointer items-center gap-1.5 rounded-[20px] bg-[var(--color-accent)] px-4 py-1.5 font-mono text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
+							style="letter-spacing: 1.2px;"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+							</svg>
+							RAPORT PDF
+						</button>
+					{/if}
+				</div>
+			{/if}
+			{/if}
 		</div>
 
 		<!-- Map card -->
-		<div id="sec-mapa" class="glass-card overflow-hidden p-3.5">
-			<div class="overflow-hidden rounded-xl">
-				<PlotMap
-					idDzialki={plot.id_dzialki}
-					{geometry}
-					{buildings}
-					{transactions}
-					listings={allListings}
-					{investments}
-					{roszczenieRow}
-					loading={geometryLoading}
-					onPinClick={handlePinClick}
-				/>
+		{#if !hidden('section.map')}
+			<div id="sec-mapa" class="glass-card overflow-hidden p-3.5">
+				<div class="overflow-hidden rounded-xl">
+					<PlotMap
+						idDzialki={plot.id_dzialki}
+						{geometry}
+						{buildings}
+						{transactions}
+						listings={allListings}
+						{investments}
+						{roszczenieRow}
+						loading={geometryLoading}
+						onPinClick={handlePinClick}
+					/>
+				</div>
 			</div>
-		</div>
+		{/if}
 
 		<!-- KW + Argumentacja row -->
-		{#if (roszczenieRow && roszczenieRow.source === 'sheet') || argumentacjaRow}
-			<div class="grid gap-[14px]" style="grid-template-columns: {roszczenieRow && roszczenieRow.source === 'sheet' && argumentacjaRow ? '1fr 2fr' : '1fr'};">
-				{#if roszczenieRow && roszczenieRow.source === 'sheet'}
+		{@const showKwCard = roszczenieRow && roszczenieRow.source === 'sheet' && !hidden('section.kw_card')}
+		{@const showArgCard = argumentacjaRow && !hidden('section.argumentacja')}
+		{#if showKwCard || showArgCard}
+			<div class="grid gap-[14px]" style="grid-template-columns: {showKwCard && showArgCard ? '1fr 2fr' : '1fr'};">
+				{#if showKwCard && roszczenieRow}
+					{@const basicFacts: Array<[string, string, string]> = [
+						['Powierzchnia', formatArea(plot.area), 'plot.area'],
+						['Budowlana', boolLabel(plot.is_buildable), 'plot.is_buildable'],
+						['Typ', plot.lot_type ?? '—', 'plot.lot_type'],
+						['Budynki (BDOT)', String(plot.building_count_bdot ?? '—'), 'plot.building_count_bdot'],
+					]}
+					{@const visibleFacts = basicFacts.filter(([, , key]) => !hidden(key))}
 					<div id="sec-ksiega-wieczysta" class="glass-card px-6 py-5">
 						<div class="eyebrow mb-3.5" style="letter-spacing: 1.5px;">&mdash; KSIĘGA WIECZYSTA I WŁAŚCICIEL</div>
-						<!-- KW number -->
-						<div class="glass-chip mb-3 px-4 py-3.5">
-							<div class="font-mono text-[11px] text-[var(--color-mute)]">NUMER KW</div>
-							{#if roszczenieRow.kw}
-								<a
-									href={ekwSearchUrl(roszczenieRow.kw)}
-									target="_blank"
-									rel="noopener"
-									class="mt-1 block font-mono text-[15px] font-medium hover:underline"
-								>{roszczenieRow.kw}</a>
-							{:else}
-								<div class="mt-1 font-mono text-[15px] text-[var(--color-mute)]">Dane ukryte</div>
-							{/if}
-						</div>
-						<!-- Owner -->
-						<div class="glass-chip mb-4 px-4 py-3.5">
-							<div class="font-mono text-[11px] text-[var(--color-mute)]">WŁAŚCICIEL</div>
-							{#if roszczenieRow.entities}
-								{#each parseOwners(roszczenieRow.entities) as owner}
-									<div class="mt-2 first:mt-1">
-										<div class="font-serif text-[17px] font-medium">
-											{owner.name}
-											{#if owner.type}
-												<span class="ml-1 text-[11px] text-[var(--color-mute)]">({owner.type})</span>
+						{#if !hidden('roszczenia.kw')}
+							<!-- KW number -->
+							<div class="glass-chip mb-3 px-4 py-3.5">
+								<div class="font-mono text-[11px] text-[var(--color-mute)]">NUMER KW</div>
+								{#if roszczenieRow.kw}
+									<a
+										href={ekwSearchUrl(roszczenieRow.kw)}
+										target="_blank"
+										rel="noopener"
+										class="mt-1 block font-mono text-[15px] font-medium hover:underline"
+									>{roszczenieRow.kw}</a>
+								{:else}
+									<div class="mt-1 font-mono text-[15px] text-[var(--color-mute)]">—</div>
+								{/if}
+							</div>
+						{/if}
+						{#if !hidden('roszczenia.entities')}
+							<!-- Owner -->
+							<div class="glass-chip mb-4 px-4 py-3.5">
+								<div class="font-mono text-[11px] text-[var(--color-mute)]">WŁAŚCICIEL</div>
+								{#if roszczenieRow.entities}
+									{#each parseOwners(roszczenieRow.entities) as owner}
+										<div class="mt-2 first:mt-1">
+											<div class="font-serif text-[17px] font-medium">
+												{owner.name}
+												{#if owner.type}
+													<span class="ml-1 text-[11px] text-[var(--color-mute)]">({owner.type})</span>
+												{/if}
+											</div>
+											{#if owner.pesel}
+												<div class="font-mono text-[11px] text-[var(--color-mute)]">
+													{owner.pesel.length === 11 ? 'PESEL' : owner.pesel.length === 10 ? 'NIP' : 'REGON'}: {owner.pesel}
+												</div>
 											{/if}
 										</div>
-										{#if owner.pesel}
-											<div class="font-mono text-[11px] text-[var(--color-mute)]">
-												{owner.pesel.length === 11 ? 'PESEL' : owner.pesel.length === 10 ? 'NIP' : 'REGON'}: {owner.pesel}
-											</div>
-										{/if}
-									</div>
-								{/each}
-							{:else}
-								<div class="mt-1 font-serif text-[17px] text-[var(--color-mute)]">Dane ukryte</div>
-							{/if}
-						</div>
-						<!-- Basic facts -->
-						<div class="eyebrow mb-2" style="font-size: 9.5px; letter-spacing: 1.2px;">PODSTAWOWE</div>
-						{#each [
-							['Powierzchnia', formatArea(plot.area)],
-							['Budowlana', boolLabel(plot.is_buildable)],
-							['Typ', plot.lot_type ?? '—'],
-							['Budynki (BDOT)', String(plot.building_count_bdot ?? '—')],
-						] as [label, value], i}
-							<div class="flex justify-between border-b border-dashed border-[var(--color-faint)] py-[7px] text-xs {i === 3 ? 'border-b-0' : ''}">
-								<span class="text-[var(--color-mute)]">{label}</span>
-								<span class="font-mono font-medium">{value}</span>
+									{/each}
+								{:else}
+									<div class="mt-1 font-serif text-[17px] text-[var(--color-mute)]">—</div>
+								{/if}
 							</div>
-						{/each}
+						{/if}
+						{#if !hidden('section.basic_facts') && visibleFacts.length > 0}
+							<!-- Basic facts -->
+							<div class="eyebrow mb-2" style="font-size: 9.5px; letter-spacing: 1.2px;">PODSTAWOWE</div>
+							{#each visibleFacts as [label, value], i}
+								<div class="flex justify-between border-b border-dashed border-[var(--color-faint)] py-[7px] text-xs {i === visibleFacts.length - 1 ? 'border-b-0' : ''}">
+									<span class="text-[var(--color-mute)]">{label}</span>
+									<span class="font-mono font-medium">{value}</span>
+								</div>
+							{/each}
+						{/if}
 					</div>
 				{/if}
 
-				{#if argumentacjaRow}
+				{#if showArgCard && argumentacjaRow}
+					{@const showMetryki = !hidden('argumentacja.metryki')}
+					{@const tiles = [
+						{ key: 'argumentacja.metryki.cena_ensemble', label: 'CENA ENSEMBLE', value: argumentacjaRow.cena_ensemble, fmt: (v: number) => `${v.toFixed(0)} zł/m²` },
+						{ key: 'argumentacja.metryki.wartosc_total', label: 'WARTOŚĆ CAŁKOWITA', value: argumentacjaRow.wartosc_total, fmt: (v: number) => `${v.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł` },
+						{ key: 'argumentacja.metryki.cena_roszczenia', label: 'CENA ROSZCZENIA', value: argumentacjaRow.cena_m2_roszczenie_orig, fmt: (v: number) => `${v.toFixed(0)} zł/m²` },
+						{ key: 'argumentacja.metryki.wartosc_roszczenia', label: 'WARTOŚĆ ROSZCZENIA', value: argumentacjaRow.wartosc_roszczenia_orig, fmt: (v: number) => `${v.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł` },
+					]}
+					{@const visibleTiles = tiles.filter(t => t.value != null && !hidden(t.key))}
 					<div id="sec-argumentacja" class="glass-card px-6 py-5">
 						<div class="mb-3 flex items-baseline justify-between">
 							<div class="eyebrow" style="letter-spacing: 1.5px;">&mdash; ARGUMENTACJA WYCENY</div>
-							{#if argumentacjaRow.pewnosc_kategoria}
+							{#if argumentacjaRow.pewnosc_kategoria && !hidden('argumentacja.pewnosc')}
 								<span class="glass-pill">
 									{argumentacjaRow.pewnosc_kategoria} &middot; {argumentacjaRow.pewnosc_0_100}/100
 								</span>
 							{/if}
 						</div>
-						<!-- Metric tiles -->
-						<div class="mb-3.5 grid grid-cols-2 gap-2 border-b border-[var(--color-faint)] pb-3.5 sm:grid-cols-4">
-							{#if argumentacjaRow.cena_ensemble != null}
-								<div class="glass-chip px-3.5 py-3">
-									<div class="font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">CENA ENSEMBLE</div>
-									<div class="mt-1.5 font-mono text-sm font-medium">{argumentacjaRow.cena_ensemble.toFixed(0)} zł/m²</div>
-								</div>
-							{/if}
-							{#if argumentacjaRow.wartosc_total != null}
-								<div class="glass-chip px-3.5 py-3">
-									<div class="font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">WARTOŚĆ CAŁKOWITA</div>
-									<div class="mt-1.5 font-mono text-sm font-medium">{argumentacjaRow.wartosc_total.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł</div>
-								</div>
-							{/if}
-							{#if argumentacjaRow.cena_m2_roszczenie_orig != null}
-								<div class="glass-chip px-3.5 py-3">
-									<div class="font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">CENA ROSZCZENIA</div>
-									<div class="mt-1.5 font-mono text-sm font-medium">{argumentacjaRow.cena_m2_roszczenie_orig.toFixed(0)} zł/m²</div>
-								</div>
-							{/if}
-							{#if argumentacjaRow.wartosc_roszczenia_orig != null}
-								<div class="glass-chip px-3.5 py-3">
-									<div class="font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">WARTOŚĆ ROSZCZENIA</div>
-									<div class="mt-1.5 font-mono text-sm font-medium">{argumentacjaRow.wartosc_roszczenia_orig.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł</div>
-								</div>
-							{/if}
-						</div>
-						{#if argumentacjaRow.segment}
+						{#if showMetryki && visibleTiles.length > 0}
+							<!-- Metric tiles -->
+							<div class="mb-3.5 grid grid-cols-2 gap-2 border-b border-[var(--color-faint)] pb-3.5 sm:grid-cols-4">
+								{#each visibleTiles as tile}
+									<div class="glass-chip px-3.5 py-3">
+										<div class="font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">{tile.label}</div>
+										<div class="mt-1.5 font-mono text-sm font-medium">{tile.fmt(tile.value as number)}</div>
+									</div>
+								{/each}
+							</div>
+						{/if}
+						{#if argumentacjaRow.segment && !hidden('argumentacja.segment')}
 							<div class="mb-2.5 flex justify-between font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">
 								<span>SEGMENT &middot; {argumentacjaRow.segment}</span>
 								{#if argumentacjaRow.procent_pow != null}
@@ -520,8 +554,8 @@
 								{/if}
 							</div>
 						{/if}
-						<!-- Argumenty list -->
-						{#if argumentacjaRow.argumenty.length > 0}
+						{#if !hidden('argumentacja.argumenty') && argumentacjaRow.argumenty.length > 0}
+							<!-- Argumenty list -->
 							<div>
 								{#each argumentacjaRow.argumenty as arg, i}
 									<div class="grid gap-3.5 border-b border-dashed border-[var(--color-faint)] py-[9px] text-xs leading-relaxed {i === argumentacjaRow.argumenty.length - 1 ? 'border-b-0' : ''}" style="grid-template-columns: 36px 1fr;">
@@ -537,69 +571,80 @@
 		{/if}
 
 		<!-- MPZP -->
-		<div class="glass-card px-6 py-5">
-			<div class="mb-3 flex items-center justify-between">
-				<div class="eyebrow" style="letter-spacing: 1.5px;">&mdash; PLAN ZAGOSPODAROWANIA</div>
-				<span class="font-mono text-[11px] text-[var(--color-mute)]">
-					źródło: <a href="https://integracja.gugik.gov.pl/" target="_blank" rel="noopener" class="text-[var(--color-accent)] hover:underline">GUGiK KI MPZP</a>
-				</span>
+		{#if !hidden('section.mpzp')}
+			<div class="glass-card px-6 py-5">
+				<div class="mb-3 flex items-center justify-between">
+					<div class="eyebrow" style="letter-spacing: 1.5px;">&mdash; PLAN ZAGOSPODAROWANIA</div>
+					{#if !hidden('mpzp.zrodlo')}
+						<span class="font-mono text-[11px] text-[var(--color-mute)]">
+							źródło: <a href="https://integracja.gugik.gov.pl/" target="_blank" rel="noopener" class="text-[var(--color-accent)] hover:underline">GUGiK KI MPZP</a>
+						</span>
+					{/if}
+				</div>
+				{#if mpzpLoading}
+					<div class="flex items-center gap-2 text-sm text-[var(--color-mute)]">
+						<div class="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-faint)] border-t-[var(--color-accent)]"></div>
+						Pobieram informacje o planie…
+					</div>
+				{:else if mpzpUpstreamError && mpzpFeatures.length === 0}
+					<p class="text-sm text-[var(--color-mute)]">Nie udało się pobrać informacji z GUGiK. Spróbuj ponownie później.</p>
+				{:else if mpzpFeatures.length === 0}
+					<p class="text-sm text-[var(--color-mute)]">Działka nie jest objęta żadnym planem zarejestrowanym w krajowej integracji.</p>
+				{:else}
+					<div class="space-y-3">
+						{#each mpzpFeatures as feat, i (i)}
+							<div class="glass-chip p-3.5 text-sm">
+								{#if feat.tytul_planu && !hidden('mpzp.tytul')}
+									<div class="font-medium">{feat.tytul_planu}</div>
+								{/if}
+								{#if feat.przeznaczenie && !hidden('mpzp.przeznaczenie')}
+									<div class="mt-1"><span class="text-[var(--color-mute)]">Przeznaczenie:</span> {feat.przeznaczenie}</div>
+								{/if}
+								{#if feat.uchwala && !hidden('mpzp.uchwala')}
+									<div class="mt-1.5 text-xs">{feat.uchwala}</div>
+								{/if}
+								{#if !hidden('mpzp.meta') && (feat.status || feat.data_uchwalenia || feat.typ_planu)}
+									<div class="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-[var(--color-mute)]">
+										{#if feat.status}
+											<span>Status: <span class="text-[var(--color-ink)]">{feat.status}</span></span>
+										{/if}
+										{#if feat.data_uchwalenia}
+											<span>Obowiązuje od: <span class="text-[var(--color-ink)]">{feat.data_uchwalenia}</span></span>
+										{/if}
+										{#if feat.typ_planu}
+											<span>Typ: <span class="text-[var(--color-ink)]">{feat.typ_planu}</span></span>
+										{/if}
+									</div>
+								{/if}
+								{#if feat.opis && !hidden('mpzp.opis')}
+									<p class="mt-2 whitespace-pre-wrap">{feat.opis}</p>
+								{/if}
+								{#if !hidden('mpzp.linki') && (feat.link_do_uchwaly || feat.rysunek_url)}
+									<div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+										{#if feat.link_do_uchwaly}
+											<a href={feat.link_do_uchwaly} target="_blank" rel="noopener" class="text-[var(--color-accent)] hover:underline">Dokument uchwaly</a>
+										{/if}
+										{#if feat.rysunek_url}
+											<a href={feat.rysunek_url} target="_blank" rel="noopener" class="text-[var(--color-accent)] hover:underline">Rysunek planu</a>
+										{/if}
+									</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
 			</div>
-			{#if mpzpLoading}
-				<div class="flex items-center gap-2 text-sm text-[var(--color-mute)]">
-					<div class="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-faint)] border-t-[var(--color-accent)]"></div>
-					Pobieram informacje o planie…
-				</div>
-			{:else if mpzpUpstreamError && mpzpFeatures.length === 0}
-				<p class="text-sm text-[var(--color-mute)]">Nie udało się pobrać informacji z GUGiK. Spróbuj ponownie później.</p>
-			{:else if mpzpFeatures.length === 0}
-				<p class="text-sm text-[var(--color-mute)]">Działka nie jest objęta żadnym planem zarejestrowanym w krajowej integracji.</p>
-			{:else}
-				<div class="space-y-3">
-					{#each mpzpFeatures as feat, i (i)}
-						<div class="glass-chip p-3.5 text-sm">
-							{#if feat.tytul_planu}
-								<div class="font-medium">{feat.tytul_planu}</div>
-							{/if}
-							{#if feat.przeznaczenie}
-								<div class="mt-1"><span class="text-[var(--color-mute)]">Przeznaczenie:</span> {feat.przeznaczenie}</div>
-							{/if}
-							{#if feat.uchwala}
-								<div class="mt-1.5 text-xs">{feat.uchwala}</div>
-							{/if}
-							<div class="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-[var(--color-mute)]">
-								{#if feat.status}
-									<span>Status: <span class="text-[var(--color-ink)]">{feat.status}</span></span>
-								{/if}
-								{#if feat.data_uchwalenia}
-									<span>Obowiązuje od: <span class="text-[var(--color-ink)]">{feat.data_uchwalenia}</span></span>
-								{/if}
-								{#if feat.typ_planu}
-									<span>Typ: <span class="text-[var(--color-ink)]">{feat.typ_planu}</span></span>
-								{/if}
-							</div>
-							{#if feat.opis}
-								<p class="mt-2 whitespace-pre-wrap">{feat.opis}</p>
-							{/if}
-							<div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
-								{#if feat.link_do_uchwaly}
-									<a href={feat.link_do_uchwaly} target="_blank" rel="noopener" class="text-[var(--color-accent)] hover:underline">Dokument uchwaly</a>
-								{/if}
-								{#if feat.rysunek_url}
-									<a href={feat.rysunek_url} target="_blank" rel="noopener" class="text-[var(--color-accent)] hover:underline">Rysunek planu</a>
-								{/if}
-							</div>
-						</div>
-					{/each}
-				</div>
-			{/if}
-		</div>
+		{/if}
 
 		<!-- Zoning -->
-		{#if plot.zoning_symbol}
+		{#if plot.zoning_symbol && !hidden('section.zoning')}
+			{@const showH = plot.zoning_max_height != null && plot.zoning_max_height > 0 && !hidden('zoning.constraint.max_height')}
+			{@const showC = plot.zoning_max_coverage != null && plot.zoning_max_coverage > 0 && !hidden('zoning.constraint.max_coverage')}
+			{@const showG = plot.zoning_min_green != null && plot.zoning_min_green > 0 && !hidden('zoning.constraint.min_green')}
 			<div class="glass-card px-6 py-5">
 				<div class="mb-3 flex items-center justify-between">
 					<div class="eyebrow" style="letter-spacing: 1.5px;">&mdash; PLAN OGÓLNY GMINY</div>
-					{#if plot.pog_status}
+					{#if plot.pog_status && !hidden('zoning.status')}
 						<span class="rounded-[20px] px-3 py-1 font-mono text-[11px] font-semibold" style="letter-spacing: 0.8px;
 							{plot.pog_status.includes('obowiązujący')
 								? 'background: rgba(61,90,42,0.10); color: var(--color-accent); border: 1px solid rgba(61,90,42,0.25);'
@@ -608,20 +653,22 @@
 					{/if}
 				</div>
 				<div class="flex items-start gap-3">
-					<span class="glass-pill">{plot.zoning_symbol}</span>
-					{#if plot.zoning_name}
+					{#if !hidden('zoning.symbol')}
+						<span class="glass-pill">{plot.zoning_symbol}</span>
+					{/if}
+					{#if plot.zoning_name && !hidden('zoning.name')}
 						<span class="font-serif text-base font-medium">{plot.zoning_name}</span>
 					{/if}
 				</div>
-				{#if (plot.zoning_max_height != null && plot.zoning_max_height > 0) || (plot.zoning_max_coverage != null && plot.zoning_max_coverage > 0) || (plot.zoning_min_green != null && plot.zoning_min_green > 0)}
+				{#if showH || showC || showG}
 					<div class="mt-4 space-y-1.5 text-sm text-[var(--color-mute)]">
-						{#if plot.zoning_max_height != null && plot.zoning_max_height > 0}
+						{#if showH}
 							<div>Maksymalna wysokość zabudowy: <strong class="text-[var(--color-ink)]">{plot.zoning_max_height} m</strong></div>
 						{/if}
-						{#if plot.zoning_max_coverage != null && plot.zoning_max_coverage > 0}
+						{#if showC}
 							<div>Maks. udział pow. zabudowy: <strong class="text-[var(--color-ink)]">{plot.zoning_max_coverage}%</strong></div>
 						{/if}
-						{#if plot.zoning_min_green != null && plot.zoning_min_green > 0}
+						{#if showG}
 							<div>Min. pow. biologicznie czynna: <strong class="text-[var(--color-ink)]">{plot.zoning_min_green}%</strong></div>
 						{/if}
 					</div>
@@ -629,13 +676,14 @@
 			</div>
 		{/if}
 
-		{#if plot.is_nature_protected}
+		{#if plot.is_nature_protected && !hidden('section.nature_protection')}
 			<div class="glass-card border-[var(--color-amber)] px-6 py-4 text-sm" style="background: rgba(184,134,42,0.08);">
 				Działka znajduje się w obszarze chronionym: {plot.nature_protection?.join(', ') ?? '—'}
 			</div>
 		{/if}
 
 		<!-- Średnie ceny RCN dla gminy i powiatu -->
+		{#if !hidden('section.average_prices')}
 		<div id="sec-ceny-srednie" class="glass-card px-6 py-5">
 			<div class="mb-3 flex items-baseline justify-between">
 				<div class="eyebrow" style="letter-spacing: 1.5px;">
@@ -682,11 +730,15 @@
 				{/snippet}
 
 				<div class="grid gap-4 md:grid-cols-2">
-					{@render cenyBlock('Gmina', cenySrednie.gmina)}
-					{@render cenyBlock('Powiat (ogółem)', cenySrednie.powiat_total)}
+					{#if !hidden('average_prices.gmina')}
+						{@render cenyBlock('Gmina', cenySrednie.gmina)}
+					{/if}
+					{#if !hidden('average_prices.powiat_total')}
+						{@render cenyBlock('Powiat (ogółem)', cenySrednie.powiat_total)}
+					{/if}
 				</div>
 
-				{#if cenySrednie.powiat.length > 0}
+				{#if cenySrednie.powiat.length > 0 && !hidden('average_prices.powiat_segments')}
 					<div class="mt-5">
 						<div class="mb-2 font-mono text-[11px] font-semibold uppercase text-[var(--color-mute)]" style="letter-spacing: 1.2px;">Powiat — per segment rynku</div>
 						<div class="overflow-hidden rounded-xl border border-[var(--color-glass-border)]">
@@ -710,40 +762,48 @@
 				{/if}
 			{/if}
 		</div>
+		{/if}
 
 		<!-- Transakcje w okolicy -->
+		{#if !hidden('section.transactions')}
 		<div id="sec-transakcje" class="glass-card px-6 py-5">
 			<div class="mb-3 flex items-baseline justify-between gap-3">
 				<div class="eyebrow" style="letter-spacing: 1.5px;">
 					&mdash; TRANSAKCJE W OKOLICY{#if !transactionsLoading} ({transactions.length}){/if}
 				</div>
-				<div class="flex flex-wrap items-center gap-3 font-mono text-[11px]">
-					<label class="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-[11px] text-[var(--color-mute)]">
-						<input
-							type="checkbox"
-							bind:checked={showOutliers}
-							class="h-3 w-3 accent-[var(--color-accent)]"
-						/>
-						POKAŻ ODRZUCONE
-					</label>
-					<div class="flex gap-1">
-					{#each [
-						{ v: 'all' as TransactionType, label: 'Wszystkie' },
-						{ v: 'gruntowe' as TransactionType, label: 'Gruntowe' },
-						{ v: 'inne' as TransactionType, label: 'Inne' },
-					] as opt}
-						<button
-							onclick={() => (transactionsType = opt.v)}
-							class="cursor-pointer rounded-[20px] px-3 py-1.5 transition-colors
-								{transactionsType === opt.v
-									? 'bg-[var(--color-ink)] font-semibold text-white'
-									: 'border border-[var(--color-glass-border)] bg-[var(--color-glass)] text-[var(--color-mute)]'}"
-						>
-							{opt.label}
-						</button>
-					{/each}
+				{#if !hidden('transactions.show_outliers') || !hidden('transactions.type_chips')}
+					<div class="flex flex-wrap items-center gap-3 font-mono text-[11px]">
+						{#if !hidden('transactions.show_outliers')}
+							<label class="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-[11px] text-[var(--color-mute)]">
+								<input
+									type="checkbox"
+									bind:checked={showOutliers}
+									class="h-3 w-3 accent-[var(--color-accent)]"
+								/>
+								POKAŻ ODRZUCONE
+							</label>
+						{/if}
+						{#if !hidden('transactions.type_chips')}
+							<div class="flex gap-1">
+							{#each [
+								{ v: 'all' as TransactionType, label: 'Wszystkie' },
+								{ v: 'gruntowe' as TransactionType, label: 'Gruntowe' },
+								{ v: 'inne' as TransactionType, label: 'Inne' },
+							] as opt}
+								<button
+									onclick={() => (transactionsType = opt.v)}
+									class="cursor-pointer rounded-[20px] px-3 py-1.5 transition-colors
+										{transactionsType === opt.v
+											? 'bg-[var(--color-ink)] font-semibold text-white'
+											: 'border border-[var(--color-glass-border)] bg-[var(--color-glass)] text-[var(--color-mute)]'}"
+								>
+									{opt.label}
+								</button>
+							{/each}
+							</div>
+						{/if}
 					</div>
-				</div>
+				{/if}
 			</div>
 			{#if transactionsLoading}
 				<div class="flex items-center gap-2 text-sm text-[var(--color-mute)]">
@@ -753,17 +813,28 @@
 			{:else if transactions.length === 0}
 				<p class="text-sm text-[var(--color-mute)]">Brak transakcji w okolicy</p>
 			{:else}
+				{@const showCena = !hidden('transactions.col.price')}
+				{@const showCenaM2 = !hidden('transactions.col.price_m2')}
+				{@const txCols = [
+					'55px', '80px', '1.2fr', '1.5fr', '65px',
+					...(showCena ? ['90px'] : []),
+					...(showCenaM2 ? ['85px'] : []),
+					'110px', '70px',
+				].join(' ')}
 				<div class="overflow-hidden rounded-xl border border-[var(--color-glass-border)]">
 					<!-- Header -->
-					<div class="grid items-center bg-[var(--color-glass)] px-4 py-2.5 font-mono text-[11px] text-[var(--color-mute)]" style="grid-template-columns: 55px 80px 1.2fr 1.5fr 65px 90px 85px 110px 70px; letter-spacing: 1.2px;">
-						<div>ODL.</div><div>DATA</div><div>DZIAŁKA</div><div>MIEJSCOWOŚĆ</div><div class="text-right">POW.</div><div class="text-right">CENA</div><div class="text-right">ZŁ/M²</div><div>RODZAJ</div><div>RYNEK</div>
+					<div class="grid items-center bg-[var(--color-glass)] px-4 py-2.5 font-mono text-[11px] text-[var(--color-mute)]" style="grid-template-columns: {txCols}; letter-spacing: 1.2px;">
+						<div>ODL.</div><div>DATA</div><div>DZIAŁKA</div><div>MIEJSCOWOŚĆ</div><div class="text-right">POW.</div>
+						{#if showCena}<div class="text-right">CENA</div>{/if}
+						{#if showCenaM2}<div class="text-right">ZŁ/M²</div>{/if}
+						<div>RODZAJ</div><div>RYNEK</div>
 					</div>
 					{#each transactions as t, i (t.id)}
 						{@const rejected = t.outlier === 1 || t.do_wyceny === 0}
 						<div
 							id="transaction-{t.id}"
 							class="grid items-center border-t border-[var(--color-faint)] px-4 py-2.5 font-mono text-[11.5px] transition-shadow {rejected ? 'opacity-50 line-through decoration-[var(--color-mute)]' : ''}"
-							style="grid-template-columns: 55px 80px 1.2fr 1.5fr 65px 90px 85px 110px 70px;"
+							style="grid-template-columns: {txCols};"
 							title={rejected ? (t.outlier === 1 ? 'Odrzucona: wartość odstająca (outlier)' : 'Odrzucona: nie nadaje się do wyceny') : ''}
 						>
 							<div class="text-[var(--color-mute)]">{distLabel(t.distance_m)}</div>
@@ -771,8 +842,12 @@
 							<div class="font-medium">{t.id_dzialki ?? '—'}</div>
 							<div class="truncate text-[11px] text-[var(--color-mute)]" style="font-family: var(--font-sans);">{[t.miejscowosc, t.ulica].filter(Boolean).join(', ') || '—'}</div>
 							<div class="text-right">{t.powierzchnia_m2 != null ? formatArea(t.powierzchnia_m2) : '—'}</div>
-							<div class="text-right">{formatPrice(t.cena_do_analizy ?? t.cena_transakcji)}</div>
-							<div class="text-right text-[var(--color-mute)]">{t.cena_za_m2 != null ? formatPrice(t.cena_za_m2) : '—'}</div>
+							{#if showCena}
+								<div class="text-right">{formatPrice(t.cena_do_analizy ?? t.cena_transakcji)}</div>
+							{/if}
+							{#if showCenaM2}
+								<div class="text-right text-[var(--color-mute)]">{t.cena_za_m2 != null ? formatPrice(t.cena_za_m2) : '—'}</div>
+							{/if}
 							<div class="text-[11px] text-[var(--color-mute)]" style="font-family: var(--font-sans);">{t.rodzaj_nieruchomosci != null ? RODZAJ_NIERUCHOMOSCI[t.rodzaj_nieruchomosci] ?? t.rodzaj_nieruchomosci : '—'}</div>
 							<div class="text-[11px]" style="font-family: var(--font-sans); color: {t.rodzaj_rynku === 1 ? 'var(--color-accent)' : t.rodzaj_rynku === 2 ? 'var(--color-amber)' : 'var(--color-mute)'};">
 								{t.rodzaj_rynku != null ? RODZAJ_RYNKU[t.rodzaj_rynku] ?? t.rodzaj_rynku : '—'}
@@ -782,8 +857,10 @@
 				</div>
 			{/if}
 		</div>
+		{/if}
 
 		<!-- Ogłoszenia w okolicy -->
+		{#if !hidden('section.listings')}
 		<div class="glass-card px-6 py-5">
 			<div class="eyebrow mb-3" style="letter-spacing: 1.5px;">
 				&mdash; OGŁOSZENIA W OKOLICY{#if !listingsLoading} ({activeListings.length + inactiveListings.length}){/if}
@@ -812,7 +889,7 @@
 							{#if listing.deal_type}
 								<span class="glass-pill" style="font-size: 11px; padding: 3px 8px; {listing.deal_type.toLowerCase().includes('wynajem') ? 'background: rgba(184,134,42,0.1); color: var(--color-amber); border-color: rgba(184,134,42,0.25);' : ''}">{listing.deal_type}</span>
 							{/if}
-							{#if listing.site}
+							{#if listing.site && !hidden('listings.card.site')}
 								<span class="rounded-[20px] border border-[var(--color-glass-border)] bg-[var(--color-glass)] px-2 py-0.5 font-mono text-[11px] text-[var(--color-mute)]">{listing.site}</span>
 							{/if}
 						</div>
@@ -820,14 +897,14 @@
 							<span class="text-[11px] text-[var(--color-mute)]">
 								{[listing.area ? listing.area + ' m2' : '', listing.city].filter(Boolean).join(' · ')}
 							</span>
-							{#if listing.price}
+							{#if listing.price && !hidden('listings.card.price')}
 								<span class="font-mono text-sm font-medium">{Number(listing.price).toLocaleString('pl-PL')} zł</span>
 							{/if}
 						</div>
 					</a>
 				{/snippet}
 
-				{#if activeListings.length > 0}
+				{#if activeListings.length > 0 && !hidden('listings.active')}
 					<div class="mb-2 font-mono text-[11px] font-semibold uppercase text-[var(--color-accent)]" style="letter-spacing: 1.2px;">Aktywne ({activeListings.length})</div>
 					<div class="grid gap-2 md:grid-cols-2">
 						{#each activeListings as listing (listing.id)}
@@ -836,7 +913,7 @@
 					</div>
 				{/if}
 
-				{#if inactiveListings.length > 0}
+				{#if inactiveListings.length > 0 && !hidden('listings.inactive')}
 					<div class="mb-2 mt-4 font-mono text-[11px] font-semibold uppercase text-[var(--color-mute)]" style="letter-spacing: 1.2px;">Nieaktywne ({inactiveListings.length})</div>
 					<div class="grid gap-2 md:grid-cols-2">
 						{#each inactiveListings as listing (listing.id)}
@@ -846,37 +923,45 @@
 				{/if}
 			{/if}
 		</div>
+		{/if}
 
 		<!-- Aktywność inwestycyjna -->
+		{#if !hidden('section.investments')}
 		<div id="sec-aktywnosc" class="glass-card px-6 py-5">
 			<div class="mb-3 flex items-baseline justify-between">
 				<div class="eyebrow" style="letter-spacing: 1.5px;">
 					&mdash; AKTYWNOŚĆ INWESTYCYJNA{#if !investmentsLoading} ({investments.length}){/if}
 				</div>
-				<div class="flex flex-wrap items-center gap-2">
-					<div class="flex gap-1 font-mono text-[11px]">
-						{#each ['all', 'pozwolenie', 'zgloszenie'] as t}
-							<button
-								onclick={() => (investmentsType = t as InvestmentType)}
-								class="cursor-pointer rounded-[20px] px-3 py-1.5 transition-colors
-									{investmentsType === t
-										? 'bg-[var(--color-ink)] font-semibold text-white'
-										: 'border border-[var(--color-glass-border)] bg-[var(--color-glass)] text-[var(--color-mute)]'}"
+				{#if !hidden('investments.type_chips') || !hidden('investments.time_window')}
+					<div class="flex flex-wrap items-center gap-2">
+						{#if !hidden('investments.type_chips')}
+							<div class="flex gap-1 font-mono text-[11px]">
+								{#each ['all', 'pozwolenie', 'zgloszenie'] as t}
+									<button
+										onclick={() => (investmentsType = t as InvestmentType)}
+										class="cursor-pointer rounded-[20px] px-3 py-1.5 transition-colors
+											{investmentsType === t
+												? 'bg-[var(--color-ink)] font-semibold text-white'
+												: 'border border-[var(--color-glass-border)] bg-[var(--color-glass)] text-[var(--color-mute)]'}"
+									>
+										{INVESTMENT_TYPE_LABELS[t]}
+									</button>
+								{/each}
+							</div>
+						{/if}
+						{#if !hidden('investments.time_window')}
+							<select
+								bind:value={investmentsMonths}
+								class="rounded-[var(--r-sm)] border border-[var(--color-glass-border)] bg-[var(--color-glass)] px-2 py-1 font-mono text-[11px] text-[var(--color-mute)]"
 							>
-								{INVESTMENT_TYPE_LABELS[t]}
-							</button>
-						{/each}
+								<option value={12}>12 mies.</option>
+								<option value={24}>24 mies.</option>
+								<option value={36}>36 mies.</option>
+								<option value={60}>5 lat</option>
+							</select>
+						{/if}
 					</div>
-					<select
-						bind:value={investmentsMonths}
-						class="rounded-[var(--r-sm)] border border-[var(--color-glass-border)] bg-[var(--color-glass)] px-2 py-1 font-mono text-[11px] text-[var(--color-mute)]"
-					>
-						<option value={12}>12 mies.</option>
-						<option value={24}>24 mies.</option>
-						<option value={36}>36 mies.</option>
-						<option value={60}>5 lat</option>
-					</select>
-				</div>
+				{/if}
 			</div>
 			{#if investmentsLoading}
 				<div class="flex items-center gap-2 text-sm text-[var(--color-mute)]">
@@ -913,7 +998,7 @@
 								</div>
 							</div>
 							<div class="font-mono text-[11px] text-[var(--color-mute)]">
-								{inv.miejscowosc ?? ''} {inv.organ ?? ''}
+								{inv.miejscowosc ?? ''} {hidden('investments.card.organ') ? '' : (inv.organ ?? '')}
 							</div>
 							<div class="text-right font-mono text-[11px] text-[var(--color-accent)]">Więcej informacji &rarr;</div>
 						</button>
@@ -921,6 +1006,7 @@
 				</div>
 			{/if}
 		</div>
+		{/if}
 
 		<InvestmentDetailsModal
 			investment={selectedInvestment}

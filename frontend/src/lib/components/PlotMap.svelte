@@ -17,6 +17,9 @@
 		type PowerlineSource,
 		type RoszczenieRow,
 	} from '$lib/api/plots';
+	import { restrictions } from '$lib/stores/restrictions';
+
+	const hidden = (key: string) => $restrictions.has(key);
 
 	interface Props {
 		idDzialki: string;
@@ -1085,20 +1088,22 @@
 		{:else}
 			<div bind:this={mapContainer} class="h-full w-full"></div>
 
-			<!-- Floating download button, top-left of the map -->
-			<button
-				onclick={downloadMapImage}
-				class="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-gray-600 shadow backdrop-blur-sm hover:bg-white hover:text-gray-900"
-				title="Pobierz aktualny widok mapy"
-				aria-label="Pobierz mapę"
-			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
-				</svg>
-			</button>
+			{#if !hidden('map.download_button')}
+				<!-- Floating download button, top-left of the map -->
+				<button
+					onclick={downloadMapImage}
+					class="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-gray-600 shadow backdrop-blur-sm hover:bg-white hover:text-gray-900"
+					title="Pobierz aktualny widok mapy"
+					aria-label="Pobierz mapę"
+				>
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+					</svg>
+				</button>
+			{/if}
 
 			<!-- First-visit hint pointing at the download button -->
-			{#if showDownloadHint}
+			{#if showDownloadHint && !hidden('map.download_button')}
 				<div
 					role="dialog"
 					aria-label="Wskazówka: pobierz widok mapy"
@@ -1123,10 +1128,11 @@
 		{/if}
 	</div>
 
-	{#if !loading}
+	{#if !loading && !hidden('map.controls')}
 		<!-- Always-visible full-width controls, laid out horizontally under the map -->
 		<div class="w-full rounded-xl border border-[var(--color-border)] bg-white/95 p-4 text-xs text-gray-700 shadow-sm">
 			<div class="flex flex-wrap gap-x-6 gap-y-4">
+						{#if !hidden('map.layer.basemap')}
 						<!-- 1. Mapa bazowa -->
 						<section class="min-w-[220px] flex-1">
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Mapa bazowa</h4>
@@ -1141,16 +1147,21 @@
 								<span>Orto</span>
 							</label>
 						</section>
+						{/if}
 
+						{#if !hidden('map.layer.dzialka')}
 						<!-- 2. Działka -->
 						<section class="min-w-[180px] flex-1">
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Działka</h4>
+							{#if !hidden('map.layer.dzialka.dimensions')}
 							<label class="flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={showDimensions} onchange={toggleDimensions} class="accent-blue-600" />
 								<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#1e3a5f"></span>
 								Wymiary boków
 							</label>
+							{/if}
 
+							{#if !hidden('map.layer.dzialka.style')}
 							<details class="mt-1">
 								<summary class="cursor-pointer select-none py-1 text-gray-600 hover:text-gray-900">
 									<span class="inline-block h-2.5 w-2.5 rounded-sm border border-gray-300" style="background:{plotFill}; opacity:{plotFillOpacity / 100}"></span>
@@ -1205,19 +1216,23 @@
 									</div>
 								</div>
 							</details>
+							{/if}
 						</section>
+						{/if}
 
 						<!-- 3. Budynki -->
-						{#if buildings && buildings.features.length > 0}
+						{#if buildings && buildings.features.length > 0 && !hidden('map.layer.buildings')}
 							<section class="min-w-[180px] flex-1">
 								<div class="mb-1.5 flex items-center justify-between">
 									<h4 class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Budynki</h4>
-									<button
-										onclick={toggleBuildings3d}
-										class="rounded border border-gray-300 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 hover:bg-gray-100"
-									>
-										{buildings3d ? '2D' : '3D'}
-									</button>
+									{#if !hidden('map.layer.buildings.toggle3d')}
+										<button
+											onclick={toggleBuildings3d}
+											class="rounded border border-gray-300 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 hover:bg-gray-100"
+										>
+											{buildings3d ? '2D' : '3D'}
+										</button>
+									{/if}
 								</div>
 								{#each LAYERS as layer}
 									{@const count = countBySource(layer.source)}
@@ -1238,6 +1253,7 @@
 							</section>
 						{/if}
 
+						{#if !hidden('map.layer.mpzp')}
 						<!-- 4. Plan zagospodarowania (KI MPZP) -->
 						<section class="min-w-[200px] flex-1">
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Plan zagospodarowania</h4>
@@ -1262,10 +1278,13 @@
 								</label>
 							{/if}
 						</section>
+						{/if}
 
+						{#if !hidden('map.layer.gesut')}
 						<!-- 5. Sieci uzbrojenia (GESUT WMS) -->
 						<section class="min-w-[220px] flex-1">
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Sieci uzbrojenia (GESUT)</h4>
+							{#if !hidden('map.layer.gesut.lines')}
 							<label class="flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={gesutVisible} onchange={toggleGesut} class="accent-blue-600" />
 								<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#e53e3e"></span>
@@ -1274,6 +1293,8 @@
 									<span class="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" title="Ładowanie kafli z GUGiK…"></span>
 								{/if}
 							</label>
+							{/if}
+							{#if !hidden('map.layer.gesut.devices')}
 							<label class="flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={gesutUrzadzeniaVisible} onchange={toggleGesutUrzadzenia} class="accent-blue-600" />
 								<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#9f1239"></span>
@@ -1282,12 +1303,16 @@
 									<span class="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" title="Ładowanie kafli z GUGiK…"></span>
 								{/if}
 							</label>
+							{/if}
 						</section>
+						{/if}
 
+						{#if !hidden('map.layer.powerlines')}
 						<!-- 5. Linie energetyczne (wektorowe + bufor) -->
 						<section class="min-w-[280px] flex-[2]">
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Linie energetyczne</h4>
 
+							{#if !hidden('map.layer.powerlines.bdot')}
 							<label class="flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={bdotLinesVisible} onchange={toggleBdotLines} class="accent-red-600" />
 								<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#c53030"></span>
@@ -1310,7 +1335,9 @@
 									/>
 								</div>
 							{/if}
+							{/if}
 
+							{#if !hidden('map.layer.powerlines.osm')}
 							<label class="mt-1 flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={osmLinesVisible} onchange={toggleOsmLines} class="accent-cyan-600" />
 								<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#0e7490"></span>
@@ -1354,7 +1381,9 @@
 									{/each}
 								</div>
 							{/if}
+							{/if}
 
+							{#if !hidden('map.layer.powerlines.bdot_devices')}
 							<label class="mt-1 flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={bdotDevicesVisible} onchange={toggleBdotDevices} class="accent-purple-600" />
 								<span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#805ad5"></span>
@@ -1363,94 +1392,118 @@
 									<span class="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600"></span>
 								{/if}
 							</label>
+							{/if}
 						</section>
+						{/if}
 
+						{#if !hidden('map.layer.pinezki')}
 						<!-- 6. Pinezki -->
 						<section class="min-w-[220px] flex-1">
 							<h4 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Pinezki</h4>
+							{#if !hidden('map.layer.pinezki.tx')}
 							<label class="flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={txPinsVisible} onchange={() => togglePins('tx')} class="accent-blue-600" />
 								<span class="inline-block h-2.5 w-2.5 rounded-full" style="background:#3182ce"></span>
 								<span class="flex-1">Transakcje</span>
 								<span class="text-[10px] text-gray-400">{transactions.filter(t => t.lng != null).length}</span>
 							</label>
+							{/if}
+							{#if !hidden('map.layer.pinezki.listings')}
 							<label class="flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={listingPinsVisible} onchange={() => togglePins('listing')} class="accent-green-600" />
 								<span class="inline-block h-2.5 w-2.5 rounded-full" style="background:#38a169"></span>
 								<span class="flex-1">Ogłoszenia</span>
 								<span class="text-[10px] text-gray-400">{listings.filter(l => l.lng != null).length}</span>
 							</label>
+							{/if}
+							{#if !hidden('map.layer.pinezki.investments')}
 							<label class="flex cursor-pointer items-center gap-2 py-1">
 								<input type="checkbox" checked={invPinsVisible} onchange={() => togglePins('investment')} class="accent-yellow-600" />
 								<span class="inline-block h-2.5 w-2.5 rounded-full" style="background:#d69e2e"></span>
 								<span class="flex-1">Aktywność inwestycyjna</span>
 								<span class="text-[10px] text-gray-400">{investments.filter(i => i.lng != null).length}</span>
 							</label>
+							{/if}
 						</section>
+						{/if}
 			</div>
 		</div>
+	{/if}
+	{#if !loading}
 
 		<!-- Ownership-complication alert: surfaces służebności / 10+ owners /
 			 Skarb Państwa from the roszczenia sheet. Sits right above
 			 Strefa · Roszczenie because these flags materially change how the
 			 claim should be read. -->
-		{#if roszczenieRow && (roszczenieRow.has_sluzebnosci || roszczenieRow.has_10_or_more_owners || roszczenieRow.has_state_owner || roszczenieRow.no_kw_in_sheet)}
-			<div id="sec-ostrzezenia" class="mb-3.5 rounded-xl border border-red-300 bg-red-50 px-5 py-4 shadow-sm">
-				<div class="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-red-700">
-					<span aria-hidden="true">⚠</span>
-					<span>Uwaga &mdash; Komplikacje własnościowe</span>
+		{#if !hidden('section.komplikacje') && roszczenieRow}
+			{@const showSluz = !!roszczenieRow.has_sluzebnosci && !hidden('komplikacje.sluzebnosci')}
+			{@const showMany = !!roszczenieRow.has_10_or_more_owners && !hidden('komplikacje.many_owners')}
+			{@const showState = !!roszczenieRow.has_state_owner && !hidden('komplikacje.state_owner')}
+			{@const showNoKw = roszczenieRow.no_kw_in_sheet && !hidden('komplikacje.no_kw')}
+			{#if showSluz || showMany || showState || showNoKw}
+				<div id="sec-ostrzezenia" class="mb-3.5 rounded-xl border border-red-300 bg-red-50 px-5 py-4 shadow-sm">
+					<div class="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-red-700">
+						<span aria-hidden="true">⚠</span>
+						<span>Uwaga &mdash; Komplikacje własnościowe</span>
+					</div>
+					<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+						{#if showSluz}
+							<div class="flex items-start gap-3 rounded-lg border border-red-200 bg-white px-3.5 py-3">
+								<span class="flag-badge flag-badge--sluzebnosci shrink-0" aria-hidden="true">S</span>
+								<div>
+									<div class="text-sm font-semibold text-gray-900">Służebności</div>
+									<div class="mt-0.5 text-xs text-gray-600">Księga wieczysta zawiera obciążenia służebnościami.</div>
+								</div>
+							</div>
+						{/if}
+						{#if showMany}
+							<div class="flex items-start gap-3 rounded-lg border border-red-200 bg-white px-3.5 py-3">
+								<span class="flag-badge flag-badge--many-owners shrink-0" aria-hidden="true">10</span>
+								<div>
+									<div class="text-sm font-semibold text-gray-900">10 lub więcej współwłaścicieli</div>
+									<div class="mt-0.5 text-xs text-gray-600">Działka ma przynajmniej dziesięciu współwłaścicieli.</div>
+								</div>
+							</div>
+						{/if}
+						{#if showState}
+							<div class="flex items-start gap-3 rounded-lg border border-red-200 bg-white px-3.5 py-3">
+								<span class="flag-badge flag-badge--state shrink-0" aria-hidden="true">P</span>
+								<div>
+									<div class="text-sm font-semibold text-gray-900">Skarb Państwa</div>
+									<div class="mt-0.5 text-xs text-gray-600">Wśród właścicieli figuruje Skarb Państwa.</div>
+								</div>
+							</div>
+						{/if}
+						{#if showNoKw}
+							<div class="flex items-start gap-3 rounded-lg border border-red-200 bg-white px-3.5 py-3">
+								<span class="flag-badge flag-badge--no-kw shrink-0" aria-hidden="true">Brak KW</span>
+								<div>
+									<div class="text-sm font-semibold text-gray-900">Brak numeru KW</div>
+									<div class="mt-0.5 text-xs text-gray-600">W arkuszu nie odnaleziono księgi wieczystej dla tej działki.</div>
+								</div>
+							</div>
+						{/if}
+					</div>
 				</div>
-				<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-					{#if roszczenieRow.has_sluzebnosci}
-						<div class="flex items-start gap-3 rounded-lg border border-red-200 bg-white px-3.5 py-3">
-							<span class="flag-badge flag-badge--sluzebnosci shrink-0" aria-hidden="true">S</span>
-							<div>
-								<div class="text-sm font-semibold text-gray-900">Służebności</div>
-								<div class="mt-0.5 text-xs text-gray-600">Księga wieczysta zawiera obciążenia służebnościami.</div>
-							</div>
-						</div>
-					{/if}
-					{#if roszczenieRow.has_10_or_more_owners}
-						<div class="flex items-start gap-3 rounded-lg border border-red-200 bg-white px-3.5 py-3">
-							<span class="flag-badge flag-badge--many-owners shrink-0" aria-hidden="true">10</span>
-							<div>
-								<div class="text-sm font-semibold text-gray-900">10 lub więcej współwłaścicieli</div>
-								<div class="mt-0.5 text-xs text-gray-600">Działka ma przynajmniej dziesięciu współwłaścicieli.</div>
-							</div>
-						</div>
-					{/if}
-					{#if roszczenieRow.has_state_owner}
-						<div class="flex items-start gap-3 rounded-lg border border-red-200 bg-white px-3.5 py-3">
-							<span class="flag-badge flag-badge--state shrink-0" aria-hidden="true">P</span>
-							<div>
-								<div class="text-sm font-semibold text-gray-900">Skarb Państwa</div>
-								<div class="mt-0.5 text-xs text-gray-600">Wśród właścicieli figuruje Skarb Państwa.</div>
-							</div>
-						</div>
-					{/if}
-					{#if roszczenieRow.no_kw_in_sheet}
-						<div class="flex items-start gap-3 rounded-lg border border-red-200 bg-white px-3.5 py-3">
-							<span class="flag-badge flag-badge--no-kw shrink-0" aria-hidden="true">Brak KW</span>
-							<div>
-								<div class="text-sm font-semibold text-gray-900">Brak numeru KW</div>
-								<div class="mt-0.5 text-xs text-gray-600">W arkuszu nie odnaleziono księgi wieczystej dla tej działki.</div>
-							</div>
-						</div>
-					{/if}
-				</div>
-			</div>
+			{/if}
 		{/if}
 
 		<!-- Standalone full-width Strefa · Roszczenie section: large numbers
 			 need room to breathe, and the claim values are the whole reason
 			 somebody is using this view, so give them their own container. -->
-		{#if bdotLinesVisible || osmLinesVisible || roszczenieRow}
+		{#if !hidden('section.strefa_roszczenie') && (bdotLinesVisible || osmLinesVisible || roszczenieRow)}
+			{@const showColStrefy = !hidden('strefa.column_strefy')}
+			{@const showColWartosc = !hidden('strefa.column_wartosc')}
+			{@const showColRoszczenie = !hidden('strefa.column_roszczenie')}
+			{@const visibleCols = [showColStrefy, showColWartosc, showColRoszczenie].filter(Boolean).length}
+			{#if visibleCols > 0}
 			<div class="w-full rounded-xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm">
 				<h3 class="mb-4 text-xs font-semibold uppercase tracking-wider text-amber-700">
 					Strefa · Roszczenie
 				</h3>
 
-				<div class="grid gap-6 md:grid-cols-3">
+				<div class="grid gap-6" style="grid-template-columns: repeat({visibleCols}, minmax(0, 1fr));">
+					{#if showColStrefy}
 					<!-- Column 1: STREFY — intersection area per source, m² + % of plot -->
 					<div>
 						<div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-amber-700">
@@ -1493,7 +1546,9 @@
 							{/if}
 						</div>
 					</div>
+					{/if}
 
+					{#if showColWartosc}
 					<!-- Column 2: WARTOŚĆ DZIAŁKI — the input, prefilled from the sheet -->
 					<div>
 						<label class="block">
@@ -1518,7 +1573,7 @@
 									zł
 								</span>
 							</div>
-							{#if roszczenieRow?.wartosc_dzialki_old != null}
+							{#if roszczenieRow?.wartosc_dzialki_old != null && !hidden('strefa.wartosc_old')}
 								<div class="mt-1 flex items-baseline justify-between text-[10px] text-gray-500">
 									<span class="italic">Poprzednio</span>
 									<span class="font-mono tabular-nums">
@@ -1531,7 +1586,9 @@
 							</div>
 						</label>
 					</div>
+					{/if}
 
+					{#if showColRoszczenie}
 					<!-- Column 3: ROSZCZENIE — wartość × 0.5 × coverage per source -->
 					<div>
 						<div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-amber-700">
@@ -1548,7 +1605,7 @@
 										<div class="mt-0.5 font-mono text-base font-semibold tabular-nums text-amber-800">
 											{Math.round(bdotClaimZl).toLocaleString('pl-PL')} zł
 										</div>
-										{#if bdotClaimZlOld != null}
+										{#if bdotClaimZlOld != null && !hidden('strefa.roszczenie_old')}
 											<div class="mt-0.5 flex items-baseline justify-between text-[10px] text-gray-500">
 												<span class="italic">Poprzednio</span>
 												<span class="font-mono tabular-nums">
@@ -1567,7 +1624,7 @@
 										<div class="mt-0.5 font-mono text-base font-semibold tabular-nums text-amber-800">
 											{Math.round(osmClaimZl).toLocaleString('pl-PL')} zł
 										</div>
-										{#if osmClaimZlOld != null}
+										{#if osmClaimZlOld != null && !hidden('strefa.roszczenie_old')}
 											<div class="mt-0.5 flex items-baseline justify-between text-[10px] text-gray-500">
 												<span class="italic">Poprzednio</span>
 												<span class="font-mono tabular-nums">
@@ -1588,8 +1645,10 @@
 							</div>
 						{/if}
 					</div>
+					{/if}
 				</div>
 			</div>
+			{/if}
 		{/if}
 	{/if}
 </div>
