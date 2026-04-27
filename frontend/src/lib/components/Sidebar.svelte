@@ -9,6 +9,7 @@
 
 	let loggingOut = $state(false);
 	let menuOpen = $state(false);
+	let clickedItemId = $state<number | null>(null);
 
 	onMount(() => {
 		if (!$historyLoaded) {
@@ -26,7 +27,8 @@
 		return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
 	}
 
-	function rerunSearch(item: { query_text: string; query_type: string; top_result_id?: string | null }) {
+	function rerunSearch(item: { id: number; query_text: string; query_type: string; top_result_id?: string | null }) {
+		clickedItemId = item.id;
 		searchQuery.set(item.query_text);
 		hasSearched.set(true);
 		if (item.top_result_id) {
@@ -49,6 +51,15 @@
 		if (!item.top_result_id) return false;
 		return $page.url.pathname === `/plot/${encodeURIComponent(item.top_result_id)}`;
 	}
+
+	const activeItemId = $derived.by(() => {
+		const matching = $historyItems.filter(isOnPlotPage);
+		if (matching.length === 0) return null;
+		if (clickedItemId !== null && matching.some((i) => i.id === clickedItemId)) {
+			return clickedItemId;
+		}
+		return matching[0].id;
+	});
 
 	const ROLE_LABELS: Record<string, string> = {
 		super_admin: 'Super Admin',
@@ -96,7 +107,7 @@
 			<p class="px-3 py-8 text-center font-mono text-[11px] text-[var(--color-mute)]">Brak historii</p>
 		{:else}
 			{#each $historyItems as item (item.id)}
-				{@const active = isOnPlotPage(item)}
+				{@const active = item.id === activeItemId}
 				<button
 					class="mb-0.5 grid w-full cursor-pointer grid-cols-[1fr_auto] gap-1 rounded-[var(--r-sm)] px-3 py-[7px] text-left transition-colors
 						{active ? 'border border-[rgba(61,90,42,0.2)] bg-[rgba(61,90,42,0.08)]' : 'border border-transparent hover:bg-[var(--color-glass)]'}"
