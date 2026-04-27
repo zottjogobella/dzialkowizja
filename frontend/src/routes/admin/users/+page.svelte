@@ -132,6 +132,23 @@
 		}
 	}
 
+	async function activate(u: AdminUser) {
+		if (!confirm(`Aktywować użytkownika ${u.email}?`)) return;
+		try {
+			const res = await apiFetch(`/api/admin/users/${u.id}/activate`, {
+				method: 'POST',
+				headers: { 'X-CSRF-Token': getCsrfToken() }
+			});
+			if (!res.ok) {
+				alert('Nie udało się aktywować użytkownika');
+				return;
+			}
+			await load();
+		} catch {
+			alert('Nie udało się aktywować użytkownika');
+		}
+	}
+
 	async function saveEdit(e: Event) {
 		e.preventDefault();
 		if (!editUser) return;
@@ -288,6 +305,8 @@
 							<button class="text-xs text-[var(--color-primary)] hover:underline" onclick={() => { pwUser = u; pwValue = ''; pwError = null; }}>Zmień hasło</button>
 							{#if u.is_active}
 								<button class="text-xs text-red-600 hover:underline" onclick={() => deactivate(u)}>Dezaktywuj</button>
+							{:else}
+								<button class="text-xs text-green-700 hover:underline" onclick={() => activate(u)}>Aktywuj</button>
 							{/if}
 						</td>
 					</tr>

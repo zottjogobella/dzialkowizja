@@ -118,6 +118,23 @@ async def deactivate_user(
     return {"ok": True}
 
 
+@router.post("/users/{user_id}/activate")
+async def activate_user(
+    user_id: uuid.UUID,
+    actor: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    target = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Użytkownik nie znaleziony")
+    _ensure_same_org(actor, target)
+    if target.role not in RESTRICTABLE_ROLES:
+        raise HTTPException(status_code=400, detail="Można aktywować tylko zwykłych użytkowników")
+    target.is_active = True
+    await db.commit()
+    return {"ok": True}
+
+
 @router.patch("/users/{user_id}", response_model=UserOut)
 async def update_user(
     user_id: uuid.UUID,
