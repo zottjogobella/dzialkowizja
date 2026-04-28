@@ -138,9 +138,9 @@
 	// unparseable / unknown medium voltage (labeled "≤ 30 kV").
 	type OsmBand = '15' | '20' | '30' | 'mv' | '110' | '200' | '400';
 	const OSM_BAND_COLORS: Record<OsmBand, string> = {
-		'15': '#a3e635',   // 15 kV — lime-400
-		'20': '#84cc16',   // 20 kV — lime-500
-		'30': '#65a30d',   // 30 kV — lime-600
+		'15': '#ca8a04',   // 15 kV — yellow-600 (mustard)
+		'20': '#65a30d',   // 20 kV — lime-600
+		'30': '#15803d',   // 30 kV — green-700
 		'mv': '#9ca3af',   // ≤ 30 kV (unknown MV) — gray
 		'110': '#0891b2',  // 110 kV — cyan
 		'200': '#ea580c',  // 200 kV — orange
