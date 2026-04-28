@@ -26,7 +26,7 @@ services:
       DATABASE_URL_SYNC: postgresql://dzialkowizja:${DB_PASSWORD:-dzialkowizja_dev}@appdb:5432/dzialkowizja
       GEO_DB_HOST: ${GEO_DB_HOST:-145.239.2.73}
       GEO_DB_PORT: ${GEO_DB_PORT:-5432}
-      GEO_DB_NAME: ${GEO_DB_NAME:-gruntomat}
+      GEO_DB_NAME: ${GEO_DB_NAME:-gruntomat_geo}
       GEO_DB_USER: ${GEO_DB_USER:-}
       GEO_DB_PASSWORD: ${GEO_DB_PASSWORD:-}
       FRONTEND_URL: http://localhost:5173

@@ -725,7 +725,7 @@ def main():
 
     p.add_argument("--db-host", default=os.environ.get("GEO_DB_HOST", "145.239.2.73"))
     p.add_argument("--db-port", type=int, default=int(os.environ.get("GEO_DB_PORT", "5432")))
-    p.add_argument("--db-name", default=os.environ.get("GEO_DB_NAME", "gruntomat"))
+    p.add_argument("--db-name", default=os.environ.get("GEO_DB_NAME", "gruntomat_geo"))
     p.add_argument("--db-user", default=os.environ.get("GEO_DB_USER", "gruntomat"))
     p.add_argument("--db-password", default=os.environ.get("GEO_DB_PASSWORD", "gruntomat_dev"))
 

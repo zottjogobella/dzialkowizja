@@ -20,10 +20,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://dzialkowizja:dzialkowizja_dev@localhost:5433/dzialkowizja"
     database_url_sync: str = "postgresql://dzialkowizja:dzialkowizja_dev@localhost:5433/dzialkowizja"
 
-    # Geo Database (gruntomat - read only)
+    # Geo Database (gruntomat_geo - read only)
     geo_db_host: str = "145.239.2.73"
     geo_db_port: int = 5432
-    geo_db_name: str = "gruntomat"
+    geo_db_name: str = "gruntomat_geo"
     geo_db_user: str = ""
     geo_db_password: str = ""
 

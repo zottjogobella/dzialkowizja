@@ -28,7 +28,7 @@ logger = logging.getLogger("extract_osm_powerlines")
 
 DB_HOST = os.environ.get("GEO_DB_HOST", "145.239.2.73")
 DB_PORT = int(os.environ.get("GEO_DB_PORT", "5432"))
-DB_NAME = os.environ.get("GEO_DB_NAME", "gruntomat")
+DB_NAME = os.environ.get("GEO_DB_NAME", "gruntomat_geo")
 DB_USER = os.environ.get("GEO_DB_USER", "gruntomat")
 DB_PASSWORD = os.environ.get("GEO_DB_PASSWORD", "gruntomat_dev")
 
