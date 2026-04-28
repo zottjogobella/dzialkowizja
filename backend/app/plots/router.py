@@ -20,6 +20,7 @@ from app.db.engine import get_db
 from app.db.models import PlotSnapshot, User
 from app.middleware.rate_limit_dep import rate_limit_detail
 from app.permissions.fields import get_restricted_keys, is_section_restricted
+from app.policy.daily_limit import enforce_daily_search_limit
 from app.plots.schemas import Listing
 
 logger = logging.getLogger(__name__)
@@ -859,6 +860,7 @@ async def get_plot(
     user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
     _rl: None = Depends(rate_limit_detail),
+    _dl: None = Depends(enforce_daily_search_limit),
 ):
     result = await asyncio.to_thread(_fetch_plot, id_dzialki)
     if result is None:

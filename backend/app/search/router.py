@@ -7,7 +7,6 @@ from app.auth.dependencies import require_auth
 from app.db.engine import get_db
 from app.db.models import User
 from app.middleware.rate_limit_dep import rate_limit_search
-from app.policy.daily_limit import enforce_daily_search_limit
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .schemas import SearchSuggestion
@@ -29,7 +28,6 @@ async def search(
     user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
     _rl: None = Depends(rate_limit_search),
-    _dl: None = Depends(enforce_daily_search_limit),
 ) -> list[SearchSuggestion]:
     if is_lot_query(q):
         results = await search_lots(q, limit)

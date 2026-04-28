@@ -1,10 +1,14 @@
 """Daily per-user search-limit enforcement.
 
-FastAPI dependency layered on ``/api/search`` alongside the existing
-per-minute rate limiter. Counts rows in ``activity_log`` with
-action_type='search' written today in Europe/Warsaw. Limit is per
-(org, user.role) — handlowiec and prawnik can have different caps.
-admins and super_admins bypass.
+FastAPI dependency layered on the plot-detail endpoint. Counts rows
+in ``activity_log`` with action_type='plot_view' written today in
+Europe/Warsaw — i.e. real plot opens, not autocomplete keystrokes.
+Limit is per (org, user.role) — handlowiec and prawnik can have
+different caps. admins and super_admins bypass.
+
+The product label remains "limit wyszukiwań" because that is how the
+end user perceives a search: typing in the box and opening a plot.
+The autocomplete requests on /api/search are not counted.
 """
 
 from __future__ import annotations
@@ -53,7 +57,7 @@ async def enforce_daily_search_limit(
             .select_from(ActivityLog)
             .where(
                 ActivityLog.user_id == user.id,
-                ActivityLog.action_type == "search",
+                ActivityLog.action_type == "plot_view",
                 ActivityLog.created_at >= today_utc,
             )
         )
