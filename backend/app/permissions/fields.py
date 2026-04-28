@@ -232,6 +232,11 @@ RESTRICTABLE_FIELDS: dict[str, FieldSpec] = {
         "description": "Wiersz z poprzednią kwotą roszczenia (BDOT/OSM).",
         "group": "Strefa · Roszczenie",
     },
+    "strefa.roszczenie_cena_m2": {
+        "label": "Cena za m² przy roszczeniu",
+        "description": "Drobna cyferka „N zł/m²” obok kwoty roszczenia (BDOT/OSM).",
+        "group": "Strefa · Roszczenie",
+    },
 
     # ── Księga wieczysta ──
     "section.kw_card": {

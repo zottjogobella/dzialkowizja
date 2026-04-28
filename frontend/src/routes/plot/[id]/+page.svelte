@@ -454,8 +454,17 @@
 		<!-- KW + Argumentacja row -->
 		{@const showKwCard = roszczenieRow && roszczenieRow.source === 'sheet' && !hidden('section.kw_card')}
 		{@const showArgCard = argumentacjaRow && !hidden('section.argumentacja')}
-		{#if showKwCard || showArgCard}
-			<div class="grid gap-[14px]" style="grid-template-columns: {showKwCard && showArgCard ? '1fr 2fr' : '1fr'};">
+		{@const showSupplPriceCard =
+			!showArgCard
+			&& roszczenieRow
+			&& roszczenieRow.source === 'supplemental'
+			&& roszczenieRow.cena_m2 != null
+			&& !hidden('section.argumentacja')
+			&& !hidden('argumentacja.metryki')
+			&& !hidden('argumentacja.metryki.cena_roszczenia')}
+		{@const showRightCard = showArgCard || showSupplPriceCard}
+		{#if showKwCard || showRightCard}
+			<div class="grid gap-[14px]" style="grid-template-columns: {showKwCard && showRightCard ? '1fr 2fr' : '1fr'};">
 				{#if showKwCard && roszczenieRow}
 					{@const basicFacts: Array<[string, string, string]> = [
 						['Powierzchnia', formatArea(plot.area), 'plot.area'],
@@ -568,6 +577,27 @@
 								{/each}
 							</div>
 						{/if}
+					</div>
+				{/if}
+
+				{#if showSupplPriceCard && roszczenieRow}
+					<!--
+						Fallback for plots only in wycena_supplemental: no
+						argumentacja row, but the supplemental sheet carries
+						cena_m2 directly. Render the same CENA ROSZCZENIA tile
+						so per-m² price is visible regardless of which CSV the
+						plot came from.
+					-->
+					<div id="sec-argumentacja" class="glass-card px-6 py-5">
+						<div class="mb-3 flex items-baseline justify-between">
+							<div class="eyebrow" style="letter-spacing: 1.5px;">&mdash; ARGUMENTACJA WYCENY</div>
+						</div>
+						<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+							<div class="glass-chip px-3.5 py-3">
+								<div class="font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">CENA ROSZCZENIA</div>
+								<div class="mt-1.5 font-mono text-sm font-medium">{(roszczenieRow.cena_m2 as number).toFixed(0)} zł/m²</div>
+							</div>
+						</div>
 					</div>
 				{/if}
 			</div>

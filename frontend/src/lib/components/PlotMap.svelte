@@ -1814,14 +1814,24 @@
 											BDOT
 											<span class="ml-1 text-xs text-gray-400">({bdotCoveragePct.toFixed(1)}% × 0,5)</span>
 										</div>
-										<div class="mt-0.5 font-mono text-base font-semibold tabular-nums text-amber-800">
-											{Math.round(bdotClaimZl).toLocaleString('pl-PL')} zł
+										<div class="mt-0.5 flex items-baseline justify-between gap-2">
+											<span class="font-mono text-base font-semibold tabular-nums text-amber-800">
+												{Math.round(bdotClaimZl).toLocaleString('pl-PL')} zł
+											</span>
+											{#if bdotIntersectM2 > 0 && !hidden('strefa.roszczenie_cena_m2')}
+												<span class="font-mono text-[11px] tabular-nums text-amber-700/80">
+													{Math.round(bdotClaimZl / bdotIntersectM2).toLocaleString('pl-PL')} zł/m²
+												</span>
+											{/if}
 										</div>
 										{#if bdotClaimZlOld != null && !hidden('strefa.roszczenie_old')}
-											<div class="mt-0.5 flex items-baseline justify-between text-[10px] text-gray-500">
+											<div class="mt-0.5 flex items-baseline justify-between gap-2 text-[10px] text-gray-500">
 												<span class="italic">Poprzednio</span>
 												<span class="font-mono tabular-nums">
 													{Math.round(bdotClaimZlOld).toLocaleString('pl-PL')} zł
+													{#if bdotIntersectM2 > 0 && !hidden('strefa.roszczenie_cena_m2')}
+														<span class="ml-1 text-gray-400">· {Math.round(bdotClaimZlOld / bdotIntersectM2).toLocaleString('pl-PL')} zł/m²</span>
+													{/if}
 												</span>
 											</div>
 										{/if}
@@ -1833,14 +1843,24 @@
 											OSM
 											<span class="ml-1 text-xs text-gray-400">({osmCoveragePct.toFixed(1)}% × 0,5)</span>
 										</div>
-										<div class="mt-0.5 font-mono text-base font-semibold tabular-nums text-amber-800">
-											{Math.round(osmClaimZl).toLocaleString('pl-PL')} zł
+										<div class="mt-0.5 flex items-baseline justify-between gap-2">
+											<span class="font-mono text-base font-semibold tabular-nums text-amber-800">
+												{Math.round(osmClaimZl).toLocaleString('pl-PL')} zł
+											</span>
+											{#if osmIntersectM2 > 0 && !hidden('strefa.roszczenie_cena_m2')}
+												<span class="font-mono text-[11px] tabular-nums text-amber-700/80">
+													{Math.round(osmClaimZl / osmIntersectM2).toLocaleString('pl-PL')} zł/m²
+												</span>
+											{/if}
 										</div>
 										{#if osmClaimZlOld != null && !hidden('strefa.roszczenie_old')}
-											<div class="mt-0.5 flex items-baseline justify-between text-[10px] text-gray-500">
+											<div class="mt-0.5 flex items-baseline justify-between gap-2 text-[10px] text-gray-500">
 												<span class="italic">Poprzednio</span>
 												<span class="font-mono tabular-nums">
 													{Math.round(osmClaimZlOld).toLocaleString('pl-PL')} zł
+													{#if osmIntersectM2 > 0 && !hidden('strefa.roszczenie_cena_m2')}
+														<span class="ml-1 text-gray-400">· {Math.round(osmClaimZlOld / osmIntersectM2).toLocaleString('pl-PL')} zł/m²</span>
+													{/if}
 												</span>
 											</div>
 										{/if}
