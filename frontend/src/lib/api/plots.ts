@@ -176,12 +176,6 @@ export interface RoszczenieRow {
 	wartosc_dzialki: number;
 	/** Prior valuation from the same sheet (CSV's `wycena_old`). Null when absent. */
 	wartosc_dzialki_old: number | null;
-	/**
-	 * Per-m² price from the supplemental sheet. Only populated for
-	 * ``source: 'supplemental'`` rows; for ``'sheet'`` rows the per-m²
-	 * price is surfaced via the argumentacja endpoint instead.
-	 */
-	cena_m2: number | null;
 	/** Land registry number (księga wieczysta). Null if not in the CSV. */
 	kw: string | null;
 	/** Owner names + type, semicolon-separated as in the source CSV. */

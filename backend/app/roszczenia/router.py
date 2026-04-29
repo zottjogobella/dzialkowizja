@@ -61,10 +61,6 @@ async def get_roszczenie(
             "id_dzialki": row.id_dzialki,
             "wartosc_dzialki": float(row.wartosc_dzialki),
             "wartosc_dzialki_old": float(row.wartosc_dzialki_old) if row.wartosc_dzialki_old is not None else None,
-            # cena_m2 only ships from the supplemental fallback; for sheet rows
-            # the per-m² price is surfaced via /api/argumentacja's
-            # cena_m2_roszczenie_orig instead.
-            "cena_m2": None,
             "kw": row.kw,
             "entities": row.entities,
             "has_sluzebnosci": row.has_sluzebnosci,
@@ -95,7 +91,6 @@ async def get_roszczenie(
             "id_dzialki": supp.id_dzialki,
             "wartosc_dzialki": float(supp.wartosc_dzialki),
             "wartosc_dzialki_old": None,
-            "cena_m2": float(supp.cena_m2) if supp.cena_m2 is not None else None,
             "kw": None,
             "entities": None,
             "has_sluzebnosci": None,

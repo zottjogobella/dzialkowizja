@@ -291,31 +291,6 @@ RESTRICTABLE_FIELDS: dict[str, FieldSpec] = {
         "description": "Badge w nagłówku sekcji z kategorią i wynikiem pewności (np. „85/100”).",
         "group": "Argumentacja wyceny",
     },
-    "argumentacja.metryki": {
-        "label": "Cały rząd kafelków metryk",
-        "description": "Wszystkie cztery kafelki: CENA ENSEMBLE, WARTOŚĆ CAŁKOWITA, CENA ROSZCZENIA, WARTOŚĆ ROSZCZENIA.",
-        "group": "Argumentacja wyceny",
-    },
-    "argumentacja.metryki.cena_ensemble": {
-        "label": "Kafelek CENA ENSEMBLE",
-        "description": "Pojedynczy kafelek z ceną ensemble (zł/m²).",
-        "group": "Argumentacja wyceny",
-    },
-    "argumentacja.metryki.wartosc_total": {
-        "label": "Kafelek WARTOŚĆ CAŁKOWITA",
-        "description": "Pojedynczy kafelek z wartością całkowitą działki.",
-        "group": "Argumentacja wyceny",
-    },
-    "argumentacja.metryki.cena_roszczenia": {
-        "label": "Kafelek CENA ROSZCZENIA",
-        "description": "Pojedynczy kafelek z ceną m² wg roszczenia.",
-        "group": "Argumentacja wyceny",
-    },
-    "argumentacja.metryki.wartosc_roszczenia": {
-        "label": "Kafelek WARTOŚĆ ROSZCZENIA",
-        "description": "Pojedynczy kafelek z wartością roszczenia.",
-        "group": "Argumentacja wyceny",
-    },
     "argumentacja.segment": {
         "label": "Linia SEGMENT · POKRYCIE",
         "description": "Wiersz z informacją o segmencie rynku i procencie pokrycia działki.",

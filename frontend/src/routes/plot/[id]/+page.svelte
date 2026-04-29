@@ -454,17 +454,8 @@
 		<!-- KW + Argumentacja row -->
 		{@const showKwCard = roszczenieRow && roszczenieRow.source === 'sheet' && !hidden('section.kw_card')}
 		{@const showArgCard = argumentacjaRow && !hidden('section.argumentacja')}
-		{@const showSupplPriceCard =
-			!showArgCard
-			&& roszczenieRow
-			&& roszczenieRow.source === 'supplemental'
-			&& roszczenieRow.cena_m2 != null
-			&& !hidden('section.argumentacja')
-			&& !hidden('argumentacja.metryki')
-			&& !hidden('argumentacja.metryki.cena_roszczenia')}
-		{@const showRightCard = showArgCard || showSupplPriceCard}
-		{#if showKwCard || showRightCard}
-			<div class="grid gap-[14px]" style="grid-template-columns: {showKwCard && showRightCard ? '1fr 2fr' : '1fr'};">
+		{#if showKwCard || showArgCard}
+			<div class="grid gap-[14px]" style="grid-template-columns: {showKwCard && showArgCard ? '1fr 2fr' : '1fr'};">
 				{#if showKwCard && roszczenieRow}
 					{@const basicFacts: Array<[string, string, string]> = [
 						['Powierzchnia', formatArea(plot.area), 'plot.area'],
@@ -530,14 +521,6 @@
 				{/if}
 
 				{#if showArgCard && argumentacjaRow}
-					{@const showMetryki = !hidden('argumentacja.metryki')}
-					{@const tiles = [
-						{ key: 'argumentacja.metryki.cena_ensemble', label: 'CENA ENSEMBLE', value: argumentacjaRow.cena_ensemble, fmt: (v: number) => `${v.toFixed(0)} zł/m²` },
-						{ key: 'argumentacja.metryki.wartosc_total', label: 'WARTOŚĆ CAŁKOWITA', value: argumentacjaRow.wartosc_total, fmt: (v: number) => `${v.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł` },
-						{ key: 'argumentacja.metryki.cena_roszczenia', label: 'CENA ROSZCZENIA', value: argumentacjaRow.cena_m2_roszczenie_orig, fmt: (v: number) => `${v.toFixed(0)} zł/m²` },
-						{ key: 'argumentacja.metryki.wartosc_roszczenia', label: 'WARTOŚĆ ROSZCZENIA', value: argumentacjaRow.wartosc_roszczenia_orig, fmt: (v: number) => `${v.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł` },
-					]}
-					{@const visibleTiles = tiles.filter(t => t.value != null && !hidden(t.key))}
 					<div id="sec-argumentacja" class="glass-card px-6 py-5">
 						<div class="mb-3 flex items-baseline justify-between">
 							<div class="eyebrow" style="letter-spacing: 1.5px;">&mdash; ARGUMENTACJA WYCENY</div>
@@ -547,17 +530,6 @@
 								</span>
 							{/if}
 						</div>
-						{#if showMetryki && visibleTiles.length > 0}
-							<!-- Metric tiles -->
-							<div class="mb-3.5 grid grid-cols-2 gap-2 border-b border-[var(--color-faint)] pb-3.5 sm:grid-cols-4">
-								{#each visibleTiles as tile}
-									<div class="glass-chip px-3.5 py-3">
-										<div class="font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">{tile.label}</div>
-										<div class="mt-1.5 font-mono text-sm font-medium">{tile.fmt(tile.value as number)}</div>
-									</div>
-								{/each}
-							</div>
-						{/if}
 						{#if argumentacjaRow.segment && !hidden('argumentacja.segment')}
 							<div class="mb-2.5 flex justify-between font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">
 								<span>SEGMENT &middot; {argumentacjaRow.segment}</span>
@@ -580,26 +552,6 @@
 					</div>
 				{/if}
 
-				{#if showSupplPriceCard && roszczenieRow}
-					<!--
-						Fallback for plots only in wycena_supplemental: no
-						argumentacja row, but the supplemental sheet carries
-						cena_m2 directly. Render the same CENA ROSZCZENIA tile
-						so per-m² price is visible regardless of which CSV the
-						plot came from.
-					-->
-					<div id="sec-argumentacja" class="glass-card px-6 py-5">
-						<div class="mb-3 flex items-baseline justify-between">
-							<div class="eyebrow" style="letter-spacing: 1.5px;">&mdash; ARGUMENTACJA WYCENY</div>
-						</div>
-						<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-							<div class="glass-chip px-3.5 py-3">
-								<div class="font-mono text-[11px] text-[var(--color-mute)]" style="letter-spacing: 1.2px;">CENA ROSZCZENIA</div>
-								<div class="mt-1.5 font-mono text-sm font-medium">{(roszczenieRow.cena_m2 as number).toFixed(0)} zł/m²</div>
-							</div>
-						</div>
-					</div>
-				{/if}
 			</div>
 		{/if}
 
