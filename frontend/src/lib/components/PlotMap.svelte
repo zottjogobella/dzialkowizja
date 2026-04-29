@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { untrack } from 'svelte';
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import {
 		distance,
@@ -1166,7 +1167,16 @@
 		osmBandsAutoApplied = false;
 		powerlineFeatures = { bdot: null, osm: null, bdot_devices: null };
 		powerlineLoading = { bdot: false, osm: false, bdot_devices: false };
-		void ensurePowerlines('osm');
+		// untrack so the synchronous reads inside ensurePowerlines (it
+		// checks powerlineFeatures[source] / powerlineLoading[source])
+		// don't make this effect depend on powerlineFeatures. Without
+		// this, every later mutation of powerlineFeatures (e.g. when the
+		// user toggles BDOT and we cache its features) re-fires this
+		// effect and wipes the cache back to null — clicking BDOT looks
+		// like a no-op.
+		untrack(() => {
+			void ensurePowerlines('osm');
+		});
 	});
 
 	// Per-band availability — true when at least one OSM feature in the
