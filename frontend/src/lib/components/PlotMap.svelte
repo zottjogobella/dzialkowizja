@@ -1158,11 +1158,50 @@
 	// Reset per-parcel cache and the OSM auto-band-detection flag when the
 	// user navigates to a different działka — otherwise they'd see the old
 	// parcel's lines and the auto-detection would skip (or use stale data).
+	// Also warm up the OSM fetch eagerly so the per-band checkboxes can grey
+	// out classes with no lines in the fetch radius without forcing the user
+	// to first toggle the OSM layer.
 	$effect(() => {
 		idDzialki;
 		osmBandsAutoApplied = false;
 		powerlineFeatures = { bdot: null, osm: null, bdot_devices: null };
 		powerlineLoading = { bdot: false, osm: false, bdot_devices: false };
+		void ensurePowerlines('osm');
+	});
+
+	// Per-band availability — true when at least one OSM feature in the
+	// 500 m fetch radius reports that voltage_band. Drives the greyed-out
+	// state of the band checkboxes. Stays `false` for every band until the
+	// fetch completes; until then we render bands as enabled to avoid a
+	// "everything looks unavailable" flash on first paint.
+	const osmBandHasLines = $derived.by((): Record<OsmBand, boolean> => {
+		const result: Record<OsmBand, boolean> = {
+			'15': false, '20': false, '30': false, 'mv': false,
+			'110': false, '200': false, '400': false,
+		};
+		const fc = powerlineFeatures.osm;
+		if (!fc) return result;
+		for (const f of fc.features) {
+			const band = ((f.properties as any)?.voltage_band ?? 'mv') as OsmBand;
+			if (band in result) result[band] = true;
+		}
+		return result;
+	});
+
+	// A band is "disabled" only after the OSM fetch resolved and the band
+	// has zero features. While loading or before fetch, leave it enabled.
+	const osmBandDisabled = $derived.by((): Record<OsmBand, boolean> => {
+		const loaded = powerlineFeatures.osm !== null && !powerlineLoading.osm;
+		if (!loaded) {
+			return { '15': false, '20': false, '30': false, 'mv': false,
+			         '110': false, '200': false, '400': false };
+		}
+		return {
+			'15': !osmBandHasLines['15'], '20': !osmBandHasLines['20'],
+			'30': !osmBandHasLines['30'], 'mv': !osmBandHasLines['mv'],
+			'110': !osmBandHasLines['110'], '200': !osmBandHasLines['200'],
+			'400': !osmBandHasLines['400'],
+		};
 	});
 
 	// Keep pin sources in sync when transactions / listings / investments
@@ -1556,28 +1595,37 @@
 										{ key: '200' as OsmBand, label: '200 kV', value: osmBuffer200, on: osmBand200On },
 										{ key: '400' as OsmBand, label: '400 kV', value: osmBuffer400, on: osmBand400On },
 									] as row}
-										<div>
+										{@const disabled = osmBandDisabled[row.key]}
+										<div
+											class:opacity-40={disabled}
+											title={disabled ? `Brak linii ${row.label} w promieniu 500 m` : ''}
+										>
 											<div class="flex items-center justify-between text-[11px] text-gray-500">
-												<label class="flex cursor-pointer items-center gap-1.5">
+												<label
+													class="flex items-center gap-1.5"
+													class:cursor-pointer={!disabled}
+													class:cursor-not-allowed={disabled}
+												>
 													<input
 														type="checkbox"
-														checked={row.on}
+														checked={row.on && !disabled}
+														disabled={disabled}
 														onchange={(e) => onOsmBandToggle(row.key, (e.target as HTMLInputElement).checked)}
-														class="h-3 w-3 accent-cyan-600"
+														class="h-3 w-3 accent-cyan-600 disabled:cursor-not-allowed"
 													/>
 													<span
 														class="inline-block h-2 w-2 rounded-sm"
 														style="background:{OSM_BAND_COLORS[row.key]}"
-														class:opacity-30={!row.on}
+														class:opacity-30={!row.on || disabled}
 													></span>
-													<span class={row.on ? '' : 'text-gray-300 line-through'}>{row.label}</span>
+													<span class={(row.on && !disabled) ? '' : 'text-gray-300 line-through'}>{row.label}</span>
 												</label>
-												<span class={row.on ? '' : 'text-gray-300'}>{row.value} m</span>
+												<span class={(row.on && !disabled) ? '' : 'text-gray-300'}>{row.value} m</span>
 											</div>
 											<input
 												type="range" min="0" max="70" step="1"
 												value={row.value}
-												disabled={!row.on}
+												disabled={!row.on || disabled}
 												oninput={(e) => onOsmBandChange(row.key, parseInt((e.target as HTMLInputElement).value))}
 												class="h-1 w-full cursor-pointer accent-cyan-600 disabled:cursor-not-allowed disabled:opacity-40"
 											/>
