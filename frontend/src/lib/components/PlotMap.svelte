@@ -81,7 +81,7 @@
 	let bdotLinesBuffer = $state(10);  // default 10 m per spec
 	let osmLinesVisible = $state(false);
 	// OSM buffer split by exact voltage (per-side metres). MV bands:
-	// 15→5, 20→7, 30→10. HV bands: 110→15, 200→25, 400→35. The `mv` band
+	// 15→5, 20→7, 30→10. HV bands: 110→15, 220→25, 400→35. The `mv` band
 	// is the fallback when voltage is null/unparseable but presumed MV —
 	// labeled "≤ 30 kV" because we can't distinguish 15/20/30 reliably.
 	let osmBuffer15 = $state(5);
@@ -89,7 +89,7 @@
 	let osmBuffer30 = $state(10);
 	let osmBufferMv = $state(10);
 	let osmBuffer110 = $state(15);
-	let osmBuffer200 = $state(25);
+	let osmBuffer220 = $state(25);
 	let osmBuffer400 = $state(35);
 	// Per-band enable flags. Unchecking a band zeroes its buffer (the line
 	// stays visible, the zone disappears and stops counting in the intersection).
@@ -98,7 +98,7 @@
 	let osmBand30On = $state(true);
 	let osmBandMvOn = $state(true);
 	let osmBand110On = $state(true);
-	let osmBand200On = $state(true);
+	let osmBand220On = $state(true);
 	let osmBand400On = $state(true);
 	let bdotDevicesVisible = $state(false);
 	// Buffered polygon FCs kept in state so a $derived can compute the
@@ -137,14 +137,14 @@
 	// swatches in the controls panel. Keys match the `voltage_band` feature
 	// property set in annotateOsmFeatures(). 'mv' is the fallback for
 	// unparseable / unknown medium voltage (labeled "≤ 30 kV").
-	type OsmBand = '15' | '20' | '30' | 'mv' | '110' | '200' | '400';
+	type OsmBand = '15' | '20' | '30' | 'mv' | '110' | '220' | '400';
 	const OSM_BAND_COLORS: Record<OsmBand, string> = {
 		'15': '#ca8a04',   // 15 kV — yellow-600 (mustard)
 		'20': '#65a30d',   // 20 kV — lime-600
 		'30': '#15803d',   // 30 kV — green-700
 		'mv': '#9ca3af',   // ≤ 30 kV (unknown MV) — gray
 		'110': '#0891b2',  // 110 kV — cyan
-		'200': '#ea580c',  // 200 kV — orange
+		'220': '#ea580c',  // 220 kV — orange
 		'400': '#b91c1c',  // 400 kV — red
 	};
 
@@ -160,7 +160,7 @@
 		if (kv === 30) return '30';
 		if (kv <= 30) return 'mv';
 		if (kv <= 110) return '110';
-		if (kv <= 200) return '200';
+		if (kv <= 220) return '220';
 		return '400';
 	}
 
@@ -221,8 +221,8 @@
 							? [osmBandMvOn, osmBufferMv]
 							: band === '110'
 								? [osmBand110On, osmBuffer110]
-								: band === '200'
-									? [osmBand200On, osmBuffer200]
+								: band === '220'
+									? [osmBand220On, osmBuffer220]
 									: [osmBand400On, osmBuffer400];
 		return on ? m : 0;
 	}
@@ -536,7 +536,7 @@
 	): Record<OsmBand, boolean> {
 		const result: Record<OsmBand, boolean> = {
 			'15': false, '20': false, '30': false, 'mv': false,
-			'110': false, '200': false, '400': false,
+			'110': false, '220': false, '400': false,
 		};
 		const plot = plotAsFeature();
 		if (!plot || !fc) return result;
@@ -563,14 +563,14 @@
 				// nearby lines' buffers if any are within the fetch radius.
 				if (
 					hit['15'] || hit['20'] || hit['30'] || hit['mv'] ||
-					hit['110'] || hit['200'] || hit['400']
+					hit['110'] || hit['220'] || hit['400']
 				) {
 					osmBand15On = hit['15'];
 					osmBand20On = hit['20'];
 					osmBand30On = hit['30'];
 					osmBandMvOn = hit['mv'];
 					osmBand110On = hit['110'];
-					osmBand200On = hit['200'];
+					osmBand220On = hit['220'];
 					osmBand400On = hit['400'];
 				}
 				osmBandsAutoApplied = true;
@@ -600,7 +600,7 @@
 		else if (band === '30') osmBuffer30 = v;
 		else if (band === 'mv') osmBufferMv = v;
 		else if (band === '110') osmBuffer110 = v;
-		else if (band === '200') osmBuffer200 = v;
+		else if (band === '220') osmBuffer220 = v;
 		else osmBuffer400 = v;
 		if (osmLinesVisible) setPowerlineSourceData('osm');
 	}
@@ -611,7 +611,7 @@
 		else if (band === '30') osmBand30On = on;
 		else if (band === 'mv') osmBandMvOn = on;
 		else if (band === '110') osmBand110On = on;
-		else if (band === '200') osmBand200On = on;
+		else if (band === '220') osmBand220On = on;
 		else osmBand400On = on;
 		if (osmLinesVisible) setPowerlineSourceData('osm');
 	}
@@ -977,7 +977,7 @@
 						'30', OSM_BAND_COLORS['30'],
 						'mv', OSM_BAND_COLORS['mv'],
 						'110', OSM_BAND_COLORS['110'],
-						'200', OSM_BAND_COLORS['200'],
+						'220', OSM_BAND_COLORS['220'],
 						'400', OSM_BAND_COLORS['400'],
 						OSM_BAND_COLORS['mv'],
 					];
@@ -1187,7 +1187,7 @@
 	const osmBandHasLines = $derived.by((): Record<OsmBand, boolean> => {
 		const result: Record<OsmBand, boolean> = {
 			'15': false, '20': false, '30': false, 'mv': false,
-			'110': false, '200': false, '400': false,
+			'110': false, '220': false, '400': false,
 		};
 		const fc = powerlineFeatures.osm;
 		if (!fc) return result;
@@ -1204,12 +1204,12 @@
 		const loaded = powerlineFeatures.osm !== null && !powerlineLoading.osm;
 		if (!loaded) {
 			return { '15': false, '20': false, '30': false, 'mv': false,
-			         '110': false, '200': false, '400': false };
+			         '110': false, '220': false, '400': false };
 		}
 		return {
 			'15': !osmBandHasLines['15'], '20': !osmBandHasLines['20'],
 			'30': !osmBandHasLines['30'], 'mv': !osmBandHasLines['mv'],
-			'110': !osmBandHasLines['110'], '200': !osmBandHasLines['200'],
+			'110': !osmBandHasLines['110'], '220': !osmBandHasLines['220'],
 			'400': !osmBandHasLines['400'],
 		};
 	});
@@ -1583,7 +1583,7 @@
 									<span class="h-full flex-1" style="background:{OSM_BAND_COLORS['30']}"></span>
 									<span class="h-full flex-1" style="background:{OSM_BAND_COLORS['mv']}"></span>
 									<span class="h-full flex-1" style="background:{OSM_BAND_COLORS['110']}"></span>
-									<span class="h-full flex-1" style="background:{OSM_BAND_COLORS['200']}"></span>
+									<span class="h-full flex-1" style="background:{OSM_BAND_COLORS['220']}"></span>
 									<span class="h-full flex-1" style="background:{OSM_BAND_COLORS['400']}"></span>
 								</span>
 								<span class="flex-1">OSM</span>
@@ -1602,7 +1602,7 @@
 										{ key: '30' as OsmBand, label: '30 kV', value: osmBuffer30, on: osmBand30On },
 										{ key: 'mv' as OsmBand, label: '≤ 30 kV', value: osmBufferMv, on: osmBandMvOn },
 										{ key: '110' as OsmBand, label: '110 kV', value: osmBuffer110, on: osmBand110On },
-										{ key: '200' as OsmBand, label: '200 kV', value: osmBuffer200, on: osmBand200On },
+										{ key: '220' as OsmBand, label: '220 kV', value: osmBuffer220, on: osmBand220On },
 										{ key: '400' as OsmBand, label: '400 kV', value: osmBuffer400, on: osmBand400On },
 									] as row}
 										{@const disabled = osmBandDisabled[row.key]}
@@ -1793,7 +1793,7 @@
 											<span class="h-full flex-1" style="background:{OSM_BAND_COLORS['30']}"></span>
 											<span class="h-full flex-1" style="background:{OSM_BAND_COLORS['mv']}"></span>
 											<span class="h-full flex-1" style="background:{OSM_BAND_COLORS['110']}"></span>
-											<span class="h-full flex-1" style="background:{OSM_BAND_COLORS['200']}"></span>
+											<span class="h-full flex-1" style="background:{OSM_BAND_COLORS['220']}"></span>
 											<span class="h-full flex-1" style="background:{OSM_BAND_COLORS['400']}"></span>
 										</span>
 										<span>OSM ∩ działka</span>
