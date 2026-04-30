@@ -10,7 +10,6 @@ import httpx
 from fastapi import APIRouter, Depends, Query, Response
 
 from app.auth.dependencies import require_auth
-from app.db.geo import get_geo_pool
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +38,9 @@ CACHE_DIR = Path("/tmp/gesut_cache")
 CACHE_TTL_SEC = 86400  # 24 h
 
 
-def _cache_path(layer: str, bbox_2180: str, width: int, height: int) -> Path:
+def _cache_path(layer: str, bbox_3857: str, width: int, height: int) -> Path:
     key = hashlib.sha1(
-        f"{layer}|{bbox_2180}|{width}|{height}".encode()
+        f"3857|{layer}|{bbox_3857}|{width}|{height}".encode()
     ).hexdigest()
     return CACHE_DIR / f"{key}.png"
 
@@ -72,44 +71,36 @@ def _write_cache(path: Path, data: bytes) -> None:
         logger.debug("Failed to write GESUT cache", exc_info=True)
 
 
-async def _bbox_3857_to_2180(bbox: str) -> str | None:
-    """Parse and reproject a comma-separated EPSG:3857 bbox to EPSG:2180."""
+def _is_valid_bbox_3857(bbox: str) -> bool:
     try:
         parts = bbox.split(",")
         if len(parts) != 4:
-            return None
-        min_x, min_y, max_x, max_y = (float(v) for v in parts)
+            return False
+        for v in parts:
+            float(v)
     except (ValueError, TypeError):
-        return None
-
-    pool = get_geo_pool()
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            """
-            SELECT ST_XMin(env), ST_YMin(env), ST_XMax(env), ST_YMax(env)
-            FROM (
-                SELECT ST_Transform(
-                    ST_MakeEnvelope($1, $2, $3, $4, 3857), 2180
-                ) AS env
-            ) t
-            """,
-            min_x,
-            min_y,
-            max_x,
-            max_y,
-        )
-    return f"{row[0]},{row[1]},{row[2]},{row[3]}"
+        return False
+    return True
 
 
 async def _fetch_tile(
-    layer: str, bbox_2180: str, width: int, height: int
+    layer: str, bbox_3857: str, width: int, height: int
 ) -> bytes | None:
     """Return WMS tile bytes, using a disk cache on the way in and out.
+
+    Pass-through to KIUT WMS in EPSG:3857 — the same SRS MapLibre uses
+    for the rest of the map. Earlier we reprojected the tile bbox to
+    EPSG:2180 server-side, but that produced a slightly skewed
+    axis-aligned envelope per tile, so adjacent tiles each rendered a
+    marginally different geographic area and lines visibly broke at tile
+    seams. KIUT advertises EPSG:3857 in its GetCapabilities, so we drop
+    the reprojection and let GUGiK render exactly the area MapLibre
+    requested.
 
     Returns `None` if the upstream fetch fails — callers map that to the
     transparent-PNG fallback so the map doesn't break when GUGiK is flaky.
     """
-    path = _cache_path(layer, bbox_2180, width, height)
+    path = _cache_path(layer, bbox_3857, width, height)
     cached = await asyncio.to_thread(_read_cache, path)
     if cached is not None:
         return cached
@@ -119,8 +110,8 @@ async def _fetch_tile(
         "VERSION": "1.1.1",
         "REQUEST": "GetMap",
         "LAYERS": layer,
-        "SRS": "EPSG:2180",
-        "BBOX": bbox_2180,
+        "SRS": "EPSG:3857",
+        "BBOX": bbox_3857,
         "WIDTH": str(width),
         "HEIGHT": str(height),
         "FORMAT": "image/png",
@@ -145,11 +136,10 @@ async def _fetch_tile(
 async def _serve_tile(
     layer: str, bbox: str, width: int, height: int
 ) -> Response:
-    bbox_2180 = await _bbox_3857_to_2180(bbox)
-    if bbox_2180 is None:
+    if not _is_valid_bbox_3857(bbox):
         return Response(content=TRANSPARENT_PNG, media_type="image/png")
 
-    content = await _fetch_tile(layer, bbox_2180, width, height)
+    content = await _fetch_tile(layer, bbox, width, height)
     if content is None:
         return Response(content=TRANSPARENT_PNG, media_type="image/png")
 
