@@ -62,11 +62,32 @@
 		{ source: 'osm',  label: 'OSM',  color: '#b8c4b0' },
 	] as const;
 
+	// localStorage persistence for map control state — survives both plot
+	// navigation (idDzialki change) and a full page reload, so users keep
+	// their layer/band preferences across sessions. Schema is flat to match
+	// the $state vars; bump CONTROLS_KEY to v2/v3 if the shape changes
+	// incompatibly to discard old payloads.
+	const CONTROLS_KEY = 'gruntify.map.controls.v1';
+	function _loadControls(): Record<string, unknown> {
+		if (!browser) return {};
+		try {
+			const raw = localStorage.getItem(CONTROLS_KEY);
+			if (!raw) return {};
+			const p = JSON.parse(raw);
+			return typeof p === 'object' && p !== null ? p as Record<string, unknown> : {};
+		} catch {
+			return {};
+		}
+	}
+	const _saved = _loadControls();
+	const _bool = (k: string, def: boolean) => typeof _saved[k] === 'boolean' ? _saved[k] as boolean : def;
+	const _num = (k: string, def: number) => typeof _saved[k] === 'number' ? _saved[k] as number : def;
+
 	let layerVisible = $state<Record<string, boolean>>({ egib: false, bdot: false, osm: false });
-	let gesutVisible = $state(false);
-	let gesutUrzadzeniaVisible = $state(false);
-	let mpzpVisible = $state(false);
-	let mpzpOpacity = $state(55);
+	let gesutVisible = $state(_bool('gesutVisible', false));
+	let gesutUrzadzeniaVisible = $state(_bool('gesutUrzadzeniaVisible', false));
+	let mpzpVisible = $state(_bool('mpzpVisible', false));
+	let mpzpOpacity = $state(_num('mpzpOpacity', 55));
 	let mpzpLoadingTiles = $state(false);
 	// Actual tile loading state — reflects pending tile requests on the
 	// corresponding raster sources (GESUT WMS is slow: tiles can take
@@ -77,30 +98,30 @@
 	let buildings3d = $state(false);
 
 	// Powerlines state — separate per source
-	let bdotLinesVisible = $state(false);
-	let bdotLinesBuffer = $state(10);  // default 10 m per spec
-	let osmLinesVisible = $state(false);
+	let bdotLinesVisible = $state(_bool('bdotLinesVisible', false));
+	let bdotLinesBuffer = $state(_num('bdotLinesBuffer', 10));
+	let osmLinesVisible = $state(_bool('osmLinesVisible', false));
 	// OSM buffer split by exact voltage (per-side metres). MV bands:
 	// 15→5, 20→7, 30→10. HV bands: 110→15, 220→25, 400→35. The `mv` band
 	// is the fallback when voltage is null/unparseable but presumed MV —
 	// labeled "≤ 30 kV" because we can't distinguish 15/20/30 reliably.
-	let osmBuffer15 = $state(5);
-	let osmBuffer20 = $state(7);
-	let osmBuffer30 = $state(10);
-	let osmBufferMv = $state(10);
-	let osmBuffer110 = $state(15);
-	let osmBuffer220 = $state(25);
-	let osmBuffer400 = $state(35);
+	let osmBuffer15 = $state(_num('osmBuffer15', 5));
+	let osmBuffer20 = $state(_num('osmBuffer20', 7));
+	let osmBuffer30 = $state(_num('osmBuffer30', 10));
+	let osmBufferMv = $state(_num('osmBufferMv', 10));
+	let osmBuffer110 = $state(_num('osmBuffer110', 15));
+	let osmBuffer220 = $state(_num('osmBuffer220', 25));
+	let osmBuffer400 = $state(_num('osmBuffer400', 35));
 	// Per-band enable flags. Unchecking a band zeroes its buffer (the line
 	// stays visible, the zone disappears and stops counting in the intersection).
-	let osmBand15On = $state(true);
-	let osmBand20On = $state(true);
-	let osmBand30On = $state(true);
-	let osmBandMvOn = $state(true);
-	let osmBand110On = $state(true);
-	let osmBand220On = $state(true);
-	let osmBand400On = $state(true);
-	let bdotDevicesVisible = $state(false);
+	let osmBand15On = $state(_bool('osmBand15On', true));
+	let osmBand20On = $state(_bool('osmBand20On', true));
+	let osmBand30On = $state(_bool('osmBand30On', true));
+	let osmBandMvOn = $state(_bool('osmBandMvOn', true));
+	let osmBand110On = $state(_bool('osmBand110On', true));
+	let osmBand220On = $state(_bool('osmBand220On', true));
+	let osmBand400On = $state(_bool('osmBand400On', true));
+	let bdotDevicesVisible = $state(_bool('bdotDevicesVisible', false));
 	// Buffered polygon FCs kept in state so a $derived can compute the
 	// plot ∩ buffer intersection area reactively as the slider moves.
 	let bdotBufferedFC = $state<GeoJSON.FeatureCollection | null>(null);
@@ -1161,7 +1182,9 @@
 	// parcel's lines and the auto-detection would skip (or use stale data).
 	// Also warm up the OSM fetch eagerly so the per-band checkboxes can grey
 	// out classes with no lines in the fetch radius without forcing the user
-	// to first toggle the OSM layer.
+	// to first toggle the OSM layer. If the user already has BDOT/OSM/devices
+	// toggled on (persisted state), refetch + redraw them so the new parcel's
+	// lines replace the previous one's instead of going stale.
 	$effect(() => {
 		idDzialki;
 		osmBandsAutoApplied = false;
@@ -1175,7 +1198,75 @@
 		// effect and wipes the cache back to null — clicking BDOT looks
 		// like a no-op.
 		untrack(() => {
-			void ensurePowerlines('osm');
+			void (async () => {
+				await ensurePowerlines('osm');
+				if (osmLinesVisible) {
+					setPowerlineSourceData('osm');
+					setPowerlineVisibility('osm', true);
+				}
+			})();
+			if (bdotLinesVisible) {
+				void (async () => {
+					await ensurePowerlines('bdot');
+					setPowerlineSourceData('bdot');
+					setPowerlineVisibility('bdot', true);
+				})();
+			}
+			if (bdotDevicesVisible) {
+				void (async () => {
+					await ensurePowerlines('bdot_devices');
+					setPowerlineSourceData('bdot_devices');
+					setPowerlineVisibility('bdot_devices', true);
+				})();
+			}
+		});
+	});
+
+	// Save persistable controls to localStorage on every change. Cheap (small
+	// JSON, infrequent toggles) and survives full reloads so users don't have
+	// to re-enable BDOT/OSM/GESUT/MPZP every session.
+	$effect(() => {
+		if (!browser) return;
+		const data = {
+			bdotLinesVisible, osmLinesVisible, bdotDevicesVisible,
+			gesutVisible, gesutUrzadzeniaVisible, mpzpVisible,
+			osmBand15On, osmBand20On, osmBand30On, osmBandMvOn,
+			osmBand110On, osmBand220On, osmBand400On,
+			bdotLinesBuffer,
+			osmBuffer15, osmBuffer20, osmBuffer30, osmBufferMv,
+			osmBuffer110, osmBuffer220, osmBuffer400,
+			mpzpOpacity,
+		};
+		try {
+			localStorage.setItem(CONTROLS_KEY, JSON.stringify(data));
+		} catch {
+			// Quota errors etc. are non-fatal — the live $state is the source
+			// of truth, persistence is best-effort.
+		}
+	});
+
+	// Apply persisted layer state once the map is ready. Mount-time only —
+	// per-parcel refresh is handled by the reset effect above. Without this,
+	// raster layers (GESUT/MPZP) and powerline layers stay hidden on first
+	// paint even though their checkboxes show as checked from localStorage.
+	let _controlsAppliedOnMount = false;
+	$effect(() => {
+		if (!map || !mapReady || _controlsAppliedOnMount) return;
+		_controlsAppliedOnMount = true;
+		untrack(() => {
+			if (gesutVisible && map?.getLayer('gesut-layer')) {
+				map.setLayoutProperty('gesut-layer', 'visibility', 'visible');
+			}
+			if (gesutUrzadzeniaVisible && map?.getLayer('gesut-urzadzenia-layer')) {
+				map.setLayoutProperty('gesut-urzadzenia-layer', 'visibility', 'visible');
+			}
+			if (mpzpVisible && map?.getLayer('mpzp-layer')) {
+				map.setLayoutProperty('mpzp-layer', 'visibility', 'visible');
+			}
+			// Powerline layers: the reset effect already kicks off the fetches;
+			// we just need to make sure the layer becomes visible once data is
+			// in. setPowerlineSourceData / setPowerlineVisibility are idempotent
+			// so calling them again from the reset effect's continuation is safe.
 		});
 	});
 
